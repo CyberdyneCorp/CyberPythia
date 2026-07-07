@@ -57,7 +57,7 @@ async def get_entitled_caller(
     audit: Annotated[AuditService, Depends(get_audit_service)],
 ) -> CallerIdentity:
     settings = get_settings()
-    if not caller.can_access(settings.required_entitlement):
+    if not caller.can_access(settings.required_entitlement, settings.service_audience):
         await audit.record_denied(caller, f"access.{request.method} {request.url.path}")
         raise ForbiddenError(
             f"missing required entitlement '{settings.required_entitlement}'",

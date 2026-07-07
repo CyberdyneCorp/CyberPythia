@@ -74,6 +74,7 @@ def _stack_env(mock) -> dict[str, str]:
         "MINIO_SECRET_KEY": "mnemosyne-secret",
         "MINIO_BUCKET": "mnemosyne-bdd",
         "CYBERDYNEAUTH_ISSUER": mock.issuer,
+        "CYBERDYNEAUTH_TOKEN_ISSUER": mock.issuer,
         "AUTH_VALIDATION_MODE": "jwks",
         "GITHUB_API_BASE_URL": mock.github_base,
         "TOKEN_ENCRYPTION_KEY": "8Fbp2VYZbYSbi77Yv6y0kJ0hE-pO_TB0aq1V1jXcCAU=",

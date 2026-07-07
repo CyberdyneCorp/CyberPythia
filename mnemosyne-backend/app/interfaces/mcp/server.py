@@ -55,7 +55,7 @@ def build_mcp(
             raise ToolError("unauthenticated: invalid token") from exc
         except AuthUnavailableError as exc:
             raise ToolError("auth_unavailable: authentication service unreachable") from exc
-        if not caller.can_access(settings.required_entitlement):
+        if not caller.can_access(settings.required_entitlement, settings.service_audience):
             await container.audit_service.record_denied(caller, "mcp.access")
             raise ToolError(
                 f"missing_entitlement: caller lacks the "

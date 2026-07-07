@@ -9,6 +9,11 @@ class CallerIdentity:
 
     Populated exclusively from a validated CyberdyneAuth token or its
     introspection response — never from local state (design D2).
+
+    CyberdyneAuth models access differently per token type:
+    - user tokens carry ``entitlements`` (``product_key`` or ``product_key:plan``)
+    - service tokens carry an ``aud`` audience instead (entitlements are
+      user-only in CyberdyneAuth; client scopes are registry-validated)
     """
 
     subject: str
@@ -16,13 +21,21 @@ class CallerIdentity:
     client_id: str | None = None
     scopes: frozenset[str] = field(default_factory=frozenset)
     entitlements: frozenset[str] = field(default_factory=frozenset)
+    audiences: frozenset[str] = field(default_factory=frozenset)
     is_admin: bool = False
 
-    def has_entitlement(self, product: str) -> bool:
-        return product in self.entitlements
+    def has_entitlement(self, product_key: str) -> bool:
+        """Exact product key, tolerating plan-qualified tokens (`key:plan`)."""
+        return any(
+            e == product_key or e.startswith(f"{product_key}:") for e in self.entitlements
+        )
 
-    def can_access(self, required_entitlement: str) -> bool:
-        return self.is_admin or self.has_entitlement(required_entitlement)
+    def can_access(self, required_entitlement: str, service_audience: str | None = None) -> bool:
+        if self.is_admin or self.has_entitlement(required_entitlement):
+            return True
+        if required_entitlement in self.scopes:
+            return True
+        return service_audience is not None and service_audience in self.audiences
 
     def can_administer(self, admin_scope: str) -> bool:
         return self.is_admin or admin_scope in self.scopes

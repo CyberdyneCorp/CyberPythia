@@ -23,12 +23,17 @@ class Settings(BaseSettings):
 
     # CyberdyneAuth (design D1-D3)
     cyberdyneauth_issuer: str = "https://auth.backend.coolify.cyberdynecorp.ai"
+    # `iss` claim of access/service JWTs (a logical name, unlike OIDC ID tokens)
+    cyberdyneauth_token_issuer: str = "cyberdyne-auth"
     cyberdyneauth_jwks_url: str = ""  # derived from issuer when empty
     cyberdyneauth_client_id: str = ""  # mnemosyne-backend service client
     cyberdyneauth_client_secret: str = ""
     auth_validation_mode: Literal["jwks", "introspect"] = "jwks"
     auth_jwks_cache_ttl_seconds: int = 3600
+    # Users: entitlement product key (= the mnemosyne OAuth client's client_id).
+    # Agents/services: token audience (CyberdyneAuth entitlements are user-only).
     required_entitlement: str = "mnemosyne"
+    service_audience: str = "mnemosyne"
     admin_scope: str = "mnemosyne:admin"
 
     # GitHub credential encryption (design D6, spec github-connection)

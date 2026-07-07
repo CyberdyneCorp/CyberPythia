@@ -25,15 +25,26 @@ The system SHALL support RFC 7662 introspection against `POST /api/v1/auth/intro
 - **THEN** the system SHALL respond 401 even if the JWT signature is locally valid
 
 ### Requirement: Entitlement gating
-The system SHALL authorize callers by CyberdyneAuth entitlements. A caller SHALL hold the `mnemosyne` product entitlement (or `is_admin`) to access any Mnemosyne data endpoint or MCP tool. Entitlements SHALL be read from the validated token or introspection response, not from local state.
+The system SHALL authorize callers by CyberdyneAuth claims, read from the validated token or introspection response — never from local state. Access SHALL be granted when any of the following holds:
+- the caller is `is_admin`;
+- a user token carries the configured product entitlement (`REQUIRED_ENTITLEMENT`, the Mnemosyne OAuth client's `client_id`), matching exactly or with a `:plan` suffix (CyberdyneAuth entitlement tokens are `product_key` or `product_key:plan`);
+- a service token carries the configured audience (`SERVICE_AUDIENCE`) in `aud` — CyberdyneAuth entitlements are user-only, so agent clients are granted access via `allowed_audiences`.
 
 #### Scenario: Caller without entitlement
-- **WHEN** an authenticated caller without the `mnemosyne` entitlement and without `is_admin` invokes a data endpoint or MCP tool
+- **WHEN** an authenticated caller without the required entitlement, audience, or `is_admin` invokes a data endpoint or MCP tool
 - **THEN** the system SHALL respond 403 (REST) or return an MCP error result identifying missing entitlement
 
-#### Scenario: Entitled agent calls MCP tool
-- **WHEN** a service token whose introspection response includes the `mnemosyne` entitlement invokes an MCP tool
+#### Scenario: Entitled user token
+- **WHEN** a user token whose introspection response includes the product entitlement (with or without a `:plan` suffix) invokes a data endpoint
+- **THEN** the request SHALL be processed
+
+#### Scenario: Agent service token with the Mnemosyne audience
+- **WHEN** a client-credentials service token minted with `audience=mnemosyne` invokes an MCP tool
 - **THEN** the tool SHALL execute
+
+#### Scenario: Agent service token without the audience
+- **WHEN** a service token without the Mnemosyne audience invokes an MCP tool
+- **THEN** the call SHALL be rejected as missing entitlement
 
 ### Requirement: Admin-only operations
 The system SHALL restrict credential management (GitHub connection create/update/delete), repository indexing selection, and sync triggering to callers with `is_admin: true` or an `mnemosyne:admin` scope.

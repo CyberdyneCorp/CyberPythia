@@ -59,3 +59,27 @@ class TestCallerIdentity:
     def test_plain_caller_cannot_administer(self):
         caller = CallerIdentity(subject="u1", entitlements=frozenset({"mnemosyne"}))
         assert not caller.can_administer("mnemosyne:admin")
+
+
+class TestCallerIdentityCyberdyneAuthModel:
+    """Access rules matching CyberdyneAuth's real token shapes (design D2)."""
+
+    def test_plan_qualified_entitlement_matches(self):
+        caller = CallerIdentity(subject="u1", entitlements=frozenset({"cyb_50Udgx:pro"}))
+        assert caller.can_access("cyb_50Udgx")
+
+    def test_unrelated_prefix_does_not_match(self):
+        caller = CallerIdentity(subject="u1", entitlements=frozenset({"cyb_50Udgxother"}))
+        assert not caller.can_access("cyb_50Udgx")
+
+    def test_service_token_with_audience(self):
+        caller = CallerIdentity(subject="client:agent-1", audiences=frozenset({"mnemosyne"}))
+        assert caller.can_access("cyb_50Udgx", "mnemosyne")
+
+    def test_service_token_without_audience_denied(self):
+        caller = CallerIdentity(subject="client:agent-1")
+        assert not caller.can_access("cyb_50Udgx", "mnemosyne")
+
+    def test_scope_carrying_entitlement_grants_access(self):
+        caller = CallerIdentity(subject="u1", scopes=frozenset({"cyb_50Udgx"}))
+        assert caller.can_access("cyb_50Udgx", "mnemosyne")

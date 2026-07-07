@@ -42,14 +42,15 @@ Mnemosyne validates CyberdyneAuth RS256 bearer tokens locally against `/.well-kn
 - *Alternatives*: introspect-every-request (simple, authoritative, but adds a network hop and a hard runtime dependency on CyberdyneAuth for every call); cookie sessions (wrong model for MCP/service callers).
 
 ### D2. Identity roles from CyberdyneAuth, not local RBAC
-Authorization inputs are exactly: `entitlements` (must contain `mnemosyne`), `is_admin`, and optional scopes (`mnemosyne:admin`). No local role tables. Local persistence of identity is limited to `sub` + display snapshot for auditing.
+Authorization inputs are exactly: `entitlements` (user tokens), `aud` (service tokens), `is_admin`, and optional scopes (`mnemosyne:admin`). No local role tables. Local persistence of identity is limited to `sub` + display snapshot for auditing.
+*Verified against the live deployment (2026-07-07):* CyberdyneAuth entitlements are **user-only** (`product_key` or `product_key:plan`, where `product_key` is an OAuth client's `client_id` — the client registry is the product registry); service tokens carry no entitlements, client `allowed_scopes` are registry-validated (arbitrary product keys rejected), so **agents are authorized via `allowed_audiences`** (`aud=mnemosyne`, requested with `audience=` at the token endpoint). Access/service JWTs use `iss: "cyberdyne-auth"` (logical name), not the issuer URL — only OIDC ID tokens use the URL; hence the separate `CYBERDYNEAUTH_TOKEN_ISSUER` setting.
 - *Why*: CyberdyneAuth already has groups/policies/entitlements plus an admin console; duplicating RBAC creates drift.
 - *Alternative considered*: calling `POST /api/v1/admin/iam/evaluate` per request — rejected for the MVP (admin-scoped API, extra hop); can back a finer-grained policy layer later.
 
 ### D3. Three OAuth clients registered in CyberdyneAuth
-1. `mnemosyne-web` — public client, `authorization_code` + `refresh_token`, PKCE, scopes `openid email profile offline_access`, `trusted: true`.
-2. `mnemosyne-backend` — confidential client, `client_credentials`, used only to call `/auth/introspect`.
-3. Agent clients — confidential `client_credentials` clients per consuming agent/team, granted the `mnemosyne` entitlement.
+1. `mnemosyne-web` — public client, `authorization_code` + `refresh_token`, PKCE, scopes `openid email profile offline_access`, `trusted: true`. **Registered: `cyb_W6D9o0J3y1PnHcN4`.**
+2. `mnemosyne` — confidential client, `client_credentials`; doubles as the introspection caller and the **product registry entry** (its `client_id` is the entitlement product key). **Registered: `cyb_50UdgxXphi9SJJQX`.**
+3. Agent clients — confidential `client_credentials` clients per consuming agent/team with `allowed_audiences: ["mnemosyne"]`. **Demo registered: `cyb_xZMHFyWsRjOwhav3`.**
 
 ### D4. Backend layout: single package, hexagonal, three entrypoints
 `mnemosyne-backend/app/{domain,application,infrastructure,interfaces}` per the product spec §8. Entrypoints: `interfaces/api` (FastAPI), `interfaces/mcp` (FastMCP over streamable HTTP), `infrastructure/queue/worker.py` (Redis consumer). Domain services (`issue_metrics_service`, `pr_metrics_service`, `context_pack_service`, …) are pure and unit-tested to the 90% floor; adapters are integration-tested.
@@ -101,5 +102,5 @@ Rollback: services are stateless; roll back images. DB rollback via Alembic down
 
 - OQ1: Which LLM provider/model backs `ask_repository_question` (answer synthesis)? Default assumption: same provider as embeddings, configurable via env.
 - OQ2: Queue library final pick (`arq` assumed) — confirm during task 1.
-- OQ3: Does CyberdyneAuth's `entitlements` introspection field carry plan/product ids exactly as `docs/entitlements.md` describes? Verify with a real token before freezing the auth adapter mapping.
+- ~~OQ3~~ Resolved (2026-07-07): introspection returns `entitlements: ["<product_key>"]` (or `product_key:plan`) for user tokens and `None` + `aud` for service tokens; the adapter maps both and the entitlement gate accepts plan suffixes and service audiences.
 - OQ4: MCP transport for company agents (streamable HTTP assumed) — confirm consumers can attach `Authorization` headers.

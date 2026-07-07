@@ -25,7 +25,7 @@
 - [x] 3.2 Introspection adapter: client-credentials token acquisition for `mnemosyne-backend` + RFC 7662 call, `AUTH_VALIDATION_MODE` switch, contract test against `IntrospectionResponse` schema
 - [x] 3.3 FastAPI auth middleware/dependency: bearer extraction, entitlement gate (`mnemosyne`), admin gate (`is_admin` / `mnemosyne:admin`), consistent 401/403 error shape
 - [x] 3.4 Audit logging for sensitive + denied operations (AuditPort → Postgres) with unit tests
-- [ ] 3.5 Register OAuth clients + `mnemosyne` entitlement in CyberdyneAuth (ops task; record client ids in deployment docs)
+- [x] 3.5 Register OAuth clients + `mnemosyne` entitlement in CyberdyneAuth (ops task; record client ids in deployment docs)
 
 ## 4. GitHub connection & sync pipeline
 

@@ -54,6 +54,7 @@ def jwks(rsa_key):
 def settings():
     return Settings(
         cyberdyneauth_issuer=ISSUER,
+        cyberdyneauth_token_issuer=ISSUER,
         cyberdyneauth_client_id="mnemosyne-backend",
         cyberdyneauth_client_secret="secret",
         _env_file=None,

@@ -30,12 +30,16 @@ def _identity_from_claims(claims: dict[str, Any]) -> CallerIdentity:
     entitlements = claims.get("entitlements") or []
     if isinstance(entitlements, str):
         entitlements = entitlements.split()
+    audience = claims.get("aud") or []
+    if isinstance(audience, str):
+        audience = [audience]
     return CallerIdentity(
         subject=str(claims.get("sub", "")),
         username=claims.get("username") or claims.get("email"),
         client_id=claims.get("client_id"),
         scopes=frozenset(scope.split()) if scope else frozenset(),
         entitlements=frozenset(str(e) for e in entitlements),
+        audiences=frozenset(str(a) for a in audience),
         is_admin=bool(claims.get("is_admin", False)),
     )
 
@@ -89,7 +93,7 @@ class JwksVerifier:
                 token,
                 key,
                 algorithms=["RS256"],
-                issuer=self._settings.cyberdyneauth_issuer,
+                issuer=self._settings.cyberdyneauth_token_issuer,
                 options={"require": ["exp", "sub"], "verify_aud": False},
             )
         except jwt.InvalidTokenError as exc:

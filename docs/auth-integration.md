@@ -4,32 +4,39 @@ Mnemosyne has **no user database**. CyberdyneAuth
 (`https://auth.backend.coolify.cyberdynecorp.ai`) is the identity plane; access
 is gated by the `mnemosyne` product entitlement (design D1–D3).
 
-## One-time setup in CyberdyneAuth (task 3.5)
-
-Register in the admin console (sidebar → Applications) or via
-`POST /api/v1/admin/oauth/clients`:
-
-1. **`mnemosyne-web`** — public client for the dashboard
-   - `client_type: public`, `grant_types: [authorization_code, refresh_token]`
-   - `redirect_uris: ["https://mnemosyne.<domain>/auth/callback", "http://localhost:5173/auth/callback"]`
-   - `allowed_scopes: [openid, email, profile, offline_access]`, `trusted: true`
-2. **`mnemosyne-backend`** — confidential client, `grant_types: [client_credentials]`.
-   Used only to authenticate Mnemosyne's calls to `POST /api/v1/auth/introspect`.
-   Store the secret as `CYBERDYNEAUTH_CLIENT_SECRET`.
-3. **One confidential client per consuming agent/team** with
-   `grant_types: [client_credentials]`.
-
-Then create the **`mnemosyne` entitlement/product** and grant it to every
-user and agent client that may access Mnemosyne. Admin rights come from
-CyberdyneAuth `is_admin` or the `mnemosyne:admin` scope.
-
-Record the client ids here after registration:
+## Registered clients (task 3.5 — done 2026-07-07)
 
 | Client | client_id | Notes |
 | --- | --- | --- |
-| Web UI | `mnemosyne-web` (expected) | public, PKCE |
-| Backend | `mnemosyne-backend` (expected) | introspection caller |
-| Agents | one per team | client-credentials |
+| `mnemosyne-web` | `cyb_W6D9o0J3y1PnHcN4` | public, PKCE, trusted; redirect URIs: `http://localhost:5173/auth/callback`, `http://localhost:3000/auth/callback` (add the production callback before deploy) |
+| `mnemosyne` | `cyb_50UdgxXphi9SJJQX` | confidential, client-credentials; introspection caller **and** the product registry entry — this client_id **is** the entitlement product key |
+| `mnemosyne-agent-demo` | `cyb_xZMHFyWsRjOwhav3` | confidential, client-credentials, `allowed_audiences: ["mnemosyne"]` |
+
+Secrets were shown once at creation and are stored outside the repo
+(local `.env` / Coolify secrets). Rotate via
+`POST /api/v1/admin/oauth/clients/{client_id}/rotate-secret`.
+
+## Authorization model (verified live)
+
+CyberdyneAuth treats **the OAuth client registry as the product registry**:
+
+- **Users** get entitlement grants
+  (`POST /api/v1/admin/entitlements {user_id, product_key}`) where
+  `product_key = cyb_50UdgxXphi9SJJQX`. Introspection then returns
+  `entitlements: ["cyb_50UdgxXphi9SJJQX"]` (or `…:plan`). Set
+  `REQUIRED_ENTITLEMENT=cyb_50UdgxXphi9SJJQX`.
+- **Agents/services**: entitlements are user-only and client `allowed_scopes`
+  are registry-validated, so agent clients carry
+  `allowed_audiences: ["mnemosyne"]` and must request the audience when
+  minting: `-d audience=mnemosyne`. Mnemosyne accepts service tokens whose
+  `aud` contains `SERVICE_AUDIENCE` (default `mnemosyne`).
+- **Admins**: CyberdyneAuth `is_admin` or the `mnemosyne:admin` scope.
+- Access/service JWTs carry `iss: "cyberdyne-auth"` (a logical name, unlike
+  OIDC ID tokens) — configured via `CYBERDYNEAUTH_TOKEN_ISSUER`.
+
+To onboard a new agent: create a confidential client with
+`grant_types: [client_credentials]` and `allowed_audiences: ["mnemosyne"]`;
+give the team its client_id/secret.
 
 ## How validation works
 
@@ -50,15 +57,17 @@ vendored schema fixture when CyberdyneAuth's openapi.json changes.
 | --- | --- |
 | `CYBERDYNEAUTH_ISSUER` | Base URL; also the JWT `iss` |
 | `CYBERDYNEAUTH_CLIENT_ID` / `_SECRET` | backend service client (introspection) |
+| `CYBERDYNEAUTH_TOKEN_ISSUER` | `iss` of access/service JWTs (default `cyberdyne-auth`) |
 | `AUTH_VALIDATION_MODE` | `jwks` (default) or `introspect` |
-| `REQUIRED_ENTITLEMENT` | defaults to `mnemosyne` |
+| `REQUIRED_ENTITLEMENT` | product key = `cyb_50UdgxXphi9SJJQX` in this deployment |
+| `SERVICE_AUDIENCE` | audience accepted from service tokens (default `mnemosyne`) |
 | `ADMIN_SCOPE` | defaults to `mnemosyne:admin` |
 
 ## Agent quick start
 
 ```bash
 TOKEN=$(curl -s -X POST $ISSUER/api/v1/auth/oauth2/token \
-  -d grant_type=client_credentials \
+  -d grant_type=client_credentials -d audience=mnemosyne \
   -d client_id=$AGENT_CLIENT_ID -d client_secret=$AGENT_SECRET | jq -r .access_token)
 # REST
 curl -H "Authorization: Bearer $TOKEN" https://mnemosyne.../api/v1/repos
