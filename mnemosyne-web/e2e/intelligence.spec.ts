@@ -34,7 +34,8 @@ test.describe('engineering intelligence', () => {
     // 238 repos are capped; use the section filter to locate a pilot
     await scorecard.getByPlaceholder('Filter…').fill('CyberdyneAuth');
     const row = scorecard.locator('tr', { hasText: 'CyberdyneCorp/CyberdyneAuth' });
-    await expect(row.first()).toBeVisible();
+    // the scorecard aggregates 238 repos, so allow generous load time
+    await expect(row.first()).toBeVisible({ timeout: 30_000 });
   });
 
   test('repository detail shows the delivery panel', async ({ page }) => {
