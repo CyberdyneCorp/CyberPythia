@@ -14,6 +14,7 @@ from app.domain.entities.repository import Repository
 from app.domain.entities.source_chunk import SourceChunk
 from app.domain.entities.source_file import SourceFile
 from app.domain.entities.sync_job import SyncJob
+from app.domain.entities.webhook_delivery import WebhookDelivery
 
 
 class ConnectionPort(Protocol):
@@ -120,3 +121,11 @@ class AuditPort(Protocol):
     async def record(self, entry: AuditRecord) -> None: ...
 
     async def list_recent(self, limit: int = 100) -> list[AuditRecord]: ...
+
+
+class WebhookDeliveryPort(Protocol):
+    async def exists(self, delivery_id: str) -> bool: ...
+
+    async def record(self, delivery: WebhookDelivery) -> None: ...
+
+    async def list_recent(self, limit: int = 100) -> list[WebhookDelivery]: ...

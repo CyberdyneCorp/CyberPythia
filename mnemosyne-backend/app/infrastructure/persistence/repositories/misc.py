@@ -20,6 +20,7 @@ from app.domain.entities.context_pack import (
     SourceChunkRef,
 )
 from app.domain.entities.source_chunk import SourceChunk
+from app.domain.entities.webhook_delivery import WebhookDelivery
 from app.domain.entities.source_file import SourceFile
 from app.domain.entities.sync_job import SyncJob
 from app.domain.value_objects.enums import IndexingMode
@@ -30,6 +31,7 @@ from app.infrastructure.persistence.mappers import (
     source_file_to_entity,
     sync_job_to_entity,
     sync_job_update_row,
+    webhook_delivery_to_entity,
 )
 from app.infrastructure.persistence.models import (
     AuditLogRow,
@@ -38,6 +40,7 @@ from app.infrastructure.persistence.models import (
     SourceChunkRow,
     SourceFileRow,
     SyncJobRow,
+    WebhookDeliveryRow,
 )
 from app.infrastructure.persistence.repositories.base import PostgresRepositoryBase
 
@@ -318,3 +321,37 @@ class PostgresMetricsRepository(PostgresRepositoryBase):
                 "summary": row.summary,
                 "computed_at": row.computed_at.isoformat(),
             }
+
+
+class PostgresWebhookDeliveryRepository(PostgresRepositoryBase):
+    async def exists(self, delivery_id: str) -> bool:
+        async with self._session_factory() as session:
+            found = await session.scalar(
+                select(WebhookDeliveryRow.id).where(
+                    WebhookDeliveryRow.delivery_id == delivery_id
+                )
+            )
+            return found is not None
+
+    async def record(self, delivery: WebhookDelivery) -> None:
+        async with self._session_factory() as session, session.begin():
+            session.add(
+                WebhookDeliveryRow(
+                    id=delivery.id,
+                    delivery_id=delivery.delivery_id,
+                    event=delivery.event,
+                    action=delivery.action,
+                    repository_full_name=delivery.repository_full_name,
+                    outcome=delivery.outcome,
+                    received_at=delivery.received_at,
+                )
+            )
+
+    async def list_recent(self, limit: int = 100) -> list[WebhookDelivery]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(WebhookDeliveryRow)
+                .order_by(WebhookDeliveryRow.received_at.desc())
+                .limit(limit)
+            )
+            return [webhook_delivery_to_entity(r) for r in rows]

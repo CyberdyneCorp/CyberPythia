@@ -24,6 +24,20 @@ class FakeCipher:
         return ciphertext.decode().removeprefix("enc:")
 
 
+class FakeGitHubAppAuth:
+    def __init__(self):
+        self.fails = False
+        self.calls = 0
+
+    async def installation_token(self, app_id, installation_id, private_key_pem):
+        from app.domain.ports.github_app_port import GitHubAppError
+
+        self.calls += 1
+        if self.fails:
+            raise GitHubAppError("bad app credentials")
+        return f"ghs_inst_{installation_id}"
+
+
 class FakeConnectionPort:
     def __init__(self):
         self.items: dict[UUID, GitHubConnection] = {}

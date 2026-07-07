@@ -209,27 +209,13 @@ class GitHubClient:
             f"/repos/{full_name}/issues", token, params={"state": "all"}
         )
         await self._snapshot(f"raw/github/repos/{full_name}/issues.json", raw)
-        return [
-            GitHubIssueData(
-                github_id=i["id"],
-                number=i["number"],
-                title=i["title"],
-                body=i.get("body"),
-                state=i["state"],
-                author=(i.get("user") or {}).get("login"),
-                labels=[
-                    lb["name"] if isinstance(lb, dict) else str(lb) for lb in i.get("labels", [])
-                ],
-                assignees=[a["login"] for a in i.get("assignees", [])],
-                milestone=(i.get("milestone") or {}).get("title"),
-                created_at=_parse_dt(i.get("created_at")),
-                updated_at=_parse_dt(i.get("updated_at")),
-                closed_at=_parse_dt(i.get("closed_at")),
-                comments_count=i.get("comments", 0),
-                is_pull_request="pull_request" in i,
-            )
-            for i in raw
-        ]
+        return [_issue_from(i) for i in raw]
+
+    async def get_issue(self, token: str, full_name: str, number: int) -> GitHubIssueData:
+        response = await self._request(
+            "GET", f"{self._base_url}/repos/{full_name}/issues/{number}", token
+        )
+        return _issue_from(response.json())
 
     async def list_pull_requests(self, token: str, full_name: str) -> list[GitHubPullRequestData]:
         raw = await self._paginate(
@@ -241,37 +227,17 @@ class GitHubClient:
             reviews = await self._paginate(
                 f"/repos/{full_name}/pulls/{p['number']}/reviews", token
             )
-            review_times = [
-                t for r in reviews if (t := _parse_dt(r.get("submitted_at"))) is not None
-            ]
-            results.append(
-                GitHubPullRequestData(
-                    github_id=p["id"],
-                    number=p["number"],
-                    title=p["title"],
-                    body=p.get("body"),
-                    state="merged" if p.get("merged_at") else p["state"],
-                    merged=bool(p.get("merged_at")),
-                    author=(p.get("user") or {}).get("login"),
-                    reviewers=sorted(
-                        {
-                            login
-                            for r in reviews
-                            if (login := (r.get("user") or {}).get("login"))
-                        }
-                    ),
-                    created_at=_parse_dt(p.get("created_at")),
-                    updated_at=_parse_dt(p.get("updated_at")),
-                    closed_at=_parse_dt(p.get("closed_at")),
-                    merged_at=_parse_dt(p.get("merged_at")),
-                    first_review_at=min(review_times) if review_times else None,
-                    changed_files=p.get("changed_files", 0),
-                    additions=p.get("additions", 0),
-                    deletions=p.get("deletions", 0),
-                    review_decision=reviews[-1].get("state") if reviews else None,
-                )
-            )
+            results.append(_pr_from(p, reviews))
         return results
+
+    async def get_pull_request(
+        self, token: str, full_name: str, number: int
+    ) -> GitHubPullRequestData:
+        response = await self._request(
+            "GET", f"{self._base_url}/repos/{full_name}/pulls/{number}", token
+        )
+        reviews = await self._paginate(f"/repos/{full_name}/pulls/{number}/reviews", token)
+        return _pr_from(response.json(), reviews)
 
     async def get_rate_limit(self, token: str) -> dict[str, int]:
         response = await self._request("GET", f"{self._base_url}/rate_limit", token)
@@ -280,3 +246,47 @@ class GitHubClient:
 
     async def close(self) -> None:
         await self._client.aclose()
+
+
+def _issue_from(i: dict[str, Any]) -> GitHubIssueData:
+    return GitHubIssueData(
+        github_id=i["id"],
+        number=i["number"],
+        title=i["title"],
+        body=i.get("body"),
+        state=i["state"],
+        author=(i.get("user") or {}).get("login"),
+        labels=[lb["name"] if isinstance(lb, dict) else str(lb) for lb in i.get("labels", [])],
+        assignees=[a["login"] for a in i.get("assignees", [])],
+        milestone=(i.get("milestone") or {}).get("title"),
+        created_at=_parse_dt(i.get("created_at")),
+        updated_at=_parse_dt(i.get("updated_at")),
+        closed_at=_parse_dt(i.get("closed_at")),
+        comments_count=i.get("comments", 0),
+        is_pull_request="pull_request" in i,
+    )
+
+
+def _pr_from(p: dict[str, Any], reviews: list[dict[str, Any]]) -> GitHubPullRequestData:
+    review_times = [t for r in reviews if (t := _parse_dt(r.get("submitted_at"))) is not None]
+    return GitHubPullRequestData(
+        github_id=p["id"],
+        number=p["number"],
+        title=p["title"],
+        body=p.get("body"),
+        state="merged" if p.get("merged_at") else p["state"],
+        merged=bool(p.get("merged_at")),
+        author=(p.get("user") or {}).get("login"),
+        reviewers=sorted(
+            {login for r in reviews if (login := (r.get("user") or {}).get("login"))}
+        ),
+        created_at=_parse_dt(p.get("created_at")),
+        updated_at=_parse_dt(p.get("updated_at")),
+        closed_at=_parse_dt(p.get("closed_at")),
+        merged_at=_parse_dt(p.get("merged_at")),
+        first_review_at=min(review_times) if review_times else None,
+        changed_files=p.get("changed_files", 0),
+        additions=p.get("additions", 0),
+        deletions=p.get("deletions", 0),
+        review_decision=reviews[-1].get("state") if reviews else None,
+    )

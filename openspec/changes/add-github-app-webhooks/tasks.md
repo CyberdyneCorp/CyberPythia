@@ -4,21 +4,21 @@
 
 ## 1. Domain: credential kinds, webhook model, single-entity fetch
 
-- [ ] 1.1 `ConnectionKind` value object (`pat` | `github_app`); `GitHubConnection` gains `kind` + nullable app fields (`app_id`, `installation_id`, `encrypted_private_key`, `encrypted_webhook_secret`). Unit tests.
-- [ ] 1.2 Webhook event model: `WebhookEvent` (delivery_id, event, action, installation_id, repository_full_name, payload) + `WebhookIntent` enum; pure `WebhookEventRouter.route(event, action, payload) -> intent`. Unit tests for the full event→intent matrix incl. unknown/ignored.
-- [ ] 1.3 `GitHubPort` gains `get_issue` and `get_pull_request` (single-entity) returning the same shapes as the list methods.
-- [ ] 1.4 Webhook signature verifier (HMAC-SHA256 over raw body, constant-time). Unit tests: valid, invalid, missing, tampered body.
+- [x] 1.1 `ConnectionKind` value object (`pat` | `github_app`); `GitHubConnection` gains `kind` + nullable app fields (`app_id`, `installation_id`, `encrypted_private_key`, `encrypted_webhook_secret`). Unit tests.
+- [x] 1.2 Webhook event model: `WebhookEvent` (delivery_id, event, action, installation_id, repository_full_name, payload) + `WebhookIntent` enum; pure `WebhookEventRouter.route(event, action, payload) -> intent`. Unit tests for the full event→intent matrix incl. unknown/ignored.
+- [x] 1.3 `GitHubPort` gains `get_issue` and `get_pull_request` (single-entity) returning the same shapes as the list methods.
+- [x] 1.4 Webhook signature verifier (HMAC-SHA256 over raw body, constant-time). Unit tests: valid, invalid, missing, tampered body.
 
 ## 2. GitHub App auth
 
-- [ ] 2.1 `GitHubAppPort` + `GitHubAppAuth` adapter: RS256 app JWT (iss=app_id, iat backdate 60s, short exp), exchange for installation token, in-memory cache until near expiry. Unit tests (fake key + respx for the token endpoint), incl. cache reuse + refresh.
-- [ ] 2.2 `CredentialResolver`: connection → token (PAT decrypt vs App installation token); connect/validate/list for `github_app` connections (mint token to validate, encrypt private key + webhook secret). Unit tests.
-- [ ] 2.3 Single-entity GitHub client methods (`get_issue`, `get_pull_request`) with recorded-fixture integration tests.
+- [x] 2.1 `GitHubAppPort` + `GitHubAppAuth` adapter: RS256 app JWT (iss=app_id, iat backdate 60s, short exp), exchange for installation token, in-memory cache until near expiry. Unit tests (fake key + respx for the token endpoint), incl. cache reuse + refresh.
+- [x] 2.2 `CredentialResolver`: connection → token (PAT decrypt vs App installation token); connect/validate/list for `github_app` connections (mint token to validate, encrypt private key + webhook secret). Unit tests.
+- [x] 2.3 Single-entity GitHub client methods (`get_issue`, `get_pull_request`) with recorded-fixture integration tests.
 
 ## 3. Persistence
 
-- [ ] 3.1 SQLAlchemy: connection `kind` + app columns; `WebhookDeliveryRow`; `WebhookDeliveryPort`. Alembic migration `0003` (columns default `pat`, deliveries table + delivery-id unique index). Verify on real Postgres.
-- [ ] 3.2 Connection adapter reads/writes the new columns; `WebhookDeliveryPort` Postgres adapter (record, exists-by-delivery-id, list recent) + integration tests.
+- [x] 3.1 SQLAlchemy: connection `kind` + app columns; `WebhookDeliveryRow`; `WebhookDeliveryPort`. Alembic migration `0003` (columns default `pat`, deliveries table + delivery-id unique index). Verify on real Postgres.
+- [x] 3.2 Connection adapter reads/writes the new columns; `WebhookDeliveryPort` Postgres adapter (record, exists-by-delivery-id, list recent) + integration tests.
 
 ## 4. Incremental sync + metrics reuse
 

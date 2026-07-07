@@ -199,3 +199,49 @@ class TestSourceCodeSyncSteps:
         assert cc.index(SyncStep.SOURCE_CODE) > cc.index(SyncStep.FILE_TREE)
         assert cc.index(SyncStep.SOURCE_CODE) < cc.index(SyncStep.EMBEDDINGS)
         assert SyncStep.SOURCE_CODE in steps(IndexingMode.FULL_CONTEXT)
+
+
+class TestConnectionKinds:
+    def test_pat_connection_defaults(self):
+        from app.domain.entities.github_connection import GitHubConnection
+        from app.domain.value_objects.enums import ConnectionKind
+
+        c = GitHubConnection(
+            id=uuid4(), owner="cyberdyne", owner_type="Organization",
+            encrypted_token=b"enc", token_hint="ab12",
+        )
+        assert c.kind is ConnectionKind.PAT
+        assert c.app_id is None and c.encrypted_private_key is None
+
+    def test_github_app_connection(self):
+        from app.domain.entities.github_connection import GitHubConnection
+        from app.domain.value_objects.enums import ConnectionKind
+
+        c = GitHubConnection(
+            id=uuid4(), owner="cyberdyne", owner_type="Organization",
+            kind=ConnectionKind.GITHUB_APP, app_id="12345", installation_id="99",
+            encrypted_private_key=b"pk", encrypted_webhook_secret=b"wh",
+        )
+        assert c.kind is ConnectionKind.GITHUB_APP
+        assert c.encrypted_token is None and c.token_hint == ""
+
+
+class TestWebhookEvent:
+    def test_issue_and_pr_numbers(self):
+        from app.domain.entities.webhook_event import WebhookEvent
+
+        issue = WebhookEvent(delivery_id="d", event="issues", action="opened",
+                             installation_id="1", repository_full_name="o/r",
+                             payload={"issue": {"number": 42}})
+        assert issue.issue_number == 42
+        pr = WebhookEvent(delivery_id="d", event="pull_request", action="opened",
+                          installation_id="1", repository_full_name="o/r",
+                          payload={"pull_request": {"number": 61}})
+        assert pr.pull_request_number == 61
+
+    def test_repository_deleted_flag(self):
+        from app.domain.entities.webhook_event import WebhookEvent
+
+        e = WebhookEvent(delivery_id="d", event="repository", action="deleted",
+                         installation_id="1", repository_full_name="o/r")
+        assert e.repository_deleted

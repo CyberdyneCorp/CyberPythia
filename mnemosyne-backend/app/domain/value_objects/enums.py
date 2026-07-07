@@ -111,3 +111,18 @@ class ConnectionStatus(StrEnum):
     ACTIVE = "active"
     BROKEN = "broken"
     DISABLED = "disabled"
+
+
+class ConnectionKind(StrEnum):
+    PAT = "pat"
+    GITHUB_APP = "github_app"
+
+
+class WebhookIntent(StrEnum):
+    SYNC_REPOSITORY = "sync_repository"
+    SYNC_ISSUE = "sync_issue"
+    SYNC_PULL_REQUEST = "sync_pull_request"
+    UPDATE_REPOSITORY = "update_repository"
+    REMOVE_REPOSITORY = "remove_repository"
+    RECONCILE_INSTALLATION = "reconcile_installation"
+    IGNORE = "ignore"

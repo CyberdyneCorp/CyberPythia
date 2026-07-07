@@ -213,3 +213,30 @@ async def test_persistent_5xx_raises_after_retries():
     with pytest.raises(httpx.HTTPStatusError):
         await GitHubClient().get_rate_limit(TOKEN)
     assert route.call_count == 3  # initial + 2 retries
+
+
+@respx.mock
+async def test_get_single_issue():
+    respx.get(f"{API_BASE}/repos/cyberdyne/a/issues/42").respond(
+        json={"id": 1, "number": 42, "title": "bug", "state": "open",
+              "user": {"login": "alice"}, "labels": [{"name": "bug"}], "assignees": [],
+              "comments": 3, "created_at": "2026-06-01T00:00:00Z"}
+    )
+    issue = await GitHubClient().get_issue(TOKEN, "cyberdyne/a", 42)
+    assert issue.number == 42 and issue.author == "alice"
+    assert issue.labels == ["bug"] and not issue.is_pull_request
+
+
+@respx.mock
+async def test_get_single_pull_request():
+    respx.get(f"{API_BASE}/repos/cyberdyne/a/pulls/61").respond(
+        json={"id": 2, "number": 61, "title": "feat", "state": "closed",
+              "user": {"login": "bob"}, "created_at": "2026-06-01T00:00:00Z",
+              "merged_at": "2026-06-03T00:00:00Z", "additions": 10, "deletions": 2}
+    )
+    respx.get(f"{API_BASE}/repos/cyberdyne/a/pulls/61/reviews").respond(
+        json=[{"user": {"login": "carol"}, "state": "APPROVED",
+               "submitted_at": "2026-06-02T00:00:00Z"}]
+    )
+    pr = await GitHubClient().get_pull_request(TOKEN, "cyberdyne/a", 61)
+    assert pr.number == 61 and pr.merged and pr.reviewers == ["carol"]

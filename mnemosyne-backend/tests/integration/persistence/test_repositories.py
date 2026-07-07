@@ -387,3 +387,43 @@ class TestAudit:
         )
         entries = await adapter.list_recent()
         assert entries[0].operation == "github.connect"
+
+
+class TestAppConnectionAndWebhooks:
+    async def test_github_app_connection_roundtrip(self, session_factory):
+        from app.domain.value_objects.enums import ConnectionKind
+        from app.infrastructure.persistence.repositories.connections import (
+            PostgresConnectionRepository,
+        )
+
+        adapter = PostgresConnectionRepository(session_factory)
+        conn = GitHubConnection(
+            id=uuid4(), owner="cyberdyne", owner_type="Organization",
+            kind=ConnectionKind.GITHUB_APP, app_id="12345", installation_id="99",
+            encrypted_private_key=b"pk-cipher", encrypted_webhook_secret=b"wh-cipher",
+            permissions=["contents", "issues"], created_at=NOW, updated_at=NOW,
+        )
+        await adapter.save(conn)
+        loaded = await adapter.get(conn.id)
+        assert loaded.kind is ConnectionKind.GITHUB_APP
+        assert loaded.installation_id == "99"
+        assert loaded.encrypted_private_key == b"pk-cipher"
+        assert loaded.encrypted_token is None
+
+    async def test_webhook_delivery_idempotency(self, session_factory):
+        from app.domain.entities.webhook_delivery import WebhookDelivery
+        from app.infrastructure.persistence.repositories.misc import (
+            PostgresWebhookDeliveryRepository,
+        )
+
+        adapter = PostgresWebhookDeliveryRepository(session_factory)
+        assert not await adapter.exists("delivery-1")
+        await adapter.record(
+            WebhookDelivery(
+                id=uuid4(), delivery_id="delivery-1", event="issues", action="opened",
+                repository_full_name="cyberdyne/a", outcome="processed", received_at=NOW,
+            )
+        )
+        assert await adapter.exists("delivery-1")
+        recent = await adapter.list_recent()
+        assert recent[0].event == "issues"

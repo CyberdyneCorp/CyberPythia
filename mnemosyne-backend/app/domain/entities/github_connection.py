@@ -1,10 +1,17 @@
-"""GitHub connection entity: an encrypted read credential (spec: github-connection)."""
+"""GitHub connection entity: an encrypted read credential (spec: github-connection).
+
+Two credential kinds (design D1):
+- ``pat``        — an encrypted fine-grained personal access token.
+- ``github_app`` — a GitHub App installation: app id, installation id, and
+  encrypted private key + webhook secret. Installation tokens are minted on
+  demand and never stored.
+"""
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import UUID
 
-from app.domain.value_objects.enums import ConnectionStatus
+from app.domain.value_objects.enums import ConnectionKind, ConnectionStatus
 
 REQUIRED_PERMISSIONS = frozenset({"contents", "issues", "pull_requests", "metadata"})
 
@@ -14,8 +21,14 @@ class GitHubConnection:
     id: UUID
     owner: str  # user or organization login the credential resolves to
     owner_type: str  # "User" | "Organization"
-    encrypted_token: bytes
-    token_hint: str  # last 4 chars, the only fragment ever exposed
+    kind: ConnectionKind = ConnectionKind.PAT
+    encrypted_token: bytes | None = None  # pat only
+    token_hint: str = ""  # pat only: last 4 chars, the only fragment ever exposed
+    # github_app only:
+    app_id: str | None = None
+    installation_id: str | None = None
+    encrypted_private_key: bytes | None = None
+    encrypted_webhook_secret: bytes | None = None
     permissions: list[str] = field(default_factory=list)
     status: ConnectionStatus = ConnectionStatus.ACTIVE
     created_at: datetime | None = None

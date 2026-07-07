@@ -10,8 +10,10 @@ from app.domain.entities.repository import Repository
 from app.domain.entities.source_chunk import SourceChunk
 from app.domain.entities.source_file import SourceFile
 from app.domain.entities.sync_job import SyncJob, SyncStepResult
+from app.domain.entities.webhook_delivery import WebhookDelivery
 from app.domain.value_objects.enums import (
     ChunkType,
+    ConnectionKind,
     ConnectionStatus,
     DocumentType,
     EmbeddingStatus,
@@ -35,6 +37,7 @@ from app.infrastructure.persistence.models import (
     SourceChunkRow,
     SourceFileRow,
     SyncJobRow,
+    WebhookDeliveryRow,
 )
 
 
@@ -43,8 +46,13 @@ def connection_to_entity(row: GitHubConnectionRow) -> GitHubConnection:
         id=row.id,
         owner=row.owner,
         owner_type=row.owner_type,
+        kind=ConnectionKind(row.kind),
         encrypted_token=row.encrypted_token,
         token_hint=row.token_hint,
+        app_id=row.app_id,
+        installation_id=row.installation_id,
+        encrypted_private_key=row.encrypted_private_key,
+        encrypted_webhook_secret=row.encrypted_webhook_secret,
         permissions=list(row.permissions or []),
         status=ConnectionStatus(row.status),
         created_at=row.created_at,
@@ -55,12 +63,29 @@ def connection_to_entity(row: GitHubConnectionRow) -> GitHubConnection:
 def connection_update_row(row: GitHubConnectionRow, entity: GitHubConnection) -> None:
     row.owner = entity.owner
     row.owner_type = entity.owner_type
+    row.kind = entity.kind.value
     row.encrypted_token = entity.encrypted_token
     row.token_hint = entity.token_hint
+    row.app_id = entity.app_id
+    row.installation_id = entity.installation_id
+    row.encrypted_private_key = entity.encrypted_private_key
+    row.encrypted_webhook_secret = entity.encrypted_webhook_secret
     row.permissions = list(entity.permissions)
     row.status = entity.status.value
     row.created_at = entity.created_at  # type: ignore[assignment]
     row.updated_at = entity.updated_at  # type: ignore[assignment]
+
+
+def webhook_delivery_to_entity(row: WebhookDeliveryRow) -> WebhookDelivery:
+    return WebhookDelivery(
+        id=row.id,
+        delivery_id=row.delivery_id,
+        event=row.event,
+        action=row.action,
+        repository_full_name=row.repository_full_name,
+        outcome=row.outcome,
+        received_at=row.received_at,
+    )
 
 
 def repository_to_entity(row: RepositoryRow) -> Repository:

@@ -40,10 +40,27 @@ class GitHubConnectionRow(Base, TimestampedMixin):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     owner: Mapped[str] = mapped_column(String(200), unique=True)
     owner_type: Mapped[str] = mapped_column(String(20))
-    encrypted_token: Mapped[bytes] = mapped_column(LargeBinary)
-    token_hint: Mapped[str] = mapped_column(String(8))
+    kind: Mapped[str] = mapped_column(String(20), default="pat")
+    encrypted_token: Mapped[bytes | None] = mapped_column(LargeBinary)
+    token_hint: Mapped[str] = mapped_column(String(8), default="")
+    app_id: Mapped[str | None] = mapped_column(String(50))
+    installation_id: Mapped[str | None] = mapped_column(String(50), index=True)
+    encrypted_private_key: Mapped[bytes | None] = mapped_column(LargeBinary)
+    encrypted_webhook_secret: Mapped[bytes | None] = mapped_column(LargeBinary)
     permissions: Mapped[list[str]] = mapped_column(JsonType, default=list)
     status: Mapped[str] = mapped_column(String(20), default="active")
+
+
+class WebhookDeliveryRow(Base):
+    __tablename__ = "webhook_deliveries"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    delivery_id: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    event: Mapped[str] = mapped_column(String(60))
+    action: Mapped[str | None] = mapped_column(String(60))
+    repository_full_name: Mapped[str | None] = mapped_column(String(300))
+    outcome: Mapped[str] = mapped_column(String(20))
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class RepositoryRow(Base):
