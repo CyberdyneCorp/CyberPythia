@@ -76,8 +76,11 @@ curl -H "Authorization: Bearer $TOKEN" https://mnemosyne.../api/v1/repos
 **MCP** — point an agent at `https://mnemosyne-mcp.../mcp` (streamable HTTP)
 with the same bearer token. See [docs/mcp-consumers.md](docs/mcp-consumers.md).
 
-**Dashboard** — sign in with "Connect with Cyberdyne". Admins register the
-GitHub PAT, discover repositories, choose indexing modes
+**Dashboard** — sign in with "Connect with Cyberdyne". Admins register a
+GitHub credential — a read-only PAT or a **GitHub App** installation (App
+tokens are short-lived and scoped, and drive **webhook-based near-real-time
+updates**; see [docs/github-app.md](docs/github-app.md)) — discover
+repositories, choose indexing modes
 (`docs_only` / `project_intelligence` / `code_metadata` / `code_context` /
 `full_context`), and trigger syncs. The `code_context` and `full_context`
 modes additionally capture source-code content, chunk it by symbol, and
@@ -89,6 +92,7 @@ build a semantic **code search** index (Phase 3).
   clients to register, entitlement, env vars
 - [docs/mcp-consumers.md](docs/mcp-consumers.md) — the MCP tool suite for agents
 - [docs/mnemosyneignore.md](docs/mnemosyneignore.md) — excluding paths from indexing
+- [docs/github-app.md](docs/github-app.md) — GitHub App + webhooks (near-real-time sync)
 - [docs/deploy-coolify.md](docs/deploy-coolify.md) — production deployment
 
 ## Security model
