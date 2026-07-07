@@ -29,7 +29,7 @@
 </script>
 
 <section class="panel">
-  <div class="head">Health</div>
+  <h3 class="head">Health</h3>
   {#if vm.error}<p class="error">{vm.error}</p>{/if}
   {#if vm.busy && !vm.health}<p class="muted">Scoring…</p>{/if}
 
@@ -97,7 +97,7 @@
     font-size: 0.83rem;
     font-weight: 600;
     color: var(--tx2);
-    margin-bottom: 0.9rem;
+    margin: 0 0 0.9rem;
   }
   .body {
     display: flex;

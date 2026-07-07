@@ -27,10 +27,13 @@ test.describe('engineering intelligence', () => {
 
   test('dashboard shows the PM/PO delivery scorecard', async ({ page }) => {
     await page.goto('/intelligence');
-    await expect(page.getByRole('heading', { name: 'Delivery scorecard' })).toBeVisible({
-      timeout: 20_000
+    const scorecard = page.locator('section', {
+      has: page.getByRole('heading', { name: 'Delivery scorecard' })
     });
-    const row = page.locator('tr', { hasText: 'CyberdyneCorp/CyberdyneAuth' });
+    await expect(scorecard).toBeVisible({ timeout: 20_000 });
+    // 238 repos are capped; use the section filter to locate a pilot
+    await scorecard.getByPlaceholder('Filter…').fill('CyberdyneAuth');
+    const row = scorecard.locator('tr', { hasText: 'CyberdyneCorp/CyberdyneAuth' });
     await expect(row.first()).toBeVisible();
   });
 
