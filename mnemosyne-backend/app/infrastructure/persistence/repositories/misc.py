@@ -18,12 +18,14 @@ from app.domain.entities.context_pack import (
     OpenSpecRef,
     PullRequestRef,
 )
+from app.domain.entities.source_chunk import SourceChunk
 from app.domain.entities.source_file import SourceFile
 from app.domain.entities.sync_job import SyncJob
 from app.domain.value_objects.enums import IndexingMode
 from app.infrastructure.persistence.mappers import (
     audit_to_entity,
     audit_to_row,
+    source_chunk_to_entity,
     source_file_to_entity,
     sync_job_to_entity,
     sync_job_update_row,
@@ -32,6 +34,7 @@ from app.infrastructure.persistence.models import (
     AuditLogRow,
     ContextPackRow,
     RepositoryMetricsRow,
+    SourceChunkRow,
     SourceFileRow,
     SyncJobRow,
 )
@@ -44,11 +47,36 @@ def _query_hash(query: str) -> str:
 
 class PostgresFileRepository(PostgresRepositoryBase):
     async def replace_tree(self, repository_id: UUID, files: list[SourceFile]) -> None:
+        """Reconcile the tree, preserving captured content + id for unchanged files.
+
+        A file with the same path AND blob sha carries over its id and
+        content-capture columns so the source-code step can skip it and its
+        source_chunks (keyed by file id) stay valid across re-syncs.
+        """
         async with self._session_factory() as session, session.begin():
-            await session.execute(
-                delete(SourceFileRow).where(SourceFileRow.repository_id == repository_id)
-            )
+            existing = {
+                r.path: r
+                for r in await session.scalars(
+                    select(SourceFileRow).where(
+                        SourceFileRow.repository_id == repository_id
+                    )
+                )
+            }
+            seen_paths = {f.path for f in files}
+            for path, row in existing.items():
+                if path not in seen_paths:
+                    await session.delete(row)
             for f in files:
+                prior = existing.get(f.path)
+                if prior is not None and prior.sha == f.sha:
+                    prior.language = f.language
+                    prior.is_important = f.is_important
+                    prior.important_kind = f.important_kind
+                    prior.last_seen_at = f.last_seen_at
+                    continue
+                if prior is not None:
+                    await session.delete(prior)  # sha changed -> fresh row (drops chunks)
+                    await session.flush()
                 session.add(
                     SourceFileRow(
                         id=f.id,
@@ -73,6 +101,79 @@ class PostgresFileRepository(PostgresRepositoryBase):
                 .order_by(SourceFileRow.path)
             )
             return [source_file_to_entity(r) for r in rows]
+
+    async def get(self, file_id: UUID) -> SourceFile | None:
+        async with self._session_factory() as session:
+            row = await session.get(SourceFileRow, file_id)
+            return source_file_to_entity(row) if row else None
+
+    async def get_by_path(self, repository_id: UUID, path: str) -> SourceFile | None:
+        async with self._session_factory() as session:
+            row = await session.scalar(
+                select(SourceFileRow).where(
+                    SourceFileRow.repository_id == repository_id, SourceFileRow.path == path
+                )
+            )
+            return source_file_to_entity(row) if row else None
+
+    async def save_content(self, file: SourceFile) -> None:
+        async with self._session_factory() as session, session.begin():
+            row = await session.get(SourceFileRow, file.id)
+            if row is None:
+                return
+            row.content = file.content
+            row.content_captured = file.content_captured
+            row.content_hash = file.content_hash
+            row.quarantined = file.quarantined
+
+
+class PostgresSourceChunkRepository(PostgresRepositoryBase):
+    async def replace_for_file(self, file_id: UUID, chunks: list[SourceChunk]) -> None:
+        async with self._session_factory() as session, session.begin():
+            await session.execute(
+                delete(SourceChunkRow).where(SourceChunkRow.file_id == file_id)
+            )
+            for c in chunks:
+                session.add(
+                    SourceChunkRow(
+                        id=c.id,
+                        file_id=c.file_id,
+                        repository_id=c.repository_id,
+                        chunk_type=c.chunk_type.value,
+                        symbol_name=c.symbol_name,
+                        start_line=c.start_line,
+                        end_line=c.end_line,
+                        content=c.content,
+                        content_hash=c.content_hash,
+                    )
+                )
+
+    async def delete_for_file(self, file_id: UUID) -> None:
+        async with self._session_factory() as session, session.begin():
+            await session.execute(
+                delete(SourceChunkRow).where(SourceChunkRow.file_id == file_id)
+            )
+
+    async def list_by_repository(self, repository_id: UUID) -> list[SourceChunk]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(SourceChunkRow)
+                .where(SourceChunkRow.repository_id == repository_id)
+                .order_by(SourceChunkRow.start_line)
+            )
+            return [source_chunk_to_entity(r) for r in rows]
+
+    async def get_by_symbol(
+        self, repository_id: UUID, symbol_name: str
+    ) -> list[SourceChunk]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(SourceChunkRow).where(
+                    SourceChunkRow.repository_id == repository_id,
+                    SourceChunkRow.symbol_name == symbol_name,
+                )
+            )
+            return [source_chunk_to_entity(r) for r in rows]
 
 
 class PostgresSyncJobRepository(PostgresRepositoryBase):

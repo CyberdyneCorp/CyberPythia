@@ -174,10 +174,69 @@ class FakeFilePort:
         self.trees = {}
 
     async def replace_tree(self, repository_id, files):
-        self.trees[repository_id] = list(files)
+        # Preserve id + content for unchanged files (same path + sha), mirroring
+        # the Postgres adapter so re-syncs keep captured content and chunks.
+        prior = {f.path: f for f in self.trees.get(repository_id, [])}
+        reconciled = []
+        for f in files:
+            existing = prior.get(f.path)
+            if existing is not None and existing.sha == f.sha:
+                f.id = existing.id
+                f.content = existing.content
+                f.content_captured = existing.content_captured
+                f.content_hash = existing.content_hash
+                f.quarantined = existing.quarantined
+            reconciled.append(f)
+        self.trees[repository_id] = reconciled
 
     async def list_by_repository(self, repository_id):
         return sorted(self.trees.get(repository_id, []), key=lambda f: f.path)
+
+    async def get(self, file_id):
+        for files in self.trees.values():
+            for f in files:
+                if f.id == file_id:
+                    return f
+        return None
+
+    async def get_by_path(self, repository_id, path):
+        return next(
+            (f for f in self.trees.get(repository_id, []) if f.path == path), None
+        )
+
+    async def save_content(self, file):
+        for files in self.trees.values():
+            for i, f in enumerate(files):
+                if f.id == file.id:
+                    files[i] = file
+                    return
+
+
+class FakeSourceChunkPort:
+    def __init__(self):
+        self.by_file = {}
+
+    async def replace_for_file(self, file_id, chunks):
+        self.by_file[file_id] = list(chunks)
+
+    async def delete_for_file(self, file_id):
+        self.by_file.pop(file_id, None)
+
+    async def list_by_repository(self, repository_id):
+        out = [
+            c
+            for chunks in self.by_file.values()
+            for c in chunks
+            if c.repository_id == repository_id
+        ]
+        return sorted(out, key=lambda c: c.start_line)
+
+    async def get_by_symbol(self, repository_id, symbol_name):
+        return [
+            c
+            for c in await self.list_by_repository(repository_id)
+            if c.symbol_name == symbol_name
+        ]
 
 
 class FakeSyncJobPort:

@@ -7,9 +7,11 @@ from app.domain.entities.issue import Issue
 from app.domain.entities.openspec_change import OpenSpecChange
 from app.domain.entities.pull_request import PullRequest
 from app.domain.entities.repository import Repository
+from app.domain.entities.source_chunk import SourceChunk
 from app.domain.entities.source_file import SourceFile
 from app.domain.entities.sync_job import SyncJob, SyncStepResult
 from app.domain.value_objects.enums import (
+    ChunkType,
     ConnectionStatus,
     DocumentType,
     EmbeddingStatus,
@@ -30,6 +32,7 @@ from app.infrastructure.persistence.models import (
     OpenSpecChangeRow,
     PullRequestRow,
     RepositoryRow,
+    SourceChunkRow,
     SourceFileRow,
     SyncJobRow,
 )
@@ -244,6 +247,25 @@ def source_file_to_entity(row: SourceFileRow) -> SourceFile:
         is_important=row.is_important,
         important_kind=row.important_kind,
         last_seen_at=row.last_seen_at,
+        content=row.content,
+        content_captured=row.content_captured,
+        content_hash=row.content_hash,
+        quarantined=row.quarantined,
+    )
+
+
+def source_chunk_to_entity(row: SourceChunkRow) -> SourceChunk:
+    return SourceChunk(
+        id=row.id,
+        file_id=row.file_id,
+        repository_id=row.repository_id,
+        chunk_type=ChunkType(row.chunk_type),
+        symbol_name=row.symbol_name,
+        start_line=row.start_line,
+        end_line=row.end_line,
+        content=row.content,
+        content_hash=row.content_hash,
+        embedded=row.embedding is not None,
     )
 
 

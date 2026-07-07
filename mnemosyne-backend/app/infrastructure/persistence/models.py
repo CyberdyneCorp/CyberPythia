@@ -191,6 +191,34 @@ class SourceFileRow(Base):
     is_important: Mapped[bool] = mapped_column(Boolean, default=False)
     important_kind: Mapped[str | None] = mapped_column(String(50))
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Source-content capture (mode: code_context / full_context)
+    content: Mapped[str | None] = mapped_column(Text)
+    content_captured: Mapped[bool] = mapped_column(Boolean, default=False)
+    content_hash: Mapped[str | None] = mapped_column(String(64))
+    quarantined: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class SourceChunkRow(Base):
+    __tablename__ = "source_chunks"
+    __table_args__ = (
+        Index("ix_source_chunks_repo", "repository_id"),
+        Index("ix_source_chunks_symbol", "repository_id", "symbol_name"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    file_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("source_files.id", ondelete="CASCADE"), index=True
+    )
+    repository_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE")
+    )
+    chunk_type: Mapped[str] = mapped_column(String(20))
+    symbol_name: Mapped[str | None] = mapped_column(String(300))
+    start_line: Mapped[int] = mapped_column(Integer)
+    end_line: Mapped[int] = mapped_column(Integer)
+    content: Mapped[str] = mapped_column(Text)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    embedding: Mapped[Any] = mapped_column(Vector(1536), nullable=True)
 
 
 class SyncJobRow(Base):

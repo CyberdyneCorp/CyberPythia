@@ -11,20 +11,20 @@
 
 ## 2. Persistence
 
-- [ ] 2.1 SQLAlchemy `SourceChunkRow` (+ pgvector column) and new `source_files` columns; `SourceChunkPort`; Alembic migration `0002` (table, columns, repo/file/symbol indexes). Verify migration on real Postgres.
-- [ ] 2.2 Postgres `SourceChunkPort` adapter (replace-by-file, list-by-repository, get-by-symbol, delete-by-file) + integration tests.
-- [ ] 2.3 Extend file repository to persist/read `content`, `content_captured`, `content_hash`, `quarantined`; integration tests.
+- [x] 2.1 SQLAlchemy `SourceChunkRow` (+ pgvector column) and new `source_files` columns; `SourceChunkPort`; Alembic migration `0002` (table, columns, repo/file/symbol indexes). Verify migration on real Postgres.
+- [x] 2.2 Postgres `SourceChunkPort` adapter (replace-by-file, list-by-repository, get-by-symbol, delete-by-file) + integration tests.
+- [x] 2.3 Extend file repository to persist/read `content`, `content_captured`, `content_hash`, `quarantined`; integration tests.
 
 ## 3. Embeddings & retrieval
 
-- [ ] 3.1 Extend embedding store: `embed_source_file(file_id, repository_id, chunks)` writing to `source_chunks`, and `search_code(repository_id, query, limit)` querying only source chunks; degraded-mode fallback parity. Integration tests (fake OpenAI).
-- [ ] 3.2 Code search use case + symbol lookup use case + file-content use case (mode/quarantine/notfound guards, audit on content read). Unit tests with fakes.
-- [ ] 3.3 Related-files use case (import/reference heuristic over captured content, both directions). Unit tests.
+- [x] 3.1 Extend embedding store: `embed_source_file(file_id, repository_id, chunks)` writing to `source_chunks`, and `search_code(repository_id, query, limit)` querying only source chunks; degraded-mode fallback parity. Integration tests (fake OpenAI).
+- [x] 3.2 Code search use case + symbol lookup use case + file-content use case (mode/quarantine/notfound guards, audit on content read). Unit tests with fakes.
+- [x] 3.3 Related-files use case (import/reference heuristic over captured content, both directions). Unit tests.
 
 ## 4. Sync pipeline
 
-- [ ] 4.1 `_sync_source_code` step in the orchestrator: fetch content for tree files (mode-gated), apply ignore/denylist + size cap + binary/generated exclusion, secret-scan → quarantine, chunk via port, persist chunks, mark files captured; content-hash skip on re-sync. Wire into the handler map.
-- [ ] 4.2 Unit tests for the step: captures for code modes, skipped for lower modes, ignore/oversize/binary exclusion, secret quarantine (no chunks/embeds), re-sync skip on unchanged hash, replace on changed hash. Extend the end-to-end integration sync test with a `code_context` fixture repo.
+- [x] 4.1 `_sync_source_code` step in the orchestrator: fetch content for tree files (mode-gated), apply ignore/denylist + size cap + binary/generated exclusion, secret-scan → quarantine, chunk via port, persist chunks, mark files captured; content-hash skip on re-sync. Wire into the handler map.
+- [x] 4.2 Unit tests for the step: captures for code modes, skipped for lower modes, ignore/oversize/binary exclusion, secret quarantine (no chunks/embeds), re-sync skip on unchanged hash, replace on changed hash. Extend the end-to-end integration sync test with a `code_context` fixture repo.
 
 ## 5. Context packs
 

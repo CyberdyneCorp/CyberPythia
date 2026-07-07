@@ -33,6 +33,27 @@ class ChunkMatch:
     score: float
 
 
+@dataclass(frozen=True, slots=True)
+class CodeChunkMatch:
+    chunk_id: UUID
+    file_id: UUID
+    path: str
+    symbol_name: str | None
+    chunk_type: str
+    start_line: int
+    end_line: int
+    excerpt: str
+    score: float
+
+
+@dataclass(frozen=True, slots=True)
+class EmbeddableChunk:
+    """A source chunk ready to embed (identity + text)."""
+
+    chunk_id: UUID
+    text: str
+
+
 class EmbeddingPort(Protocol):
     async def embed_document(
         self, document_id: UUID, repository_id: UUID, chunks: list[str]
@@ -43,6 +64,14 @@ class EmbeddingPort(Protocol):
     async def search(
         self, repository_id: UUID, query: str, *, limit: int = 8
     ) -> list[ChunkMatch]: ...
+
+    async def embed_source_chunks(
+        self, repository_id: UUID, chunks: list[EmbeddableChunk]
+    ) -> int: ...
+
+    async def search_code(
+        self, repository_id: UUID, query: str, *, limit: int = 8
+    ) -> list[CodeChunkMatch]: ...
 
 
 class AnswerPort(Protocol):

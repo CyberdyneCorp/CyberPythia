@@ -7,8 +7,13 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import get_settings
-from app.domain.ports.infra_ports import ChunkMatch
-from app.infrastructure.persistence.models import DocumentChunkRow, DocumentRow
+from app.domain.ports.infra_ports import ChunkMatch, CodeChunkMatch, EmbeddableChunk
+from app.infrastructure.persistence.models import (
+    DocumentChunkRow,
+    DocumentRow,
+    SourceChunkRow,
+    SourceFileRow,
+)
 
 EXCERPT_CHARS = 400
 
@@ -94,6 +99,52 @@ class PgVectorEmbeddingStore:
                 score=max(0.0, 1.0 - float(dist)),  # cosine distance -> similarity
             )
             for chunk, doc, dist in rows
+        ]
+
+    async def embed_source_chunks(
+        self, repository_id: UUID, chunks: list[EmbeddableChunk]
+    ) -> int:
+        if not chunks:
+            return 0
+        vectors = await self._embed_texts([c.text for c in chunks])
+        async with self._session_factory() as session, session.begin():
+            for chunk, vector in zip(chunks, vectors, strict=True):
+                row = await session.get(SourceChunkRow, chunk.chunk_id)
+                if row is not None:
+                    row.embedding = vector
+        return len(chunks)
+
+    async def search_code(
+        self, repository_id: UUID, query: str, *, limit: int = 8
+    ) -> list[CodeChunkMatch]:
+        (query_vector,) = await self._embed_texts([query])
+        async with self._session_factory() as session:
+            distance = SourceChunkRow.embedding.cosine_distance(query_vector)
+            rows = (
+                await session.execute(
+                    select(SourceChunkRow, SourceFileRow, distance.label("distance"))
+                    .join(SourceFileRow, SourceFileRow.id == SourceChunkRow.file_id)
+                    .where(
+                        SourceChunkRow.repository_id == repository_id,
+                        SourceChunkRow.embedding.is_not(None),
+                    )
+                    .order_by(distance)
+                    .limit(limit)
+                )
+            ).all()
+        return [
+            CodeChunkMatch(
+                chunk_id=chunk.id,
+                file_id=chunk.file_id,
+                path=file.path,
+                symbol_name=chunk.symbol_name,
+                chunk_type=chunk.chunk_type,
+                start_line=chunk.start_line,
+                end_line=chunk.end_line,
+                excerpt=chunk.content[:EXCERPT_CHARS],
+                score=max(0.0, 1.0 - float(dist)),
+            )
+            for chunk, file, dist in rows
         ]
 
 

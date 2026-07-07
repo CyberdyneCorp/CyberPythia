@@ -20,10 +20,17 @@ from app.domain.entities.issue import Issue
 from app.domain.entities.openspec_change import OpenSpecChange
 from app.domain.entities.pull_request import PullRequest
 from app.domain.entities.repository import Repository
+from app.domain.entities.source_chunk import SourceChunk
 from app.domain.entities.source_file import SourceFile
 from app.domain.entities.sync_job import SyncJob
+from app.domain.ports.code_chunker_port import CodeChunkerPort
 from app.domain.ports.github_port import GitHubFileData, GitHubNotFoundError, GitHubPort
-from app.domain.ports.infra_ports import EmbeddingPort, ObjectStoragePort, SyncLockPort
+from app.domain.ports.infra_ports import (
+    EmbeddableChunk,
+    EmbeddingPort,
+    ObjectStoragePort,
+    SyncLockPort,
+)
 from app.domain.ports.persistence_ports import (
     DocumentPort,
     FilePort,
@@ -31,6 +38,7 @@ from app.domain.ports.persistence_ports import (
     OpenSpecPort,
     PullRequestPort,
     RepositoryPort,
+    SourceChunkPort,
     SyncJobPort,
 )
 from app.domain.services.document_classifier import (
@@ -104,8 +112,11 @@ class SyncRepositoryUseCase:
         storage: ObjectStoragePort,
         embeddings: EmbeddingPort,
         metrics_writer: MetricsWriter,
+        source_chunks: SourceChunkPort,
+        code_chunker: CodeChunkerPort,
         issue_metrics_service: IssueMetricsService | None = None,
         pr_metrics_service: PullRequestMetricsService | None = None,
+        source_size_cap: int = 512 * 1024,
     ) -> None:
         self._repositories = repositories
         self._documents = documents
@@ -120,6 +131,9 @@ class SyncRepositoryUseCase:
         self._storage = storage
         self._embeddings = embeddings
         self._metrics_writer = metrics_writer
+        self._source_chunks = source_chunks
+        self._code_chunker = code_chunker
+        self._source_size_cap = source_size_cap
         self._issue_metrics = issue_metrics_service or IssueMetricsService()
         self._pr_metrics = pr_metrics_service or PullRequestMetricsService()
 
@@ -154,6 +168,7 @@ class SyncRepositoryUseCase:
             SyncStep.ISSUES: self._sync_issues,
             SyncStep.PULL_REQUESTS: self._sync_pull_requests,
             SyncStep.FILE_TREE: self._sync_file_tree,
+            SyncStep.SOURCE_CODE: self._sync_source_code,
             SyncStep.EMBEDDINGS: self._sync_embeddings,
             SyncStep.METRICS: self._sync_metrics,
         }
@@ -355,6 +370,63 @@ class SyncRepositoryUseCase:
         ]
         await self._files.replace_tree(ctx.repository.id, files)
         return len(files)
+
+    async def _sync_source_code(self, ctx: "_SyncContext") -> int:
+        """Capture, chunk, and embed authorized source content (spec: code-context)."""
+        policy = await self._load_policy(ctx)
+        files = await self._files.list_by_repository(ctx.repository.id)
+        captured = 0
+        for file in files:
+            if file.is_binary or policy.is_ignored(file.path):
+                continue
+            if file.size_bytes > self._source_size_cap:
+                continue
+            try:
+                content = await self._github.get_file_content(
+                    ctx.token, ctx.full_name, file.path
+                )
+            except GitHubNotFoundError:
+                continue
+            content_hash = hashlib.sha256(content.encode()).hexdigest()
+            if file.content_captured and file.content_hash == content_hash:
+                continue  # unchanged: no re-chunk / re-embed (spec)
+
+            if has_secrets(content):
+                file.quarantined = True
+                file.content = None
+                file.content_captured = False
+                file.content_hash = content_hash
+                await self._files.save_content(file)
+                await self._source_chunks.delete_for_file(file.id)
+                continue
+
+            file.content = content
+            file.content_captured = True
+            file.quarantined = False
+            file.content_hash = content_hash
+            await self._files.save_content(file)
+
+            chunks = [
+                SourceChunk(
+                    id=uuid4(),
+                    file_id=file.id,
+                    repository_id=ctx.repository.id,
+                    chunk_type=c.chunk_type,
+                    symbol_name=c.symbol_name,
+                    start_line=c.start_line,
+                    end_line=c.end_line,
+                    content=c.content,
+                    content_hash=hashlib.sha256(c.content.encode()).hexdigest(),
+                )
+                for c in self._code_chunker.chunk(file.path, content, file.language)
+            ]
+            await self._source_chunks.replace_for_file(file.id, chunks)
+            await self._embeddings.embed_source_chunks(
+                ctx.repository.id,
+                [EmbeddableChunk(chunk_id=c.id, text=c.content) for c in chunks],
+            )
+            captured += 1
+        return captured
 
     async def _sync_embeddings(self, ctx: "_SyncContext") -> int:
         documents = await self._documents.list_by_repository(ctx.repository.id)

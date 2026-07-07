@@ -19,6 +19,7 @@ from app.domain.ports.github_port import (
     GitHubPullRequestData,
     GitHubRepoData,
 )
+from app.domain.services.code_chunker import HeuristicCodeChunker
 from app.domain.value_objects.enums import (
     EmbeddingStatus,
     IndexingMode,
@@ -37,6 +38,7 @@ from tests.unit.application.fakes import (
     FakeOpenSpecPort,
     FakePullRequestPort,
     FakeRepositoryPort,
+    FakeSourceChunkPort,
     FakeStorage,
     FakeSyncJobPort,
     FakeSyncLock,
@@ -48,6 +50,7 @@ NOW = datetime(2026, 7, 7, tzinfo=UTC)
 class FakeEmbeddings:
     def __init__(self):
         self.embedded: dict = {}
+        self.code_embedded: list = []
 
     async def embed_document(self, document_id, repository_id, chunks):
         self.embedded[document_id] = chunks
@@ -57,6 +60,13 @@ class FakeEmbeddings:
         self.embedded.pop(document_id, None)
 
     async def search(self, repository_id, query, *, limit=8):
+        return []
+
+    async def embed_source_chunks(self, repository_id, chunks):
+        self.code_embedded.extend(chunks)
+        return len(chunks)
+
+    async def search_code(self, repository_id, query, *, limit=8):
         return []
 
 
@@ -161,6 +171,7 @@ def env():
     sync_jobs = FakeSyncJobPort()
     embeddings = FakeEmbeddings()
     metrics_store = FakeMetricsStore()
+    source_chunks = FakeSourceChunkPort()
 
     use_case = SyncRepositoryUseCase(
         repositories=repositories,
@@ -176,6 +187,8 @@ def env():
         storage=FakeStorage(),
         embeddings=embeddings,
         metrics_writer=MetricsWriter(store=metrics_store),
+        source_chunks=source_chunks,
+        code_chunker=HeuristicCodeChunker(),
     )
     return {
         "use_case": use_case,
@@ -190,6 +203,7 @@ def env():
         "sync_jobs": sync_jobs,
         "embeddings": embeddings,
         "metrics_store": metrics_store,
+        "source_chunks": source_chunks,
     }
 
 

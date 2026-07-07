@@ -11,6 +11,7 @@ from app.domain.entities.issue import Issue
 from app.domain.entities.openspec_change import OpenSpecChange
 from app.domain.entities.pull_request import PullRequest
 from app.domain.entities.repository import Repository
+from app.domain.entities.source_chunk import SourceChunk
 from app.domain.entities.source_file import SourceFile
 from app.domain.entities.sync_job import SyncJob
 
@@ -81,6 +82,22 @@ class FilePort(Protocol):
     async def replace_tree(self, repository_id: UUID, files: list[SourceFile]) -> None: ...
 
     async def list_by_repository(self, repository_id: UUID) -> list[SourceFile]: ...
+
+    async def get(self, file_id: UUID) -> SourceFile | None: ...
+
+    async def get_by_path(self, repository_id: UUID, path: str) -> SourceFile | None: ...
+
+    async def save_content(self, file: SourceFile) -> None: ...
+
+
+class SourceChunkPort(Protocol):
+    async def replace_for_file(self, file_id: UUID, chunks: list[SourceChunk]) -> None: ...
+
+    async def delete_for_file(self, file_id: UUID) -> None: ...
+
+    async def list_by_repository(self, repository_id: UUID) -> list[SourceChunk]: ...
+
+    async def get_by_symbol(self, repository_id: UUID, symbol_name: str) -> list[SourceChunk]: ...
 
 
 class SyncJobPort(Protocol):

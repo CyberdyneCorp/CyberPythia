@@ -6,11 +6,13 @@ from functools import cached_property
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.application.audit import AuditService
+from app.application.use_cases.code import CodeUseCases
 from app.application.use_cases.context import ContextUseCases
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
 from app.application.use_cases.repositories import RepositoryUseCases
 from app.application.use_cases.sync_repository import MetricsWriter, SyncRepositoryUseCase
 from app.config import Settings, get_settings
+from app.domain.services.code_chunker import HeuristicCodeChunker
 from app.infrastructure.auth.cyberdyne_auth import CyberdyneAuthAdapter
 from app.infrastructure.github.client import GitHubClient
 from app.infrastructure.llm.openai_answerer import OpenAIAnswerer
@@ -26,6 +28,7 @@ from app.infrastructure.persistence.repositories.misc import (
     PostgresContextPackRepository,
     PostgresFileRepository,
     PostgresMetricsRepository,
+    PostgresSourceChunkRepository,
     PostgresSyncJobRepository,
 )
 from app.infrastructure.persistence.repositories.repositories import PostgresRepositoryRepository
@@ -107,6 +110,17 @@ class Container:
         return PostgresFileRepository(self.session_factory)
 
     @cached_property
+    def source_chunks(self) -> PostgresSourceChunkRepository:
+        return PostgresSourceChunkRepository(self.session_factory)
+
+    @cached_property
+    def code_chunker(self) -> HeuristicCodeChunker:
+        return HeuristicCodeChunker(
+            window_lines=self.settings.code_window_lines,
+            overlap=self.settings.code_window_overlap,
+        )
+
+    @cached_property
     def sync_jobs(self) -> PostgresSyncJobRepository:
         return PostgresSyncJobRepository(self.session_factory)
 
@@ -175,6 +189,19 @@ class Container:
             storage=self.storage,
             embeddings=self.embeddings,
             metrics_writer=MetricsWriter(store=self.metrics_store),
+            source_chunks=self.source_chunks,
+            code_chunker=self.code_chunker,
+            source_size_cap=self.settings.source_size_cap_bytes,
+        )
+
+    @cached_property
+    def code_use_cases(self) -> CodeUseCases:
+        return CodeUseCases(
+            repositories=self.repositories,
+            files=self.files,
+            source_chunks=self.source_chunks,
+            embeddings=self.embeddings,
+            audit=self.audit_service,
         )
 
 

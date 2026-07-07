@@ -25,3 +25,11 @@ class RepositoryNotSyncedError(ApplicationError):
 
 class SyncAlreadyRunningError(ApplicationError):
     """A sync is already running for this repository (spec: repository-sync)."""
+
+
+class SourceNotIndexedError(ApplicationError):
+    """Repository is not indexed for source code (mode below code_context)."""
+
+
+class ContentUnavailableError(ApplicationError):
+    """Requested file content was not captured (wrong mode, ignored, quarantined…)."""

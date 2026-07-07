@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     stale_pr_days: int = 30
     sync_lock_ttl_seconds: int = 3600
 
+    # Source-code indexing (Phase 3)
+    source_size_cap_bytes: int = 512 * 1024
+    code_window_lines: int = 80
+    code_window_overlap: int = 10
+
     @property
     def jwks_url(self) -> str:
         return self.cyberdyneauth_jwks_url or f"{self.cyberdyneauth_issuer}/.well-known/jwks.json"
