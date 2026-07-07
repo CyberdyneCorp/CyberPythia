@@ -12,6 +12,7 @@ from app.domain.entities.context_pack import (
     IssueRef,
     OpenSpecRef,
     PullRequestRef,
+    SourceChunkRef,
 )
 from app.domain.entities.repository import Repository
 from app.domain.ports.infra_ports import AnswerPort, ChunkMatch, EmbeddingPort
@@ -184,6 +185,25 @@ class ContextUseCases:
         else:
             excluded.append("files")
 
+        source_chunks: list[SourceChunkRef] = []
+        if mode.includes_source_code:
+            matches = await self._embeddings.search_code(repository_id, query, limit=TOP_N)
+            source_chunks = [
+                SourceChunkRef(
+                    path=m.path,
+                    symbol_name=m.symbol_name,
+                    chunk_type=m.chunk_type,
+                    start_line=m.start_line,
+                    end_line=m.end_line,
+                    score=round(m.score, 4),
+                    excerpt=m.excerpt,
+                )
+                for m in matches
+                if m.score >= MIN_SCORE
+            ]
+        else:
+            excluded.append("source_code")
+
         pack = ContextPack(
             id=uuid4(),
             repository_id=repository_id,
@@ -195,6 +215,7 @@ class ContextUseCases:
             relevant_issues=relevant_issues,
             relevant_pull_requests=relevant_prs,
             relevant_files=relevant_files,
+            source_chunks=source_chunks,
             risks=_derive_risks(relevant_docs, relevant_openspec, excluded),
             suggested_next_steps=_derive_next_steps(relevant_docs, relevant_openspec),
             excluded_categories=excluded,

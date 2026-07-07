@@ -193,6 +193,7 @@ class ContextPackResponse(BaseModel):
     relevant_issues: list[dict[str, Any]]
     relevant_pull_requests: list[dict[str, Any]]
     relevant_files: list[dict[str, Any]]
+    source_chunks: list[dict[str, Any]]
     risks: list[str]
     suggested_next_steps: list[str]
     excluded_categories: list[str]

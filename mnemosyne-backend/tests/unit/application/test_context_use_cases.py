@@ -36,6 +36,7 @@ NOW = datetime(2026, 7, 7, tzinfo=UTC)
 class FakeSearchEmbeddings:
     def __init__(self):
         self.matches: list[ChunkMatch] = []
+        self.code_matches: list = []
 
     async def embed_document(self, document_id, repository_id, chunks):
         return len(chunks)
@@ -45,6 +46,12 @@ class FakeSearchEmbeddings:
 
     async def search(self, repository_id, query, *, limit=8):
         return self.matches[:limit]
+
+    async def embed_source_chunks(self, repository_id, chunks):
+        return len(chunks)
+
+    async def search_code(self, repository_id, query, *, limit=8):
+        return self.code_matches[:limit]
 
 
 class FakeContextPackPort:
@@ -224,7 +231,9 @@ class TestBuildContextPack:
         pack = await env["use_cases"].build_context_pack(repo.id, "anything docs")
         assert pack.relevant_issues == []
         assert pack.relevant_pull_requests == []
-        assert set(pack.excluded_categories) == {"issues", "pull_requests", "files"}
+        assert set(pack.excluded_categories) == {
+            "issues", "pull_requests", "files", "source_code"
+        }
         assert any("not indexed" in r for r in pack.risks)
 
     async def test_code_metadata_mode_includes_files(self, env):
@@ -298,3 +307,28 @@ class TestAskDeduplicatesSources:
         paths = [s["path"] for s in result["sources"]]
         assert paths == ["docs/2fa.md", "README.md"]  # deduped, order preserved
         assert result["sources"][0]["score"] == 0.8  # kept the higher score
+
+
+class TestContextPackSourceChunks:
+    async def test_code_mode_pack_includes_source_chunks(self, env):
+        from app.domain.ports.infra_ports import CodeChunkMatch
+
+        repo = await seed_repo(env, mode=IndexingMode.CODE_CONTEXT)
+        env["embeddings"].matches = [doc_match()]
+        env["embeddings"].code_matches = [
+            CodeChunkMatch(
+                chunk_id=uuid4(), file_id=uuid4(), path="src/gpu.cpp",
+                symbol_name="dispatch", chunk_type="function",
+                start_line=1, end_line=5, excerpt="void dispatch()", score=0.8,
+            )
+        ]
+        pack = await env["use_cases"].build_context_pack(repo.id, "dispatch kernels")
+        assert pack.source_chunks[0].symbol_name == "dispatch"
+        assert "source_code" not in pack.excluded_categories
+
+    async def test_non_code_mode_excludes_source(self, env):
+        repo = await seed_repo(env, mode=IndexingMode.PROJECT_INTELLIGENCE)
+        env["embeddings"].matches = [doc_match()]
+        pack = await env["use_cases"].build_context_pack(repo.id, "anything")
+        assert pack.source_chunks == []
+        assert "source_code" in pack.excluded_categories

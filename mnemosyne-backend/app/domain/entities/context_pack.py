@@ -47,6 +47,17 @@ class FileRef:
     score: float
 
 
+@dataclass(frozen=True, slots=True)
+class SourceChunkRef:
+    path: str
+    symbol_name: str | None
+    chunk_type: str
+    start_line: int
+    end_line: int
+    score: float
+    excerpt: str | None = None
+
+
 @dataclass(slots=True)
 class ContextPack:
     id: UUID
@@ -59,6 +70,7 @@ class ContextPack:
     relevant_issues: list[IssueRef] = field(default_factory=list)
     relevant_pull_requests: list[PullRequestRef] = field(default_factory=list)
     relevant_files: list[FileRef] = field(default_factory=list)
+    source_chunks: list[SourceChunkRef] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
     suggested_next_steps: list[str] = field(default_factory=list)
     excluded_categories: list[str] = field(default_factory=list)  # mode-excluded content

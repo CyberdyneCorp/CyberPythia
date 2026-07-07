@@ -17,6 +17,7 @@ from app.domain.entities.context_pack import (
     IssueRef,
     OpenSpecRef,
     PullRequestRef,
+    SourceChunkRef,
 )
 from app.domain.entities.source_chunk import SourceChunk
 from app.domain.entities.source_file import SourceFile
@@ -211,6 +212,7 @@ class PostgresContextPackRepository(PostgresRepositoryBase):
                 "relevant_issues": [asdict(i) for i in pack.relevant_issues],
                 "relevant_pull_requests": [asdict(p) for p in pack.relevant_pull_requests],
                 "relevant_files": [asdict(f) for f in pack.relevant_files],
+                "source_chunks": [asdict(c) for c in pack.source_chunks],
                 "risks": pack.risks,
                 "suggested_next_steps": pack.suggested_next_steps,
                 "excluded_categories": pack.excluded_categories,
@@ -261,6 +263,7 @@ class PostgresContextPackRepository(PostgresRepositoryBase):
                     PullRequestRef(**pr) for pr in p.get("relevant_pull_requests", [])
                 ],
                 relevant_files=[FileRef(**f) for f in p.get("relevant_files", [])],
+                source_chunks=[SourceChunkRef(**c) for c in p.get("source_chunks", [])],
                 risks=p.get("risks", []),
                 suggested_next_steps=p.get("suggested_next_steps", []),
                 excluded_categories=p.get("excluded_categories", []),

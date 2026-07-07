@@ -28,7 +28,7 @@
 
 ## 5. Context packs
 
-- [ ] 5.1 Include `source_chunks` in `build_context_pack` for code modes (via `search_code`); add `source_code` to excluded categories otherwise. Persist/serialize in the ContextPack entity + cache. Unit tests for code-mode and non-code-mode packs.
+- [x] 5.1 Include `source_chunks` in `build_context_pack` for code modes (via `search_code`); add `source_code` to excluded categories otherwise. Persist/serialize in the ContextPack entity + cache. Unit tests for code-mode and non-code-mode packs.
 
 ## 6. REST API
 
