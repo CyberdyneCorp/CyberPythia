@@ -21,6 +21,19 @@ Coolify → New Resource → **Docker Compose** → this repository, compose fil
 | `OPENAI_API_KEY` | embeddings + ask (optional → degraded mode) | 🔒 |
 | `PUBLIC_API_BASE_URL` | `https://mnemosyne.backend.<domain>` | |
 | `PUBLIC_AUTH_CLIENT_ID` | `mnemosyne-web` | |
+| `SCHEDULED_SYNC_ENABLED` | `true` (default) — daily full re-sync of all enabled repos | |
+| `SCHEDULED_SYNC_HOUR` | UTC hour for the daily sync (default `3`) | |
+| `SCHEDULED_SYNC_MINUTE` | minute of that hour (default `0`) | |
+
+## Scheduled daily sync
+
+The `mnemosyne-worker` runs an `arq` cron once per day (default **03:00 UTC**) that enqueues a
+full sync for every **enabled** repository, so metrics, health, delivery analytics, and the
+metrics time-series refresh at least daily even without webhooks. It reuses the normal sync
+pipeline: a repo already syncing is skipped, the daily fan-out is absorbed by the worker's
+`max_jobs` limit and per-repo locks, and one repo failing does not stop the rest. Set
+`SCHEDULED_SYNC_ENABLED=false` to turn it off, or change the hour/minute. It logs
+`scheduled full sync: enqueued=… skipped=… failed=…` on each run.
 
 ## 3. Domains
 

@@ -8,11 +8,14 @@ from typing import Any, ClassVar
 from uuid import UUID
 
 from arq.connections import RedisSettings
+from arq.cron import cron
 
 from app.composition import build_container
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+_settings = get_settings()
 
 
 async def startup(ctx: dict[str, Any]) -> None:
@@ -36,8 +39,29 @@ async def sync_repository(ctx: dict[str, Any], repository_id: str, job_id: str) 
     return str(job.status.value)
 
 
+async def scheduled_full_sync(ctx: dict[str, Any]) -> str:
+    """Daily cron: enqueue a full sync for every enabled repository."""
+    container = ctx["container"]
+    summary = await container.scheduled_sync.run()
+    return f"enqueued={summary.enqueued} skipped={summary.skipped} failed={summary.failed}"
+
+
+def _cron_jobs() -> list[Any]:
+    if not _settings.scheduled_sync_enabled:
+        return []
+    return [
+        cron(
+            scheduled_full_sync,
+            hour=_settings.scheduled_sync_hour,
+            minute=_settings.scheduled_sync_minute,
+            run_at_startup=False,
+        )
+    ]
+
+
 class WorkerSettings:
     functions: ClassVar = [sync_repository]
+    cron_jobs: ClassVar[list[Any]] = _cron_jobs()
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)

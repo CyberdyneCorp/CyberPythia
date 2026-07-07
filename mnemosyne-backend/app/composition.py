@@ -15,6 +15,7 @@ from app.application.use_cases.incremental_sync import IncrementalSyncUseCases
 from app.application.use_cases.intelligence import IntelligenceService
 from app.application.use_cases.process_webhook import ProcessWebhookDelivery
 from app.application.use_cases.repositories import RepositoryUseCases
+from app.application.use_cases.scheduled_sync import ScheduledSyncService
 from app.application.use_cases.sync_repository import MetricsWriter, SyncRepositoryUseCase
 from app.config import Settings, get_settings
 from app.domain.services.code_chunker import HeuristicCodeChunker
@@ -275,6 +276,10 @@ class Container:
             signals=RepositorySignalsService(),
             health=RepositoryHealthService(),
         )
+
+    @cached_property
+    def scheduled_sync(self) -> ScheduledSyncService:
+        return ScheduledSyncService(self.repositories, self.repository_use_cases)
 
     @cached_property
     def delivery_intelligence(self) -> DeliveryIntelligenceService:

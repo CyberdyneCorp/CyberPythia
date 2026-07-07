@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     code_window_lines: int = 80
     code_window_overlap: int = 10
 
+    # Scheduled daily full sync (runs in the worker)
+    scheduled_sync_enabled: bool = True
+    scheduled_sync_hour: int = 3  # UTC hour, off-peak
+    scheduled_sync_minute: int = 0
+
     @property
     def jwks_url(self) -> str:
         return self.cyberdyneauth_jwks_url or f"{self.cyberdyneauth_issuer}/.well-known/jwks.json"
