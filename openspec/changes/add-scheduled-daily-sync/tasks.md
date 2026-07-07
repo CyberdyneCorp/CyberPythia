@@ -15,4 +15,4 @@
 ## 3. Docs, gate, deploy, verify
 
 - [x] 3.1 Docs: note the daily schedule + env vars in `docs/deploy-coolify.md` and the README updates section.
-- [ ] 3.2 Full gate: ruff, mypy --strict, unit ≥ 90%, integration, `openspec validate --all --strict`, docker build. Deploy the worker. Verify the cron is registered (log on startup) and that a manual invocation of `scheduled_full_sync` enqueues syncs for the enabled repos.
+- [x] 3.2 Full gate: ruff, mypy --strict, unit ≥ 90%, integration, `openspec validate --all --strict`, docker build. Deploy the worker. Verify the cron is registered (log on startup) and that a manual invocation of `scheduled_full_sync` enqueues syncs for the enabled repos.
