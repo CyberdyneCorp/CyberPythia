@@ -54,10 +54,12 @@ test.describe('populated dashboard', () => {
     await page.getByRole('link', { name: 'CyberdyneCorp/CyberdyneAuth' }).click();
     await page.getByRole('button', { name: 'Agent Context', exact: true }).click();
     await page
-      .getByPlaceholder(/How is authentication implemented/)
+      .getByPlaceholder(/Ask anything about this repository/)
       .fill('How does two-factor authentication work?');
-    await page.getByRole('button', { name: 'Go' }).click();
-    await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible({ timeout: 60_000 });
+    await page.getByRole('button', { name: 'Ask', exact: true }).click();
+    // the answer card renders with a numbered SOURCES section
+    await expect(page.locator('.answer')).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('.sources').getByText('Sources')).toBeVisible();
   });
 });
 
