@@ -12,10 +12,10 @@ test.describe('engineering intelligence', () => {
     await expect(page.getByRole('heading', { name: 'Health leaderboard' })).toBeVisible({
       timeout: 20_000
     });
-    // both indexed pilots appear in the leaderboard with a grade badge
-    const row = page.locator('tr', { hasText: 'CyberdyneCorp/CyberPythia' });
-    await expect(row).toBeVisible();
-    await expect(row.locator('.badge')).toBeVisible();
+    // the pilot appears in the leaderboard list with a grade chip
+    const row = page.locator('.lrow', { hasText: 'CyberdyneCorp/CyberPythia' });
+    await expect(row.first()).toBeVisible();
+    await expect(row.first().locator('.gradechip')).toBeVisible();
   });
 
   test('repository detail shows the health panel', async ({ page }) => {

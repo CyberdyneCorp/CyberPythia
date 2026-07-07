@@ -3,32 +3,64 @@
   import type { AppContext } from '$lib/appContext';
   import { IntelligenceViewModel } from '$lib/viewmodels/IntelligenceViewModel.svelte';
   import { DeliveryViewModel } from '$lib/viewmodels/DeliveryViewModel.svelte';
+  import type { DeliveryScorecardEntry, PortfolioEntry } from '$lib/models';
 
   const ctx = getContext<AppContext>('app');
   const vm = new IntelligenceViewModel(ctx.intelligenceApi);
   const deliveryVm = new DeliveryViewModel(ctx.intelligenceApi);
+
+  const CAP = 25;
+  let boardFilter = $state('');
+  let boardAll = $state(false);
+  let cardFilter = $state('');
+  let cardAll = $state(false);
 
   $effect(() => {
     void vm.loadPortfolio();
     void deliveryVm.loadScorecard();
   });
 
-  function arrow(direction: string | null): string {
-    if (direction === 'down') return '↓ improving';
-    if (direction === 'up') return '↑ growing';
-    if (direction === 'flat') return '→ flat';
-    return '—';
+  function gradeColor(grade: string | null): string {
+    if (grade === 'A' || grade === 'B') return 'var(--green)';
+    if (grade === 'C') return 'var(--ac)';
+    if (grade === 'D' || grade === 'F') return 'var(--red)';
+    return 'var(--tx3)';
+  }
+  function gradeBg(grade: string | null): string {
+    if (grade === 'A' || grade === 'B') return 'var(--greenb)';
+    if (grade === 'C') return 'var(--acb)';
+    if (grade === 'D' || grade === 'F') return 'var(--redb)';
+    return 'var(--panel2)';
   }
 
-  function gradeClass(grade: string | null): string {
-    if (!grade) return '';
-    return grade === 'A' || grade === 'B' ? 'ok' : grade === 'F' ? 'err' : '';
+  function matches<T extends { full_name: string }>(list: T[], q: string, all: boolean): T[] {
+    const f = q.trim().toLowerCase();
+    const hit = f ? list.filter((e) => e.full_name.toLowerCase().includes(f)) : list;
+    return f || all ? hit : hit.slice(0, CAP);
+  }
+
+  const board = $derived(vm.overview ? matches(vm.overview.leaderboard, boardFilter, boardAll) : []);
+  const cards = $derived(matches(deliveryVm.scorecard, cardFilter, cardAll));
+
+  function arrow(d: string | null): string {
+    if (d === 'down') return '↓ improving';
+    if (d === 'up') return '↑ growing';
+    if (d === 'flat') return '→ flat';
+    return '—';
+  }
+  function scoreW(e: PortfolioEntry): string {
+    return e.overall !== null ? `${e.overall}%` : '0%';
   }
 </script>
 
-<h1>Engineering Intelligence</h1>
-<p class="muted">
-  Portfolio health across indexed repositories. Scores are computed from the latest sync —
+<div class="page-head">
+  <h1>Engineering Intelligence</h1>
+  {#if vm.overview}
+    <span class="mono sub">{vm.overview.scored} of {vm.overview.total_repositories} scored</span>
+  {/if}
+</div>
+<p class="muted lede">
+  Portfolio health and delivery across indexed repositories. Scores come from the latest sync;
   repositories not yet synced show as insufficient data.
 </p>
 
@@ -37,99 +69,240 @@
 
 {#if vm.overview}
   {@const o = vm.overview}
-  <p class="muted">{o.scored} of {o.total_repositories} repositories scored</p>
 
-  <h2>Health leaderboard</h2>
-  <div class="card">
-    <table>
-      <thead><tr><th>Repository</th><th>Grade</th><th>Score</th></tr></thead>
-      <tbody>
-        {#each o.leaderboard as entry (entry.repository_id)}
-          <tr>
-            <td><a href={`/repos/${entry.repository_id}`}>{entry.full_name}</a></td>
-            <td>
-              {#if entry.has_data}
-                <span class="badge {gradeClass(entry.grade)}">{entry.grade}</span>
-              {:else}
-                <span class="muted">insufficient data</span>
-              {/if}
-            </td>
-            <td>{entry.overall ?? '—'}</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
+  <!-- Health leaderboard -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2 class="title">Health leaderboard</h2>
+      <span class="mono eyebrow-inline">score 0–100 · grade A–F</span>
+      <input class="mini-filter" placeholder="Filter…" bind:value={boardFilter} />
+    </div>
+    {#each board as entry, i (entry.repository_id)}
+      <a class="lrow" href={`/repos/${entry.repository_id}`}>
+        <span class="mono rank">{boardFilter ? '' : i + 1}</span>
+        <span class="name">{entry.full_name}</span>
+        {#if entry.has_data}
+          <span class="bar"><span class="fill" style="width:{scoreW(entry)};background:{gradeColor(entry.grade)}"></span></span>
+          <span class="mono score">{entry.overall}</span>
+          <span class="mono gradechip" style="color:{gradeColor(entry.grade)};background:{gradeBg(entry.grade)}">{entry.grade}</span>
+        {:else}
+          <span class="insufficient">insufficient data</span>
+        {/if}
+      </a>
+    {/each}
+    {#if !boardFilter && o.leaderboard.length > CAP}
+      <button class="showall secondary" onclick={() => (boardAll = !boardAll)}>
+        {boardAll ? 'Show top 25' : `Show all ${o.leaderboard.length}`}
+      </button>
+    {/if}
+  </section>
 
-  <div class="grid">
-    <div class="card">
-      <h3>Most active</h3>
+  <!-- Groupings -->
+  <div class="grid3">
+    <div class="panel">
+      <div class="panel-head"><span class="ico ok-c">▲</span><span class="title">Most active</span></div>
       {#if o.most_active.length}
-        <ul>{#each o.most_active as name, i (i)}<li>{name}</li>{/each}</ul>
-      {:else}<p class="muted">—</p>{/if}
+        {#each o.most_active as name, i (i)}<div class="grow">{name}</div>{/each}
+      {:else}<div class="grow muted">—</div>{/if}
     </div>
-    <div class="card">
-      <h3>Abandoned</h3>
+    <div class="panel">
+      <div class="panel-head"><span class="ico muted">◴</span><span class="title">Abandoned</span></div>
       {#if o.abandoned.length}
-        <ul>{#each o.abandoned as name, i (i)}<li>{name}</li>{/each}</ul>
-      {:else}<p class="muted">None</p>{/if}
+        {#each o.abandoned as name, i (i)}<div class="grow">{name}</div>{/each}
+      {:else}<div class="grow muted">None</div>{/if}
     </div>
-    <div class="card">
-      <h3>Bug-heavy</h3>
+    <div class="panel">
+      <div class="panel-head"><span class="ico err-c">●</span><span class="title">Bug-heavy</span></div>
       {#if o.bug_heavy.length}
-        <ul>{#each o.bug_heavy as name, i (i)}<li>{name}</li>{/each}</ul>
-      {:else}<p class="muted">—</p>{/if}
+        {#each o.bug_heavy as name, i (i)}<div class="grow">{name}</div>{/each}
+      {:else}<div class="grow muted">—</div>{/if}
     </div>
   </div>
 {/if}
 
-<h2>Delivery scorecard</h2>
-<p class="muted">
-  PM/PO delivery signals per repository. Throughput direction and backlog trend need
-  accrued history — they fill in as daily snapshots accumulate.
-</p>
-{#if deliveryVm.error}<p class="error">{deliveryVm.error}</p>{/if}
-{#if deliveryVm.scorecard.length}
-  <div class="card">
-    <table>
-      <thead>
-        <tr>
-          <th>Repository</th><th>Median cycle</th><th>Throughput</th>
-          <th>Backlog</th><th>At-risk milestones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each deliveryVm.scorecard as e (e.repository_id)}
-          <tr>
-            <td><a href={`/repos/${e.repository_id}`}>{e.full_name}</a></td>
-            <td>{e.has_data && e.median_cycle_days !== null ? `${e.median_cycle_days} d` : '—'}</td>
-            <td>{arrow(e.throughput_direction)}</td>
-            <td>
-              {#if e.backlog_shrinking === null}<span class="muted">collecting</span>
-              {:else if e.backlog_shrinking}<span class="badge ok">shrinking</span>
-              {:else}<span class="badge">not shrinking</span>{/if}
-            </td>
-            <td>{e.at_risk_milestones > 0 ? `⚠ ${e.at_risk_milestones}` : '—'}</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+<!-- Delivery scorecard -->
+<section class="panel">
+  <div class="panel-head">
+    <h2 class="title">Delivery scorecard</h2>
+    <span class="mono eyebrow-inline">PM/PO signals · trends fill as history accrues</span>
+    <input class="mini-filter" placeholder="Filter…" bind:value={cardFilter} />
   </div>
-{:else if !deliveryVm.busy}
-  <p class="muted">No delivery data yet.</p>
-{/if}
+  {#if deliveryVm.error}<p class="error pad">{deliveryVm.error}</p>{/if}
+  {#if cards.length}
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Repository</th><th>Median cycle</th><th>Throughput</th><th>Backlog</th><th>At-risk</th></tr>
+        </thead>
+        <tbody>
+          {#each cards as e (e.repository_id)}
+            <tr>
+              <td><a href={`/repos/${e.repository_id}`}>{e.full_name}</a></td>
+              <td class="num">{e.has_data && e.median_cycle_days !== null ? `${e.median_cycle_days} d` : '—'}</td>
+              <td class="mono">{arrow(e.throughput_direction)}</td>
+              <td>
+                {#if e.backlog_shrinking === null}<span class="muted mono small">collecting</span>
+                {:else if e.backlog_shrinking}<span class="badge ok">shrinking</span>
+                {:else}<span class="badge">not shrinking</span>{/if}
+              </td>
+              <td class="num">{e.at_risk_milestones > 0 ? `⚠ ${e.at_risk_milestones}` : '—'}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+    {#if !cardFilter && deliveryVm.scorecard.length > CAP}
+      <button class="showall secondary" onclick={() => (cardAll = !cardAll)}>
+        {cardAll ? 'Show top 25' : `Show all ${deliveryVm.scorecard.length}`}
+      </button>
+    {/if}
+  {:else if !deliveryVm.busy}
+    <p class="muted pad">No delivery data yet.</p>
+  {/if}
+</section>
 
 <style>
-  .grid {
+  .page-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+  .sub {
+    font-size: 0.75rem;
+    color: var(--tx3);
+  }
+  .lede {
+    font-size: 0.85rem;
+    margin: 0.4rem 0 1.3rem;
+    max-width: 640px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--sh);
+    overflow: hidden;
+    margin-bottom: 1.1rem;
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.8rem 1.1rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .panel-head .title {
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: var(--tx2);
+  }
+  .eyebrow-inline {
+    font-size: 0.66rem;
+    color: var(--tx3);
+    letter-spacing: 0.04em;
+  }
+  .mini-filter {
+    margin-left: auto;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.78rem;
+    width: 150px;
+  }
+  .lrow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 1.1rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--tx);
+  }
+  .lrow:hover {
+    background: var(--panel2);
+    color: var(--tx);
+  }
+  .rank {
+    width: 20px;
+    font-size: 0.66rem;
+    color: var(--tx3);
+  }
+  .lrow .name {
+    flex: 1;
+    font-size: 0.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bar {
+    width: 90px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--line);
+    overflow: hidden;
+    flex: none;
+  }
+  .fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+  }
+  .score {
+    width: 26px;
+    text-align: right;
+    font-size: 0.72rem;
+    color: var(--tx2);
+    font-variant-numeric: tabular-nums;
+  }
+  .gradechip {
+    width: 22px;
+    text-align: center;
+    padding: 0.12rem 0;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  .insufficient {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.62rem;
+    color: var(--tx3);
+    border: 1px dashed var(--line2);
+    border-radius: 4px;
+    padding: 0.12rem 0.5rem;
+  }
+  .showall {
+    margin: 0.6rem 1.1rem;
+    font-size: 0.78rem;
+  }
+  .grid3 {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 0.9rem;
+    margin-bottom: 1.1rem;
   }
-  .card {
-    margin-bottom: 1rem;
+  .ico {
+    font-size: 0.75rem;
   }
-  ul {
-    margin: 0;
-    padding-left: 1.1rem;
+  .ok-c {
+    color: var(--green);
+  }
+  .err-c {
+    color: var(--red);
+  }
+  .grow {
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .scroll {
+    max-height: 560px;
+    overflow: auto;
+  }
+  .small {
+    font-size: 0.7rem;
+  }
+  .pad {
+    padding: 0.8rem 1.1rem;
   }
 </style>

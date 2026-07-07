@@ -48,7 +48,7 @@
 
 <div class="tabs">
   {#each TABS as tab (tab.id)}
-    <button class:active={vm.tab === tab.id} class="secondary" onclick={() => vm.open(tab.id)}>
+    <button class="tab" class:active={vm.tab === tab.id} onclick={() => vm.open(tab.id)}>
       {tab.label}
     </button>
   {/each}
@@ -300,13 +300,31 @@
 <style>
   .tabs {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.25rem;
     flex-wrap: wrap;
-    margin-bottom: 1rem;
+    margin: 0.4rem 0 1.2rem;
+    border-bottom: 1px solid var(--line);
   }
-  .tabs button.active {
-    border-color: var(--accent);
-    color: var(--accent);
+  .tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 0.55rem 0.75rem;
+    margin-bottom: -1px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--tx3);
+    white-space: nowrap;
+  }
+  .tab:hover {
+    color: var(--tx);
+    opacity: 1;
+  }
+  .tab.active {
+    color: var(--tx);
+    border-bottom-color: var(--ac);
+    font-weight: 600;
   }
   .stats {
     display: grid;
