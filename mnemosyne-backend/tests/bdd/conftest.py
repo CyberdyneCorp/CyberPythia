@@ -76,11 +76,17 @@ def _stack_env(mock) -> dict[str, str]:
         "CYBERDYNEAUTH_ISSUER": mock.issuer,
         "CYBERDYNEAUTH_TOKEN_ISSUER": mock.issuer,
         "AUTH_VALIDATION_MODE": "jwks",
+        # Hermetic authz config: env vars beat any developer .env file
+        "REQUIRED_ENTITLEMENT": "mnemosyne",
+        "SERVICE_AUDIENCE": "mnemosyne",
+        "ADMIN_SCOPE": "mnemosyne:admin",
         "GITHUB_API_BASE_URL": mock.github_base,
         "TOKEN_ENCRYPTION_KEY": "8Fbp2VYZbYSbi77Yv6y0kJ0hE-pO_TB0aq1V1jXcCAU=",
         "MCP_PORT": str(MCP_PORT),
-        "OPENAI_API_KEY": "",
-        "EMBEDDING_MODEL": "test",
+        # Inherit a real key when the caller exports one (exercises real
+        # embeddings + answer synthesis); empty -> deterministic degraded mode.
+        "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", ""),
+        "EMBEDDING_MODEL": os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small"),
     }
 
 

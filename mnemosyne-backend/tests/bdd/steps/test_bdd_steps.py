@@ -271,3 +271,18 @@ def mcp_anonymous_rejected(state):
             _mcp_call(state["mcp_url_anon"], None, "mnemosyne_list_repositories", {})
         )
     assert isinstance(excinfo.value, ToolError) or "unauth" in str(excinfo.value).lower()
+
+
+@when(parsers.parse('an agent asks "{question}"'))
+def ask_question(api, state, question):
+    response = api.post(f"/api/v1/repos/{state['repo_id']}/ask", json={"question": question})
+    assert response.status_code == 200, response.text
+    state["answer"] = response.json()
+
+
+@then("the answer is grounded with source citations")
+def answer_grounded(state):
+    answer = state["answer"]
+    assert answer["grounded"] is True, answer
+    assert answer["answer"]
+    assert any(s["path"] == "docs/gpu-backend.md" for s in answer["sources"]), answer["sources"]
