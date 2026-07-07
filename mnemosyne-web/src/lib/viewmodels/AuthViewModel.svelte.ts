@@ -13,6 +13,7 @@ export class AuthViewModel {
   displayName = $state<string | null>(null);
   entitlement = $state<EntitlementState>('unknown');
   loading = $state(true);
+  signInError = $state<string | null>(null);
 
   constructor(
     private auth: CyberdyneAuthService,
@@ -46,8 +47,15 @@ export class AuthViewModel {
     }
   }
 
-  signIn(returnTo?: string): Promise<void> {
-    return this.auth.signIn(returnTo);
+  async signIn(returnTo?: string): Promise<void> {
+    this.signInError = null;
+    try {
+      await this.auth.signIn(returnTo);
+    } catch (error) {
+      // signinRedirect failing (e.g. discovery fetch blocked by CORS) must be
+      // visible, not a dead button (prod bug 2026-07-07).
+      this.signInError = error instanceof Error ? error.message : String(error);
+    }
   }
 
   async signOut(): Promise<void> {

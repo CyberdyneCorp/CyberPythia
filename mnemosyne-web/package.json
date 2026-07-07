@@ -9,13 +9,15 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
-    "start": "node build"
+    "start": "node build",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "marked": "^15.0.0",
     "oidc-client-ts": "^3.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@sveltejs/adapter-node": "^5.2.0",
     "@sveltejs/kit": "^2.16.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",

@@ -47,6 +47,9 @@
           repositories, documentation, issues, metrics, and agent context packs.
         </p>
         <button onclick={() => authVm.signIn(page.url.pathname)}>Connect with Cyberdyne</button>
+        {#if authVm.signInError}
+          <p class="error">Sign-in failed: {authVm.signInError}</p>
+        {/if}
       </div>
     {:else if authVm.entitlement === 'denied'}
       <div class="card gate">

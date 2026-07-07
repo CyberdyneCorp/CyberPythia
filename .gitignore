@@ -24,3 +24,7 @@ build/
 .idea/
 .vscode/
 .bdd-logs/
+
+# Playwright
+test-results/
+playwright-report/
