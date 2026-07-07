@@ -7,14 +7,26 @@
   const vm = new ConnectionsViewModel(ctx.githubApi, ctx.repositoriesApi);
 
   let token = $state('');
+  let appId = $state('');
+  let installationId = $state('');
+  let privateKey = $state('');
+  let webhookSecret = $state('');
 
   $effect(() => {
     void vm.load();
+    void vm.loadDeliveries();
   });
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     if (await vm.connect(token)) token = '';
+  }
+
+  async function submitApp(event: SubmitEvent) {
+    event.preventDefault();
+    if (await vm.connectApp(appId, installationId, privateKey, webhookSecret)) {
+      appId = installationId = privateKey = webhookSecret = '';
+    }
   }
 </script>
 
@@ -39,6 +51,48 @@
   </div>
   {#if vm.error}<p class="error">{vm.error}</p>{/if}
 </form>
+
+<h2>GitHub App (recommended)</h2>
+<p class="muted">
+  Register a GitHub App installation for short-lived scoped tokens and near-real-time
+  webhook updates. Point the App webhook at <code>/api/v1/webhooks/github</code>.
+</p>
+<form class="card" onsubmit={submitApp}>
+  <div class="row">
+    <input bind:value={appId} placeholder="App ID" required />
+    <input bind:value={installationId} placeholder="Installation ID" required />
+  </div>
+  <textarea
+    bind:value={privateKey}
+    placeholder="-----BEGIN PRIVATE KEY-----&#10;…App private key PEM…"
+    rows="4"
+  ></textarea>
+  <div class="row">
+    <input type="password" bind:value={webhookSecret} placeholder="Webhook secret" required />
+    <button disabled={vm.busy || appId.length < 1 || privateKey.length < 40}>
+      Connect App
+    </button>
+  </div>
+</form>
+
+{#if vm.deliveries.length}
+  <h2>Webhook activity</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Event</th><th>Repository</th><th>Outcome</th><th>When</th></tr></thead>
+      <tbody>
+        {#each vm.deliveries as d, i (i)}
+          <tr>
+            <td>{d.event}{#if d.action}<span class="muted"> · {d.action}</span>{/if}</td>
+            <td>{d.repository_full_name ?? '—'}</td>
+            <td><span class="badge {d.outcome === 'processed' ? 'ok' : ''}">{d.outcome}</span></td>
+            <td class="muted">{new Date(d.received_at).toLocaleString()}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+{/if}
 
 {#each vm.connections as connection (connection.id)}
   <div class="card connection">

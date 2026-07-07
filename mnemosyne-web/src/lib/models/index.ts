@@ -11,9 +11,20 @@ export interface Connection {
   id: string;
   owner: string;
   owner_type: string;
+  kind: string;
   token_hint: string;
   permissions: string[];
   status: string;
+  installation_id: string | null;
+}
+
+export interface WebhookDelivery {
+  delivery_id: string;
+  event: string;
+  action: string | null;
+  repository_full_name: string | null;
+  outcome: string;
+  received_at: string;
 }
 
 export interface ConnectionTest {

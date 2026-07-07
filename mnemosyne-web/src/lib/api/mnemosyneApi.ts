@@ -17,6 +17,7 @@ import type {
   PullRequest,
   Repository,
   RepositorySummary,
+  WebhookDelivery,
   SearchMatch,
   SourceFile,
   SyncJob
@@ -27,6 +28,25 @@ export class GitHubApi {
 
   connect(token: string): Promise<Connection> {
     return this.http.post('/api/v1/github/connect', { token });
+  }
+  connectApp(
+    appId: string,
+    installationId: string,
+    privateKey: string,
+    webhookSecret: string
+  ): Promise<Connection> {
+    return this.http.post('/api/v1/github/app/connect', {
+      app_id: appId,
+      installation_id: installationId,
+      private_key: privateKey,
+      webhook_secret: webhookSecret
+    });
+  }
+  discoverAppRepos(connectionId: string): Promise<Repository[]> {
+    return this.http.post(`/api/v1/github/app/installations/${connectionId}/repos`);
+  }
+  webhookDeliveries(): Promise<WebhookDelivery[]> {
+    return this.http.get('/api/v1/admin/webhook-deliveries');
   }
   listConnections(): Promise<Connection[]> {
     return this.http.get('/api/v1/github/connections');

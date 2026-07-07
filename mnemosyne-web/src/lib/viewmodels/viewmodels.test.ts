@@ -282,3 +282,42 @@ describe('CodeSearchViewModel', () => {
     expect(called).toBe(false);
   });
 });
+
+describe('ConnectionsViewModel — GitHub App', () => {
+  it('connectApp success reloads', async () => {
+    const conns: unknown[] = [];
+    const githubApi = {
+      connectApp: async () => {
+        conns.push({ id: 'c1', kind: 'github_app' });
+        return { id: 'c1' } as never;
+      },
+      listConnections: async () => conns as never
+    };
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    expect(await vm.connectApp('1', '99', '-'.repeat(50), 'sec')).toBe(true);
+    expect(vm.connections).toHaveLength(1);
+  });
+
+  it('loadDeliveries populates activity, swallows errors', async () => {
+    const githubApi = {
+      webhookDeliveries: async () => [
+        {
+          delivery_id: 'd1',
+          event: 'push',
+          action: null,
+          repository_full_name: 'cyberdyne/a',
+          outcome: 'processed',
+          received_at: '2026-07-07T00:00:00Z'
+        }
+      ]
+    };
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    await vm.loadDeliveries();
+    expect(vm.deliveries).toHaveLength(1);
+
+    const failing = { webhookDeliveries: async () => { throw new Error('boom'); } };
+    const vm2 = new ConnectionsViewModel(failing as never, {} as never);
+    await vm2.loadDeliveries();
+    expect(vm2.deliveries).toEqual([]);
+  });
+});

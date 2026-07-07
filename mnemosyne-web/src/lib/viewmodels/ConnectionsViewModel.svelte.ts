@@ -1,12 +1,13 @@
 /** Admin GitHub connection screen state (spec: web-ui). */
 import { ApiError } from '$lib/api/http';
 import type { GitHubApi, RepositoriesApi } from '$lib/api/mnemosyneApi';
-import type { Connection, ConnectionTest, Repository } from '$lib/models';
+import type { Connection, ConnectionTest, Repository, WebhookDelivery } from '$lib/models';
 
 export class ConnectionsViewModel {
   connections = $state<Connection[]>([]);
   testResults = $state<Record<string, ConnectionTest>>({});
   discovered = $state<Repository[] | null>(null);
+  deliveries = $state<WebhookDelivery[]>([]);
   busy = $state(false);
   error = $state<string | null>(null);
 
@@ -31,6 +32,34 @@ export class ConnectionsViewModel {
       return false;
     } finally {
       this.busy = false;
+    }
+  }
+
+  async connectApp(
+    appId: string,
+    installationId: string,
+    privateKey: string,
+    webhookSecret: string
+  ): Promise<boolean> {
+    this.busy = true;
+    this.error = null;
+    try {
+      await this.githubApi.connectApp(appId, installationId, privateKey, webhookSecret);
+      await this.load();
+      return true;
+    } catch (error) {
+      this.error = error instanceof ApiError ? error.message : 'app connection failed';
+      return false;
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  async loadDeliveries(): Promise<void> {
+    try {
+      this.deliveries = await this.githubApi.webhookDeliveries();
+    } catch {
+      // deliveries are best-effort; ignore load failures
     }
   }
 

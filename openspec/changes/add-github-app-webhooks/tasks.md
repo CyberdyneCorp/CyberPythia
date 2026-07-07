@@ -38,8 +38,8 @@
 
 ## 7. Web UI
 
-- [ ] 7.1 GitHub App connection form (app id, installation id, private key, webhook secret; masked) + discovery trigger; webhook activity panel from `/admin/webhook-deliveries`. API client + viewmodel additions.
-- [ ] 7.2 Viewmodel unit tests; build/check green.
+- [x] 7.1 GitHub App connection form (app id, installation id, private key, webhook secret; masked) + discovery trigger; webhook activity panel from `/admin/webhook-deliveries`. API client + viewmodel additions.
+- [x] 7.2 Viewmodel unit tests; build/check green.
 
 ## 8. Docs, deploy, verification
 
