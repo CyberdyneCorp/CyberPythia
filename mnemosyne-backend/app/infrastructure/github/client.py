@@ -24,6 +24,7 @@ from app.domain.ports.infra_ports import ObjectStoragePort
 
 API_BASE = "https://api.github.com"
 MAX_PAGES = 100  # hard bound: 100 pages x 100 items
+MAX_SERVER_ERROR_RETRIES = 2
 _BINARY_EXTENSIONS = {
     "png", "jpg", "jpeg", "gif", "ico", "pdf", "zip", "tar", "gz", "whl",
     "so", "dylib", "dll", "exe", "bin", "woff", "woff2", "ttf", "eot",
@@ -61,8 +62,9 @@ class GitHubClient:
         }
 
     async def _request(self, method: str, url: str, token: str, **kwargs: Any) -> httpx.Response:
-        """Single request with rate-limit sleep-until-reset (design D6)."""
-        for _ in range(self._max_rate_limit_waits + 1):
+        """Single request with rate-limit backoff and transient-5xx retry (design D6)."""
+        server_error_retries = 0
+        for _ in range(self._max_rate_limit_waits + 1 + MAX_SERVER_ERROR_RETRIES):
             response = await self._client.request(
                 method, url, headers=self._headers(token), **kwargs
             )
@@ -73,6 +75,11 @@ class GitHubClient:
                 reset = int(response.headers.get("X-RateLimit-Reset", "0"))
                 delay = max(1.0, reset - datetime.now(UTC).timestamp() + 1)
                 await asyncio.sleep(min(delay, 3600))
+                continue
+            if response.status_code >= 500 and server_error_retries < MAX_SERVER_ERROR_RETRIES:
+                # GitHub intermittently 502s (seen live on /issues); retry briefly
+                server_error_retries += 1
+                await asyncio.sleep(server_error_retries)
                 continue
             break
         if response.status_code == 401:

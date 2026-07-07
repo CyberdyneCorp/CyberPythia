@@ -193,3 +193,23 @@ async def test_rate_limit_backoff_then_success():
     repo = await GitHubClient().get_repository(TOKEN, "cyberdyne/a")
     assert repo.full_name == "cyberdyne/a"
     assert route.call_count == 2
+
+
+@respx.mock
+async def test_transient_502_retried_then_success():
+    route = respx.get(f"{API_BASE}/rate_limit")
+    route.side_effect = [
+        httpx.Response(502),
+        httpx.Response(200, json={"resources": {"core": {"limit": 5000, "remaining": 42}}}),
+    ]
+    result = await GitHubClient().get_rate_limit(TOKEN)
+    assert result["remaining"] == 42
+    assert route.call_count == 2
+
+
+@respx.mock
+async def test_persistent_5xx_raises_after_retries():
+    route = respx.get(f"{API_BASE}/rate_limit").mock(return_value=httpx.Response(502))
+    with pytest.raises(httpx.HTTPStatusError):
+        await GitHubClient().get_rate_limit(TOKEN)
+    assert route.call_count == 3  # initial + 2 retries
