@@ -204,3 +204,80 @@ class TestDefaultAuthenticator:
         patched_headers["headers"] = {"authorization": "Bearer auth-down"}
         with pytest.raises(ToolError, match="auth_unavailable"):
             await self.call(container)
+
+
+class TestCodeTools:
+    async def _code_repo(self, container):
+        from app.domain.entities.repository import Repository
+        from app.domain.value_objects.enums import IndexingMode, RepositoryVisibility
+        from app.domain.value_objects.full_name import RepositoryFullName
+
+        repo = Repository(
+            id=uuid4(), connection_id=uuid4(), github_id=1,
+            full_name=RepositoryFullName("cyberdyne/a"), description="d",
+            visibility=RepositoryVisibility.PRIVATE, default_branch="main",
+            primary_language="C++", archived=False, github_updated_at=NOW,
+            enabled=True, indexing_mode=IndexingMode.CODE_CONTEXT, last_synced_at=NOW,
+        )
+        await container.repositories.save(repo)
+        return repo
+
+    async def test_search_code(self, mcp, container):
+        from app.domain.ports.infra_ports import CodeChunkMatch
+
+        await self._code_repo(container)
+        container.embeddings.code_matches = [
+            CodeChunkMatch(
+                chunk_id=uuid4(), file_id=uuid4(), path="src/gpu.cpp",
+                symbol_name="dispatch", chunk_type="function",
+                start_line=1, end_line=5, excerpt="void dispatch()", score=0.9,
+            )
+        ]
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "mnemosyne_search_code", {"full_name": "cyberdyne/a", "query": "dispatch"}
+            )
+        assert as_list(payload(result))[0]["symbol_name"] == "dispatch"
+
+    async def test_search_code_mode_excluded(self, mcp, container):
+        # default seed_repo is project_intelligence -> not a code mode
+        await seed_repo(container)
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "mnemosyne_search_code", {"full_name": "cyberdyne/a", "query": "x y"}
+            )
+        assert payload(result)["error"]["code"] == "mode_excludes_content"
+
+    async def test_file_content(self, mcp, container):
+        from app.domain.entities.source_file import SourceFile
+
+        repo = await self._code_repo(container)
+        f = SourceFile(
+            id=uuid4(), repository_id=repo.id, path="src/gpu.cpp", extension="cpp",
+            language="C++", size_bytes=20, sha="s", content="void dispatch(){}",
+            content_captured=True, content_hash="h",
+        )
+        await container.files.replace_tree(repo.id, [f])
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "mnemosyne_get_file_content",
+                {"full_name": "cyberdyne/a", "path": "src/gpu.cpp"},
+            )
+        assert payload(result)["content"] == "void dispatch(){}"
+
+    async def test_explain_structure(self, mcp, container):
+        from app.domain.entities.source_file import SourceFile
+
+        repo = await self._code_repo(container)
+        await container.files.replace_tree(
+            repo.id,
+            [SourceFile(id=uuid4(), repository_id=repo.id, path="src/a.py",
+                        extension="py", language="Python", size_bytes=5, sha="s")],
+        )
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "mnemosyne_explain_repository_structure", {"full_name": "cyberdyne/a"}
+            )
+        body = payload(result)
+        assert body["file_count"] == 1
+        assert body["languages"].get("Python") == 1

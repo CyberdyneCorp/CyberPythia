@@ -45,6 +45,11 @@ EXPECTED_TOOLS = {
     "mnemosyne_find_stale_prs",
     "mnemosyne_build_context_pack",
     "mnemosyne_answer_from_repo_context",
+    "mnemosyne_search_code",
+    "mnemosyne_get_symbol_context",
+    "mnemosyne_get_file_content",
+    "mnemosyne_get_related_files",
+    "mnemosyne_explain_repository_structure",
 }
 
 

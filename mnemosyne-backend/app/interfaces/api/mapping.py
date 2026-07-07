@@ -4,9 +4,11 @@ from dataclasses import asdict
 
 from app.application.errors import (
     ApplicationError,
+    ContentUnavailableError,
     InvalidCredentialError,
     MissingPermissionsError,
     RepositoryNotSyncedError,
+    SourceNotIndexedError,
     SyncAlreadyRunningError,
     UnknownResourceError,
 )
@@ -41,6 +43,10 @@ def translate_error(exc: ApplicationError) -> ApiError:
         return ConflictError(f"a sync is already running for {exc}", code="sync_already_running")
     if isinstance(exc, RepositoryNotSyncedError):
         return ConflictError(str(exc), code="repository_not_synced")
+    if isinstance(exc, SourceNotIndexedError):
+        return ConflictError(str(exc), code="source_not_indexed")
+    if isinstance(exc, ContentUnavailableError):
+        return NotFoundError(str(exc))
     if isinstance(exc, MissingPermissionsError):
         return ApiError(str(exc), code="missing_permissions", status_code=400)
     if isinstance(exc, InvalidCredentialError):

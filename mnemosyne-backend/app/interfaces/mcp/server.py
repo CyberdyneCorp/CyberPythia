@@ -411,6 +411,112 @@ def build_mcp(
         await container.audit_service.record(caller, "mcp.ask", target=full_name)
         return result
 
+    # -- code tools -----------------------------------------------------------------
+
+    async def _code_error(exc: ApplicationError) -> dict[str, Any]:
+        from app.application.errors import (
+            ContentUnavailableError,
+            SourceNotIndexedError,
+            UnknownResourceError,
+        )
+        from app.application.errors import (
+            RepositoryNotSyncedError as _NotSynced,
+        )
+
+        if isinstance(exc, SourceNotIndexedError):
+            return _error("mode_excludes_content", str(exc))
+        if isinstance(exc, _NotSynced):
+            return _error("repository_not_synced", str(exc))
+        if isinstance(exc, ContentUnavailableError):
+            return _error("content_unavailable", str(exc))
+        if isinstance(exc, UnknownResourceError):
+            return _error("not_found", str(exc))
+        return _error("application_error", str(exc))
+
+    @mcp.tool
+    async def mnemosyne_search_code(
+        full_name: str, query: str, limit: int = 8
+    ) -> list[dict[str, Any]] | dict[str, Any]:
+        """Semantic search over a repository's source code (mode code_context/full_context)."""
+        await auth()
+        repository = await container.repositories.get_by_full_name(full_name)
+        if repository is None or not repository.enabled:
+            return _error("unknown_repository", f"repository '{full_name}' is not indexed")
+        try:
+            matches = await container.code_use_cases.search_code(
+                repository.id, query, limit=max(1, min(limit, 25))
+            )
+        except ApplicationError as exc:
+            return await _code_error(exc)
+        return [
+            {
+                "path": m.path,
+                "symbol_name": m.symbol_name,
+                "chunk_type": m.chunk_type,
+                "start_line": m.start_line,
+                "end_line": m.end_line,
+                "excerpt": m.excerpt,
+                "score": round(m.score, 4),
+            }
+            for m in matches
+        ]
+
+    @mcp.tool
+    async def mnemosyne_get_symbol_context(
+        full_name: str, symbol_name: str
+    ) -> list[dict[str, Any]] | dict[str, Any]:
+        """Look up source chunks defining a symbol by name."""
+        await auth()
+        repository = await container.repositories.get_by_full_name(full_name)
+        if repository is None or not repository.enabled:
+            return _error("unknown_repository", f"repository '{full_name}' is not indexed")
+        try:
+            return await container.code_use_cases.symbols(repository.id, symbol_name)
+        except ApplicationError as exc:
+            return await _code_error(exc)
+
+    @mcp.tool
+    async def mnemosyne_get_file_content(full_name: str, path: str) -> dict[str, Any]:
+        """Get the captured content of a source file by path."""
+        caller = await auth()
+        repository = await container.repositories.get_by_full_name(full_name)
+        if repository is None or not repository.enabled:
+            return _error("unknown_repository", f"repository '{full_name}' is not indexed")
+        file = await container.files.get_by_path(repository.id, path)
+        if file is None:
+            return _error("not_found", f"file '{path}' not found in '{full_name}'")
+        try:
+            return await container.code_use_cases.file_content(repository.id, file.id, caller)
+        except ApplicationError as exc:
+            return await _code_error(exc)
+
+    @mcp.tool
+    async def mnemosyne_get_related_files(full_name: str, path: str) -> dict[str, Any]:
+        """Find files related to a given file via import/reference heuristics."""
+        await auth()
+        repository = await container.repositories.get_by_full_name(full_name)
+        if repository is None or not repository.enabled:
+            return _error("unknown_repository", f"repository '{full_name}' is not indexed")
+        file = await container.files.get_by_path(repository.id, path)
+        if file is None:
+            return _error("not_found", f"file '{path}' not found in '{full_name}'")
+        try:
+            return await container.code_use_cases.related_files(repository.id, file.id)
+        except ApplicationError as exc:
+            return await _code_error(exc)
+
+    @mcp.tool
+    async def mnemosyne_explain_repository_structure(full_name: str) -> dict[str, Any]:
+        """Summarize the tree, languages, important files, and (code modes) key symbols."""
+        await auth()
+        repository = await container.repositories.get_by_full_name(full_name)
+        if repository is None or not repository.enabled:
+            return _error("unknown_repository", f"repository '{full_name}' is not indexed")
+        try:
+            return await container.code_use_cases.explain_structure(repository.id)
+        except ApplicationError as exc:
+            return await _code_error(exc)
+
     return mcp
 
 

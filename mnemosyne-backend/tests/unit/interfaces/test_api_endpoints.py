@@ -8,6 +8,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.application.audit import AuditService
+from app.application.use_cases.code import CodeUseCases
 from app.application.use_cases.context import ContextUseCases
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
 from app.application.use_cases.repositories import RepositoryUseCases
@@ -35,6 +36,7 @@ from tests.unit.application.fakes import (
     FakePullRequestPort,
     FakeQueue,
     FakeRepositoryPort,
+    FakeSourceChunkPort,
     FakeStorage,
     FakeSyncJobPort,
     FakeSyncLock,
@@ -56,6 +58,12 @@ class FakeSearchEmbeddings:
 
     async def search(self, repository_id, query, *, limit=8):
         return self.matches[:limit]
+
+    async def embed_source_chunks(self, repository_id, chunks):
+        return len(chunks)
+
+    async def search_code(self, repository_id, query, *, limit=8):
+        return getattr(self, "code_matches", [])[:limit]
 
 
 class FakeContextPackPort:
@@ -128,6 +136,14 @@ def build_fake_container():
         answerer=FakeAnswerer(),
         metrics_store=metrics_store,
     )
+    source_chunks = FakeSourceChunkPort()
+    code_uc = CodeUseCases(
+        repositories=repositories,
+        files=files,
+        source_chunks=source_chunks,
+        embeddings=embeddings,
+        audit=AuditService(audit_port),
+    )
     return SimpleNamespace(
         settings=None,
         session_factory=FakeSessionFactory(),
@@ -151,6 +167,8 @@ def build_fake_container():
         connection_use_cases=connection_uc,
         repository_use_cases=repo_uc,
         context_use_cases=context_uc,
+        code_use_cases=code_uc,
+        source_chunks=source_chunks,
     )
 
 
@@ -411,6 +429,10 @@ class TestOpenApiContract:
             "/api/v1/repos/{repo_id}/search",
             "/api/v1/repos/{repo_id}/ask",
             "/api/v1/repos/{repo_id}/context-pack",
+            "/api/v1/repos/{repo_id}/code-search",
+            "/api/v1/repos/{repo_id}/symbols",
+            "/api/v1/repos/{repo_id}/files/{file_id}/content",
+            "/api/v1/repos/{repo_id}/files/{file_id}/related",
             "/api/v1/health",
         }
         missing = expected - paths
@@ -452,3 +474,79 @@ class TestCors:
                 },
             )
         assert "access-control-allow-origin" not in response.headers
+
+
+class TestCodeEndpoints:
+    async def test_code_search_on_code_repo(self, client, container):
+        from app.domain.ports.infra_ports import CodeChunkMatch
+
+        repo = await seed_repo(container, mode=IndexingMode.CODE_CONTEXT)
+        container.embeddings.code_matches = [
+            CodeChunkMatch(
+                chunk_id=uuid4(), file_id=uuid4(), path="src/gpu.cpp",
+                symbol_name="dispatch", chunk_type="function",
+                start_line=1, end_line=5, excerpt="void dispatch()", score=0.9,
+            )
+        ]
+        async with client as c:
+            response = await c.post(
+                f"/api/v1/repos/{repo.id}/code-search",
+                json={"query": "dispatch"}, headers=user(),
+            )
+        assert response.status_code == 200
+        assert response.json()[0]["symbol_name"] == "dispatch"
+
+    async def test_code_search_on_non_code_repo_409(self, client, container):
+        repo = await seed_repo(container, mode=IndexingMode.PROJECT_INTELLIGENCE)
+        async with client as c:
+            response = await c.post(
+                f"/api/v1/repos/{repo.id}/code-search",
+                json={"query": "dispatch"}, headers=user(),
+            )
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "source_not_indexed"
+
+    async def test_file_content_and_audit(self, client, container):
+        from app.domain.entities.source_file import SourceFile
+
+        repo = await seed_repo(container, mode=IndexingMode.CODE_CONTEXT)
+        f = SourceFile(
+            id=uuid4(), repository_id=repo.id, path="src/gpu.cpp", extension="cpp",
+            language="C++", size_bytes=20, sha="s", content="void dispatch(){}",
+            content_captured=True, content_hash="h",
+        )
+        await container.files.replace_tree(repo.id, [f])
+        async with client as c:
+            response = await c.get(
+                f"/api/v1/repos/{repo.id}/files/{f.id}/content", headers=user()
+            )
+        assert response.status_code == 200
+        assert response.json()["content"] == "void dispatch(){}"
+        assert any(r.operation == "code.file_content" for r in container.audit_port.records)
+
+    async def test_file_content_quarantined_404(self, client, container):
+        from app.domain.entities.source_file import SourceFile
+
+        repo = await seed_repo(container, mode=IndexingMode.CODE_CONTEXT)
+        f = SourceFile(
+            id=uuid4(), repository_id=repo.id, path="src/keys.py", extension="py",
+            language="Python", size_bytes=20, sha="s", quarantined=True,
+            content=None, content_captured=False,
+        )
+        await container.files.replace_tree(repo.id, [f])
+        async with client as c:
+            response = await c.get(
+                f"/api/v1/repos/{repo.id}/files/{f.id}/content", headers=user()
+            )
+        assert response.status_code == 404
+
+    async def test_symbols_requires_entitlement(self, client, container):
+        repo = await seed_repo(container, mode=IndexingMode.CODE_CONTEXT)
+        async with client as c:
+            no_token = await c.get(f"/api/v1/repos/{repo.id}/symbols")
+            denied = await c.get(
+                f"/api/v1/repos/{repo.id}/symbols",
+                headers={"Authorization": "Bearer unentitled-token"},
+            )
+        assert no_token.status_code == 401
+        assert denied.status_code == 403

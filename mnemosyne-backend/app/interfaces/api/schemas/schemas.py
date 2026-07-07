@@ -67,7 +67,8 @@ class RepositoryResponse(BaseModel):
 class RepositorySelectionRequest(BaseModel):
     enabled: bool
     indexing_mode: str | None = Field(
-        default=None, pattern="^(docs_only|project_intelligence|code_metadata)$"
+        default=None,
+        pattern="^(docs_only|project_intelligence|code_metadata|code_context|full_context)$",
     )
 
 
@@ -176,6 +177,28 @@ class AskResponse(BaseModel):
     answer: str
     sources: list[dict[str, Any]]
     grounded: bool
+
+
+class CodeSearchRequest(BaseModel):
+    query: str = Field(min_length=2, max_length=1000)
+    limit: int = Field(default=8, ge=1, le=25)
+
+
+class CodeChunkMatchResponse(BaseModel):
+    path: str
+    symbol_name: str | None
+    chunk_type: str
+    start_line: int
+    end_line: int
+    excerpt: str
+    score: float
+
+
+class FileContentResponse(BaseModel):
+    path: str
+    language: str | None
+    size_bytes: int
+    content: str
 
 
 class ContextPackRequest(BaseModel):

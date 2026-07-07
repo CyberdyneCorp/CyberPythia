@@ -32,13 +32,13 @@
 
 ## 6. REST API
 
-- [ ] 6.1 Endpoints: `GET /repos/{id}/files/{file_id}/content`, `POST /repos/{id}/code-search`, `GET /repos/{id}/symbols`, `GET /repos/{id}/files/{file_id}/related`; schemas; 409 for non-code repos; audit on content read; OpenAPI security.
-- [ ] 6.2 Interface tests (auth matrix + mode gating + not-indexed 409 + content of quarantined/missing file).
+- [x] 6.1 Endpoints: `GET /repos/{id}/files/{file_id}/content`, `POST /repos/{id}/code-search`, `GET /repos/{id}/symbols`, `GET /repos/{id}/files/{file_id}/related`; schemas; 409 for non-code repos; audit on content read; OpenAPI security.
+- [x] 6.2 Interface tests (auth matrix + mode gating + not-indexed 409 + content of quarantined/missing file).
 
 ## 7. MCP tools
 
-- [ ] 7.1 `mnemosyne_get_file_content`, `mnemosyne_search_code`, `mnemosyne_get_symbol_context`, `mnemosyne_get_related_files`, `mnemosyne_explain_repository_structure` with `mode_excludes_content` / `repository_not_synced` structured errors.
-- [ ] 7.2 MCP interface tests (tool listing includes the code tools; happy path on a seeded code-mode repo; mode/unsynced errors).
+- [x] 7.1 `mnemosyne_get_file_content`, `mnemosyne_search_code`, `mnemosyne_get_symbol_context`, `mnemosyne_get_related_files`, `mnemosyne_explain_repository_structure` with `mode_excludes_content` / `repository_not_synced` structured errors.
+- [x] 7.2 MCP interface tests (tool listing includes the code tools; happy path on a seeded code-mode repo; mode/unsynced errors).
 
 ## 8. Web UI
 

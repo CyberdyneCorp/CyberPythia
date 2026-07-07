@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.application.audit import AuditService
 from app.application.errors import ApplicationError
+from app.application.use_cases.code import CodeUseCases
 from app.application.use_cases.context import ContextUseCases
 from app.application.use_cases.repositories import RepositoryUseCases
 from app.domain.value_objects.enums import IndexingMode
@@ -27,8 +28,11 @@ from app.interfaces.api.schemas.schemas import (
     MAX_PAGE_SIZE,
     AskRequest,
     AskResponse,
+    CodeChunkMatchResponse,
+    CodeSearchRequest,
     ContextPackRequest,
     ContextPackResponse,
+    FileContentResponse,
     Page,
     RepositoryResponse,
     RepositorySelectionRequest,
@@ -53,12 +57,17 @@ def get_context_use_cases(request: Request) -> ContextUseCases:
     return cast(ContextUseCases, request.app.state.container.context_use_cases)
 
 
+def get_code_use_cases(request: Request) -> CodeUseCases:
+    return cast(CodeUseCases, request.app.state.container.code_use_cases)
+
+
 def get_container(request: Request) -> Any:
     return request.app.state.container
 
 
 RepoUseCases = Annotated[RepositoryUseCases, Depends(get_repository_use_cases)]
 CtxUseCases = Annotated[ContextUseCases, Depends(get_context_use_cases)]
+CodeUC = Annotated[CodeUseCases, Depends(get_code_use_cases)]
 Container = Annotated[object, Depends(get_container)]
 Audit = Annotated[AuditService, Depends(get_audit_service)]
 
@@ -300,3 +309,53 @@ async def build_context_pack(
         raise translate_error(exc) from exc
     await audit.record(caller, "repos.context_pack", target=str(repo_id))
     return context_pack_response(pack)
+
+
+@router.post("/{repo_id}/code-search", response_model=list[CodeChunkMatchResponse])
+async def code_search(
+    repo_id: UUID, body: CodeSearchRequest, caller: EntitledCaller, use_cases: CodeUC
+) -> Any:
+    try:
+        matches = await use_cases.search_code(repo_id, body.query, limit=body.limit)
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+    return [
+        CodeChunkMatchResponse(
+            path=m.path, symbol_name=m.symbol_name, chunk_type=m.chunk_type,
+            start_line=m.start_line, end_line=m.end_line, excerpt=m.excerpt, score=m.score,
+        )
+        for m in matches
+    ]
+
+
+@router.get("/{repo_id}/symbols")
+async def list_symbols(
+    repo_id: UUID,
+    caller: EntitledCaller,
+    use_cases: CodeUC,
+    name: str | None = None,
+) -> Any:
+    try:
+        return await use_cases.symbols(repo_id, name)
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
+@router.get("/{repo_id}/files/{file_id}/content", response_model=FileContentResponse)
+async def file_content(
+    repo_id: UUID, file_id: UUID, caller: EntitledCaller, use_cases: CodeUC
+) -> Any:
+    try:
+        return await use_cases.file_content(repo_id, file_id, caller)
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
+@router.get("/{repo_id}/files/{file_id}/related")
+async def related_files(
+    repo_id: UUID, file_id: UUID, caller: EntitledCaller, use_cases: CodeUC
+) -> Any:
+    try:
+        return await use_cases.related_files(repo_id, file_id)
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
