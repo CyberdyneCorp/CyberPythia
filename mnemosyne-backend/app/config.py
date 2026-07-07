@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     app_env: Literal["dev", "test", "staging", "production"] = "dev"
     app_name: str = "Mnemosyne"
 
+    # Browser origins allowed to call the REST API (comma-separated)
+    cors_allowed_origins: str = (
+        "https://mnemosyne.coolify.cyberdynecorp.ai,"
+        "http://localhost:5173,http://localhost:3000"
+    )
+
     database_url: str = "postgresql+asyncpg://mnemosyne:mnemosyne@localhost:5433/mnemosyne"
     redis_url: str = "redis://localhost:6379/0"
 

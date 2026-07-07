@@ -423,3 +423,32 @@ class TestOpenApiContract:
         assert "security" in repos_get
         health_get = spec["paths"]["/api/v1/health"]["get"]
         assert "security" not in health_get
+
+
+class TestCors:
+    """The web app is served from a different origin than the API (prod bug 2026-07-07)."""
+
+    async def test_preflight_allows_the_web_origin(self, client):
+        async with client as c:
+            response = await c.options(
+                "/api/v1/repos",
+                headers={
+                    "Origin": "http://localhost:5173",
+                    "Access-Control-Request-Method": "GET",
+                    "Access-Control-Request-Headers": "authorization",
+                },
+            )
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+        assert "authorization" in response.headers["access-control-allow-headers"].lower()
+
+    async def test_unknown_origin_not_allowed(self, client):
+        async with client as c:
+            response = await c.options(
+                "/api/v1/repos",
+                headers={
+                    "Origin": "https://evil.example",
+                    "Access-Control-Request-Method": "GET",
+                },
+            )
+        assert "access-control-allow-origin" not in response.headers
