@@ -341,8 +341,24 @@ class FakeGitHub:
     async def list_issues(self, token, full_name):
         return self.issues
 
+    async def get_issue(self, token, full_name, number):
+        from app.domain.ports.github_port import GitHubNotFoundError
+
+        match = next((i for i in self.issues if i.number == number), None)
+        if match is None:
+            raise GitHubNotFoundError(f"issue {number}")
+        return match
+
     async def list_pull_requests(self, token, full_name):
         return self.pull_requests
+
+    async def get_pull_request(self, token, full_name, number):
+        from app.domain.ports.github_port import GitHubNotFoundError
+
+        match = next((p for p in self.pull_requests if p.number == number), None)
+        if match is None:
+            raise GitHubNotFoundError(f"pr {number}")
+        return match
 
     async def get_rate_limit(self, token):
         if self.auth_fails:

@@ -77,6 +77,9 @@ class RepositoryUseCases:
             raise UnknownResourceError(f"repository {repository_id} not found")
         return repository
 
+    async def get_by_full_name(self, full_name: str) -> Repository | None:
+        return await self._repositories.get_by_full_name(full_name)
+
     async def update_selection(
         self, repository_id: UUID, *, enabled: bool, mode: IndexingMode | None = None
     ) -> Repository:

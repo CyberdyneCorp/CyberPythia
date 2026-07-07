@@ -1,0 +1,88 @@
+"""Recompute a repository's metrics + summary (design D5).
+
+Shared by the full sync's metrics step and the webhook-driven incremental
+single-issue / single-PR syncs, so both compute identically.
+"""
+
+from dataclasses import asdict
+from datetime import UTC, datetime
+from typing import Any, Protocol
+
+from app.domain.entities.repository import Repository
+from app.domain.ports.persistence_ports import (
+    DocumentPort,
+    IssuePort,
+    OpenSpecPort,
+    PullRequestPort,
+)
+from app.domain.services.issue_metrics import IssueMetricsService
+from app.domain.services.pr_metrics import PullRequestMetricsService
+from app.domain.value_objects.enums import DocumentType
+
+
+class MetricsWriterProtocol(Protocol):  # PostgresMetricsRepository.save-compatible
+    async def save(
+        self,
+        repository_id: Any,
+        *,
+        issue_metrics: dict[str, Any],
+        pr_metrics: dict[str, Any],
+        summary: dict[str, Any],
+        computed_at: datetime,
+    ) -> None: ...
+
+
+class MetricsRecomputeService:
+    def __init__(
+        self,
+        issues: IssuePort,
+        pull_requests: PullRequestPort,
+        documents: DocumentPort,
+        openspec: OpenSpecPort,
+        metrics_store: MetricsWriterProtocol,
+        issue_metrics: IssueMetricsService | None = None,
+        pr_metrics: PullRequestMetricsService | None = None,
+    ) -> None:
+        self._issues = issues
+        self._pull_requests = pull_requests
+        self._documents = documents
+        self._openspec = openspec
+        self._metrics_store = metrics_store
+        self._issue_metrics = issue_metrics or IssueMetricsService()
+        self._pr_metrics = pr_metrics or PullRequestMetricsService()
+
+    async def recompute(self, repository: Repository) -> None:
+        now = datetime.now(UTC)
+        issues = await self._issues.list_by_repository(repository.id)
+        prs = await self._pull_requests.list_by_repository(repository.id)
+        documents = await self._documents.list_by_repository(repository.id)
+        openspec_changes = await self._openspec.list_by_repository(repository.id)
+
+        issue_metrics = self._issue_metrics.compute(issues, now)
+        pr_metrics = self._pr_metrics.compute(prs, now)
+        doc_types = {d.type for d in documents}
+        summary = {
+            "full_name": str(repository.full_name),
+            "description": repository.description,
+            "primary_language": repository.primary_language,
+            "default_branch": repository.default_branch,
+            "indexing_mode": repository.indexing_mode.value,
+            "has_readme": DocumentType.README in doc_types,
+            "has_docs": DocumentType.DOCS in doc_types,
+            "has_openspec": bool(openspec_changes) or DocumentType.OPENSPEC in doc_types,
+            "documents": len(documents),
+            "openspec_changes": len(openspec_changes),
+            "open_issues": issue_metrics.open_count,
+            "closed_issues": issue_metrics.closed_count,
+            "open_prs": pr_metrics.open_count,
+            "merged_prs": pr_metrics.merged_count,
+            "avg_issue_resolution_seconds": issue_metrics.avg_resolution_seconds,
+            "avg_pr_merge_seconds": pr_metrics.avg_time_to_merge_seconds,
+        }
+        await self._metrics_store.save(
+            repository.id,
+            issue_metrics=dict(asdict(issue_metrics)),
+            pr_metrics=dict(asdict(pr_metrics)),
+            summary=summary,
+            computed_at=now,
+        )

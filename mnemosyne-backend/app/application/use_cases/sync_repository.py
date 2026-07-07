@@ -14,6 +14,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from app.application.errors import SyncAlreadyRunningError, UnknownResourceError
+from app.application.metrics_recompute import MetricsRecomputeService
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
 from app.domain.entities.document import Document
 from app.domain.entities.issue import Issue
@@ -61,7 +62,6 @@ from app.domain.services.path_policy import IGNORE_FILE_NAME, PathPolicy
 from app.domain.services.pr_metrics import PullRequestMetricsService
 from app.domain.services.secret_scanner import has_secrets
 from app.domain.value_objects.enums import (
-    DocumentType,
     EmbeddingStatus,
     IssueState,
     OpenSpecStatus,
@@ -442,40 +442,16 @@ class SyncRepositoryUseCase:
         return embedded
 
     async def _sync_metrics(self, ctx: "_SyncContext") -> int:
-        now = datetime.now(UTC)
-        issues = await self._issues.list_by_repository(ctx.repository.id)
-        prs = await self._pull_requests.list_by_repository(ctx.repository.id)
-        documents = await self._documents.list_by_repository(ctx.repository.id)
-        openspec_changes = await self._openspec.list_by_repository(ctx.repository.id)
-
-        issue_metrics = self._issue_metrics.compute(issues, now)
-        pr_metrics = self._pr_metrics.compute(prs, now)
-        doc_types = {d.type for d in documents}
-        summary = {
-            "full_name": ctx.full_name,
-            "description": ctx.repository.description,
-            "primary_language": ctx.repository.primary_language,
-            "default_branch": ctx.repository.default_branch,
-            "indexing_mode": ctx.repository.indexing_mode.value,
-            "has_readme": DocumentType.README in doc_types,
-            "has_docs": DocumentType.DOCS in doc_types,
-            "has_openspec": bool(openspec_changes) or DocumentType.OPENSPEC in doc_types,
-            "documents": len(documents),
-            "openspec_changes": len(openspec_changes),
-            "open_issues": issue_metrics.open_count,
-            "closed_issues": issue_metrics.closed_count,
-            "open_prs": pr_metrics.open_count,
-            "merged_prs": pr_metrics.merged_count,
-            "avg_issue_resolution_seconds": issue_metrics.avg_resolution_seconds,
-            "avg_pr_merge_seconds": pr_metrics.avg_time_to_merge_seconds,
-        }
-        await self._metrics_writer.write(
-            ctx.repository.id,
-            _metrics_dict(issue_metrics),
-            _metrics_dict(pr_metrics),
-            summary,
-            now,
+        service = MetricsRecomputeService(
+            self._issues,
+            self._pull_requests,
+            self._documents,
+            self._openspec,
+            self._metrics_writer.store,  # type: ignore[arg-type]
+            self._issue_metrics,
+            self._pr_metrics,
         )
+        await service.recompute(ctx.repository)
         return 1
 
 

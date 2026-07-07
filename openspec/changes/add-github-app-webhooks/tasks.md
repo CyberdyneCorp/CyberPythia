@@ -22,14 +22,14 @@
 
 ## 4. Incremental sync + metrics reuse
 
-- [ ] 4.1 Extract `MetricsRecomputeService` from the sync orchestrator's metrics step (no behavior change); full sync uses it. Unit tests for parity.
-- [ ] 4.2 `SyncSingleIssue` + `SyncSinglePullRequest` use cases (enabled-repo guard, single fetch, upsert, metrics recompute). Unit tests.
-- [ ] 4.3 Installation-repository discovery reconcile (preserve selection) for App connections. Unit tests.
+- [x] 4.1 Extract `MetricsRecomputeService` from the sync orchestrator's metrics step (no behavior change); full sync uses it. Unit tests for parity.
+- [x] 4.2 `SyncSingleIssue` + `SyncSinglePullRequest` use cases (enabled-repo guard, single fetch, upsert, metrics recompute). Unit tests.
+- [x] 4.3 Installation-repository discovery reconcile (preserve selection) for App connections. Unit tests.
 
 ## 5. Webhook processing
 
-- [ ] 5.1 `ProcessWebhookDelivery` use case: dedupe by delivery id, resolve installation secret, dispatch per intent (push→enqueue sync; issue/PR→single-entity sync; repository→metadata/remove; installation→reconcile), record delivery + audit, ignore non-enabled/unknown. Unit tests for every branch incl. dedupe + non-enabled drop.
-- [ ] 5.2 Wire everything in the composition root (app auth, resolver, single-entity use cases, delivery port, webhook processor).
+- [x] 5.1 `ProcessWebhookDelivery` use case: dedupe by delivery id, resolve installation secret, dispatch per intent (push→enqueue sync; issue/PR→single-entity sync; repository→metadata/remove; installation→reconcile), record delivery + audit, ignore non-enabled/unknown. Unit tests for every branch incl. dedupe + non-enabled drop.
+- [x] 5.2 Wire everything in the composition root (app auth, resolver, single-entity use cases, delivery port, webhook processor).
 
 ## 6. REST API
 

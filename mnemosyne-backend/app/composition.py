@@ -6,14 +6,18 @@ from functools import cached_property
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.application.audit import AuditService
+from app.application.metrics_recompute import MetricsRecomputeService
 from app.application.use_cases.code import CodeUseCases
 from app.application.use_cases.context import ContextUseCases
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
+from app.application.use_cases.incremental_sync import IncrementalSyncUseCases
+from app.application.use_cases.process_webhook import ProcessWebhookDelivery
 from app.application.use_cases.repositories import RepositoryUseCases
 from app.application.use_cases.sync_repository import MetricsWriter, SyncRepositoryUseCase
 from app.config import Settings, get_settings
 from app.domain.services.code_chunker import HeuristicCodeChunker
 from app.infrastructure.auth.cyberdyne_auth import CyberdyneAuthAdapter
+from app.infrastructure.github.app_auth import GitHubAppAuth
 from app.infrastructure.github.client import GitHubClient
 from app.infrastructure.llm.openai_answerer import OpenAIAnswerer
 from app.infrastructure.object_storage.minio_storage import MinioStorageAdapter
@@ -30,6 +34,7 @@ from app.infrastructure.persistence.repositories.misc import (
     PostgresMetricsRepository,
     PostgresSourceChunkRepository,
     PostgresSyncJobRepository,
+    PostgresWebhookDeliveryRepository,
 )
 from app.infrastructure.persistence.repositories.repositories import PostgresRepositoryRepository
 from app.infrastructure.persistence.repositories.work_items import (
@@ -143,8 +148,44 @@ class Container:
         return AuditService(self.audit)
 
     @cached_property
+    def app_auth(self) -> GitHubAppAuth:
+        return GitHubAppAuth()
+
+    @cached_property
     def connection_use_cases(self) -> GitHubConnectionUseCases:
-        return GitHubConnectionUseCases(self.connections, self.github, self.cipher)
+        return GitHubConnectionUseCases(
+            self.connections, self.github, self.cipher, app_auth=self.app_auth
+        )
+
+    @cached_property
+    def metrics_recompute(self) -> MetricsRecomputeService:
+        return MetricsRecomputeService(
+            self.issues, self.pull_requests, self.documents, self.openspec, self.metrics_store
+        )
+
+    @cached_property
+    def incremental_sync(self) -> IncrementalSyncUseCases:
+        return IncrementalSyncUseCases(
+            self.repositories,
+            self.issues,
+            self.pull_requests,
+            self.github,
+            self.connection_use_cases,
+            self.metrics_recompute,
+        )
+
+    @cached_property
+    def process_webhook(self) -> ProcessWebhookDelivery:
+        return ProcessWebhookDelivery(
+            self.webhook_deliveries,
+            self.connections,
+            self.incremental_sync,
+            self.repository_use_cases,
+        )
+
+    @cached_property
+    def webhook_deliveries(self) -> PostgresWebhookDeliveryRepository:
+        return PostgresWebhookDeliveryRepository(self.session_factory)
 
     @cached_property
     def repository_use_cases(self) -> RepositoryUseCases:
