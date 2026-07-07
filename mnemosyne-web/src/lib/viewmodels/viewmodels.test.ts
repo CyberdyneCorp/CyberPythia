@@ -35,19 +35,35 @@ function job(status: SyncJob['status']): SyncJob {
 }
 
 describe('RepositoryListViewModel', () => {
-  it('loads repositories', async () => {
+  it('loads repositories with indexed ones first', async () => {
     const api = {
-      list: async () => ({ items: [repo()], page: 1, page_size: 100, next_page: null })
+      listAll: async () => [
+        repo({ id: 'r2', full_name: 'aaa/first-alpha', enabled: false }),
+        repo({ id: 'r1', full_name: 'zzz/indexed', enabled: true })
+      ]
     };
     const vm = new RepositoryListViewModel(api as never, 1);
     await vm.load();
-    expect(vm.repositories).toHaveLength(1);
+    expect(vm.repositories.map((r) => r.id)).toEqual(['r1', 'r2']);
     expect(vm.error).toBeNull();
+  });
+
+  it('filters by full name', async () => {
+    const api = {
+      listAll: async () => [
+        repo({ id: 'r1', full_name: 'CyberdyneCorp/CyberdyneAuth' }),
+        repo({ id: 'r2', full_name: 'aminitech/other' })
+      ]
+    };
+    const vm = new RepositoryListViewModel(api as never, 1);
+    await vm.load();
+    vm.filter = 'cyberdyneauth';
+    expect(vm.filtered.map((r) => r.id)).toEqual(['r1']);
   });
 
   it('surfaces load errors', async () => {
     const api = {
-      list: async () => {
+      listAll: async () => {
         throw new ApiError(503, 'upstream_unavailable', 'auth down');
       }
     };
@@ -58,7 +74,7 @@ describe('RepositoryListViewModel', () => {
 
   it('updates selection in place', async () => {
     const api = {
-      list: async () => ({ items: [repo()], page: 1, page_size: 100, next_page: null }),
+      listAll: async () => [repo()],
       updateSelection: async (_id: string, enabled: boolean) => repo({ enabled })
     };
     const vm = new RepositoryListViewModel(api as never, 1);
@@ -71,7 +87,7 @@ describe('RepositoryListViewModel', () => {
     const statuses = [job('running'), job('running'), job('succeeded')];
     let calls = 0;
     const api = {
-      list: async () => ({ items: [repo()], page: 1, page_size: 100, next_page: null }),
+      listAll: async () => [repo()],
       sync: async () => job('pending'),
       syncStatus: async () => statuses[Math.min(calls++, statuses.length - 1)]
     };
@@ -84,7 +100,7 @@ describe('RepositoryListViewModel', () => {
 
   it('starts polling instead of erroring on sync conflict', async () => {
     const api = {
-      list: async () => ({ items: [repo()], page: 1, page_size: 100, next_page: null }),
+      listAll: async () => [repo()],
       sync: async () => {
         throw new ApiError(409, 'sync_already_running', 'busy');
       },

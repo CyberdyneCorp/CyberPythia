@@ -13,6 +13,7 @@
 </script>
 
 <h1>Repositories</h1>
+<input class="filter" placeholder="Filter repositories…" bind:value={vm.filter} />
 {#if vm.error}<p class="error">{vm.error}</p>{/if}
 {#if vm.loading && vm.repositories.length === 0}
   <p class="muted">Loading…</p>
@@ -25,7 +26,7 @@
   </div>
 {:else}
   <div class="grid">
-    {#each vm.repositories as repo (repo.id)}
+    {#each vm.filtered as repo (repo.id)}
       <RepositoryCard
         {repo}
         syncState={vm.syncStateFor(repo.id)}
@@ -38,6 +39,11 @@
 {/if}
 
 <style>
+  .filter {
+    width: 100%;
+    max-width: 420px;
+    margin-bottom: 1rem;
+  }
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));

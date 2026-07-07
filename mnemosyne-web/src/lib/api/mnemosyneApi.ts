@@ -43,6 +43,17 @@ export class RepositoriesApi {
   list(page = 1, pageSize = 100): Promise<Page<Repository>> {
     return this.http.get(`/api/v1/repos?page=${page}&page_size=${pageSize}`);
   }
+  /** All discovered repositories (follows pagination, hard-capped at 20 pages). */
+  async listAll(): Promise<Repository[]> {
+    const items: Repository[] = [];
+    let page: number | null = 1;
+    for (let i = 0; i < 20 && page !== null; i++) {
+      const result: Page<Repository> = await this.list(page, 100);
+      items.push(...result.items);
+      page = result.next_page;
+    }
+    return items;
+  }
   discover(connectionId: string): Promise<Repository[]> {
     return this.http.post(`/api/v1/repos/discover/${connectionId}`);
   }

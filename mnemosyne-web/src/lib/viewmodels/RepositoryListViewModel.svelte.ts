@@ -10,6 +10,7 @@ export class RepositoryListViewModel {
   syncJobs = $state<Record<string, SyncJob>>({});
   loading = $state(false);
   error = $state<string | null>(null);
+  filter = $state('');
 
   constructor(
     private api: RepositoriesApi,
@@ -20,12 +21,27 @@ export class RepositoryListViewModel {
     this.loading = true;
     this.error = null;
     try {
-      this.repositories = (await this.api.list()).items;
+      const repos = await this.api.listAll();
+      // indexed repositories first, then alphabetical (345+ discovered repos
+      // buried the enabled ones on the deployed dashboard)
+      this.repositories = repos.sort((a, b) =>
+        a.enabled === b.enabled
+          ? a.full_name.localeCompare(b.full_name)
+          : a.enabled
+            ? -1
+            : 1
+      );
     } catch (error) {
       this.error = error instanceof ApiError ? error.message : 'failed to load repositories';
     } finally {
       this.loading = false;
     }
+  }
+
+  get filtered(): Repository[] {
+    const needle = this.filter.trim().toLowerCase();
+    if (!needle) return this.repositories;
+    return this.repositories.filter((r) => r.full_name.toLowerCase().includes(needle));
   }
 
   async setSelection(repo: Repository, enabled: boolean, mode?: IndexingMode): Promise<void> {
