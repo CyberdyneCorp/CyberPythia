@@ -18,6 +18,31 @@ export interface Connection {
   installation_id: string | null;
 }
 
+export interface SyncRun {
+  id: string;
+  trigger: string;
+  started_at: string;
+  finished_at: string;
+  discovered: number;
+  newly_enabled: number;
+  skipped_archived: number;
+  enqueued: number;
+  skipped: number;
+  failed: number;
+}
+
+export interface SyncJobSummary {
+  id: string;
+  repository_id: string;
+  repository_full_name: string | null;
+  mode: string;
+  status: string;
+  triggered_by: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  errors: string[];
+}
+
 export interface WebhookDelivery {
   delivery_id: string;
   event: string;

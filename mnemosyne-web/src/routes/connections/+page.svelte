@@ -15,6 +15,7 @@
   $effect(() => {
     void vm.load();
     void vm.loadDeliveries();
+    void vm.loadSyncActivity();
   });
 
   async function submit(event: SubmitEvent) {
@@ -94,6 +95,61 @@
   </div>
 {/if}
 
+<h2>Sync activity</h2>
+<p class="muted small">
+  The nightly job (03:00 UTC) discovers, auto-enables new non-archived repos, then syncs all
+  enabled ones. Recent runs and per-repo outcomes below.
+</p>
+
+{#if vm.syncRuns.length}
+  <div class="card">
+    <div class="eyebrow pad">Scheduled runs</div>
+    <table>
+      <thead>
+        <tr><th>When</th><th>Discovered</th><th>Enabled</th><th>Enqueued</th><th>Skipped</th><th>Failed</th></tr>
+      </thead>
+      <tbody>
+        {#each vm.syncRuns as r, i (i)}
+          <tr>
+            <td class="muted">{new Date(r.finished_at).toLocaleString()}</td>
+            <td class="num">{r.discovered}</td>
+            <td class="num">{r.newly_enabled}</td>
+            <td class="num">{r.enqueued}</td>
+            <td class="num">{r.skipped}</td>
+            <td class="num">{#if r.failed}<span class="badge err">{r.failed}</span>{:else}0{/if}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+{:else}
+  <p class="muted small">No scheduled runs recorded yet — the first fires at 03:00 UTC.</p>
+{/if}
+
+{#if vm.syncJobs.length}
+  <div class="card">
+    <div class="eyebrow pad">Recent sync jobs</div>
+    <table>
+      <thead><tr><th>Repository</th><th>Status</th><th>Trigger</th><th>When</th><th>Detail</th></tr></thead>
+      <tbody>
+        {#each vm.syncJobs as j (j.id)}
+          <tr>
+            <td>{j.repository_full_name ?? '—'}</td>
+            <td>
+              <span class="badge {j.status === 'succeeded' ? 'ok' : j.status === 'failed' ? 'err' : ''}">
+                {j.status}
+              </span>
+            </td>
+            <td class="mono small">{j.triggered_by ?? '—'}</td>
+            <td class="muted">{j.started_at ? new Date(j.started_at).toLocaleString() : '—'}</td>
+            <td class="mono small err-text">{j.errors.length ? j.errors[0] : ''}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+{/if}
+
 {#each vm.connections as connection (connection.id)}
   <div class="card connection">
     <div class="row">
@@ -142,5 +198,18 @@
   }
   form input {
     flex: 1;
+  }
+  .small {
+    font-size: 0.78rem;
+  }
+  .pad {
+    padding: 0.2rem 0 0.6rem;
+  }
+  .err-text {
+    color: var(--red);
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>

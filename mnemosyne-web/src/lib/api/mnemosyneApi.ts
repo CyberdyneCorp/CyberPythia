@@ -29,7 +29,9 @@ import type {
   WebhookDelivery,
   SearchMatch,
   SourceFile,
-  SyncJob
+  SyncJob,
+  SyncJobSummary,
+  SyncRun
 } from '$lib/models';
 
 export class GitHubApi {
@@ -56,6 +58,12 @@ export class GitHubApi {
   }
   webhookDeliveries(): Promise<WebhookDelivery[]> {
     return this.http.get('/api/v1/admin/webhook-deliveries');
+  }
+  syncRuns(): Promise<SyncRun[]> {
+    return this.http.get('/api/v1/admin/sync-runs');
+  }
+  syncJobs(): Promise<SyncJobSummary[]> {
+    return this.http.get('/api/v1/admin/sync-jobs');
   }
   listConnections(): Promise<Connection[]> {
     return this.http.get('/api/v1/github/connections');

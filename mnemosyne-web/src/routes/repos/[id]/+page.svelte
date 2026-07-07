@@ -257,42 +257,54 @@
 {/if}
 
 {#if vm.tab === 'agent-context'}
-  <div class="card">
-    <div class="ask-row">
-      <select bind:value={askVm.mode}>
-        <option value="ask">Ask a question</option>
-        <option value="context-pack">Build context pack</option>
-      </select>
-      <input
-        placeholder="e.g. How is authentication implemented in this repository?"
-        bind:value={askVm.question}
-        onkeydown={(e) => e.key === 'Enter' && askVm.submit()}
-      />
-      <button disabled={askVm.busy} onclick={() => askVm.submit()}>
-        {askVm.busy ? 'Working…' : 'Go'}
-      </button>
-    </div>
-    {#if askVm.error}<p class="error">{askVm.error}</p>{/if}
+  <div class="ask-row">
+    <select bind:value={askVm.mode}>
+      <option value="ask">Ask a question</option>
+      <option value="context-pack">Build context pack</option>
+    </select>
+    <input
+      placeholder={askVm.mode === 'ask'
+        ? 'Ask anything about this repository…'
+        : 'Describe the task… e.g. “add rate limiting to the webhook receiver”'}
+      bind:value={askVm.question}
+      onkeydown={(e) => e.key === 'Enter' && askVm.submit()}
+    />
+    <button disabled={askVm.busy} onclick={() => askVm.submit()}>
+      {askVm.mode === 'ask' ? 'Ask' : 'Build pack'}
+    </button>
   </div>
+  {#if askVm.error}<p class="error">{askVm.error}</p>{/if}
 
-  {#if askVm.askResult}
-    <div class="card">
-      <p>{askVm.askResult.answer}</p>
+  {#if askVm.busy}
+    <div class="thinking mono">
+      <span class="pulse">▮▮▮</span>
+      {askVm.mode === 'ask' ? 'retrieving grounded context…' : 'assembling context pack…'}
+    </div>
+  {/if}
+
+  {#if askVm.askResult && !askVm.busy}
+    <div class="answer card">
+      {#if askVm.askResult.grounded === false}
+        <div class="eyebrow ungrounded">Not grounded — no supporting context found</div>
+      {/if}
+      <p class="answer-body">{askVm.askResult.answer}</p>
       {#if askVm.askResult.sources.length}
-        <h4>Sources</h4>
-        <ul>
+        <div class="sources">
+          <div class="eyebrow">Sources</div>
           {#each askVm.askResult.sources as source, i (i)}
-            <li>
-              <a href={`/repos/${repoId}?tab=documentation`}>{source.path}</a>
-              <span class="muted">score {source.score}</span>
-            </li>
+            <a class="src" href={`/repos/${repoId}?tab=documentation`}>
+              <span class="src-n mono">[{i + 1}]</span>
+              <span class="src-ref mono">{source.path}</span>
+              {#if source.title}<span class="src-kind">{source.title}</span>{/if}
+              <span class="src-score mono">{source.score}</span>
+            </a>
           {/each}
-        </ul>
+        </div>
       {/if}
     </div>
   {/if}
 
-  {#if askVm.contextPack}
+  {#if askVm.contextPack && !askVm.busy}
     <ContextPackPanel pack={askVm.contextPack} {repoId} />
   {/if}
 {/if}
@@ -353,10 +365,82 @@
   }
   .ask-row {
     display: flex;
-    gap: 0.75rem;
+    gap: 0.6rem;
+    margin-bottom: 0.4rem;
   }
   .ask-row input {
     flex: 1;
+  }
+  .thinking {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--tx3);
+    font-size: 0.78rem;
+    margin: 1rem 0;
+  }
+  .pulse {
+    animation: pulse 1s ease infinite;
+  }
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
+  .answer {
+    margin-top: 0.9rem;
+  }
+  .ungrounded {
+    color: var(--ac);
+    margin-bottom: 0.6rem;
+  }
+  .answer-body {
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: var(--tx2);
+    margin: 0;
+    white-space: pre-wrap;
+  }
+  .sources {
+    margin-top: 0.9rem;
+    border-top: 1px solid var(--line);
+    padding-top: 0.8rem;
+  }
+  .sources .eyebrow {
+    margin-bottom: 0.5rem;
+  }
+  .src {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    padding: 0.2rem 0;
+    color: var(--tx);
+  }
+  .src:hover {
+    color: var(--tx);
+  }
+  .src-n {
+    color: var(--ac);
+    font-size: 0.68rem;
+    width: 22px;
+  }
+  .src-ref {
+    font-size: 0.75rem;
+    color: var(--tx2);
+  }
+  .src-kind {
+    font-size: 0.72rem;
+    color: var(--tx3);
+    flex: 1;
+  }
+  .src-score {
+    font-size: 0.68rem;
+    color: var(--tx3);
+    font-variant-numeric: tabular-nums;
   }
   details.card {
     margin-bottom: 0.75rem;

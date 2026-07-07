@@ -459,3 +459,36 @@ describe('RepositoryDeliveryViewModel', () => {
     expect(vm.milestones).toHaveLength(1);
   });
 });
+
+describe('ConnectionsViewModel sync activity', () => {
+  it('loads sync runs + jobs, swallows errors', async () => {
+    const githubApi = {
+      syncRuns: async () => [
+        {
+          id: 'r1', trigger: 'scheduler', started_at: '2026-07-08T03:00:00Z',
+          finished_at: '2026-07-08T03:20:00Z', discovered: 345, newly_enabled: 1,
+          skipped_archived: 107, enqueued: 238, skipped: 0, failed: 2
+        }
+      ],
+      syncJobs: async () => [
+        {
+          id: 'j1', repository_id: 'x', repository_full_name: 'cyberdyne/a', mode: 'project_intelligence',
+          status: 'failed', triggered_by: 'scheduler', started_at: '2026-07-08T03:01:00Z',
+          finished_at: '2026-07-08T03:02:00Z', errors: ['GitHubRateLimitError: rate limited']
+        }
+      ]
+    };
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    await vm.loadSyncActivity();
+    expect(vm.syncRuns[0].enqueued).toBe(238);
+    expect(vm.syncJobs[0].status).toBe('failed');
+
+    const failing = {
+      syncRuns: async () => { throw new Error('boom'); },
+      syncJobs: async () => []
+    };
+    const vm2 = new ConnectionsViewModel(failing as never, {} as never);
+    await vm2.loadSyncActivity();
+    expect(vm2.syncRuns).toEqual([]);
+  });
+});

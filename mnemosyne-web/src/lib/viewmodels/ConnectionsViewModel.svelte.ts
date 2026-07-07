@@ -1,13 +1,22 @@
 /** Admin GitHub connection screen state (spec: web-ui). */
 import { ApiError } from '$lib/api/http';
 import type { GitHubApi, RepositoriesApi } from '$lib/api/mnemosyneApi';
-import type { Connection, ConnectionTest, Repository, WebhookDelivery } from '$lib/models';
+import type {
+  Connection,
+  ConnectionTest,
+  Repository,
+  SyncJobSummary,
+  SyncRun,
+  WebhookDelivery
+} from '$lib/models';
 
 export class ConnectionsViewModel {
   connections = $state<Connection[]>([]);
   testResults = $state<Record<string, ConnectionTest>>({});
   discovered = $state<Repository[] | null>(null);
   deliveries = $state<WebhookDelivery[]>([]);
+  syncRuns = $state<SyncRun[]>([]);
+  syncJobs = $state<SyncJobSummary[]>([]);
   busy = $state(false);
   error = $state<string | null>(null);
 
@@ -60,6 +69,17 @@ export class ConnectionsViewModel {
       this.deliveries = await this.githubApi.webhookDeliveries();
     } catch {
       // deliveries are best-effort; ignore load failures
+    }
+  }
+
+  async loadSyncActivity(): Promise<void> {
+    try {
+      [this.syncRuns, this.syncJobs] = await Promise.all([
+        this.githubApi.syncRuns(),
+        this.githubApi.syncJobs()
+      ]);
+    } catch {
+      // sync activity is best-effort; ignore load failures
     }
   }
 
