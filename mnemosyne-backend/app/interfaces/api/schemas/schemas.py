@@ -191,6 +191,31 @@ class CompareRequest(BaseModel):
     repository_ids: list[UUID] = Field(min_length=1, max_length=20)
 
 
+class SyncRunResponse(BaseModel):
+    id: UUID
+    trigger: str
+    started_at: datetime
+    finished_at: datetime
+    discovered: int
+    newly_enabled: int
+    skipped_archived: int
+    enqueued: int
+    skipped: int
+    failed: int
+
+
+class SyncJobSummaryResponse(BaseModel):
+    id: UUID
+    repository_id: UUID
+    repository_full_name: str | None
+    mode: str
+    status: str
+    triggered_by: str | None
+    started_at: datetime | None
+    finished_at: datetime | None
+    errors: list[str]
+
+
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
 

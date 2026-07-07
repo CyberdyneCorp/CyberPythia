@@ -16,6 +16,7 @@ from app.domain.entities.repository import Repository
 from app.domain.entities.source_chunk import SourceChunk
 from app.domain.entities.source_file import SourceFile
 from app.domain.entities.sync_job import SyncJob
+from app.domain.entities.sync_run import SyncRun
 from app.domain.entities.webhook_delivery import WebhookDelivery
 
 
@@ -109,6 +110,14 @@ class SyncJobPort(Protocol):
     async def get(self, job_id: UUID) -> SyncJob | None: ...
 
     async def get_latest(self, repository_id: UUID) -> SyncJob | None: ...
+
+    async def list_recent(self, limit: int = 50) -> list[SyncJob]: ...
+
+
+class SyncRunPort(Protocol):
+    async def record(self, run: SyncRun) -> None: ...
+
+    async def list_recent(self, limit: int = 50) -> list[SyncRun]: ...
 
 
 class ContextPackPort(Protocol):

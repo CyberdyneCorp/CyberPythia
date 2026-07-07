@@ -33,24 +33,42 @@ class FakeDiscovery:
         return SimpleNamespace(discovered=345, newly_enabled=2, skipped_archived=1)
 
 
+class FakeRuns:
+    def __init__(self):
+        self.recorded = []
+
+    async def record(self, run):
+        self.recorded.append(run)
+
+
+def _ctx(discovery):
+    return {
+        "container": SimpleNamespace(
+            scheduled_sync=FakeSync(), scheduled_discovery=discovery, sync_runs=FakeRuns()
+        )
+    }
+
+
 async def test_scheduled_full_sync_chains_discovery_then_sync(monkeypatch) -> None:
     monkeypatch.setattr(worker._settings, "scheduled_discovery_enabled", True)
     discovery = FakeDiscovery()
-    ctx = {
-        "container": SimpleNamespace(scheduled_sync=FakeSync(), scheduled_discovery=discovery)
-    }
+    ctx = _ctx(discovery)
     result = await worker.scheduled_full_sync(ctx)
     assert discovery.ran is True
     assert "discovered=345 newly_enabled=2 " in result
     assert "enqueued=3 skipped=1 failed=0" in result
+    # records a SyncRun with the combined counters
+    runs = ctx["container"].sync_runs.recorded
+    assert len(runs) == 1
+    assert runs[0].discovered == 345 and runs[0].newly_enabled == 2
+    assert runs[0].enqueued == 3 and runs[0].failed == 0
 
 
 async def test_scheduled_full_sync_skips_discovery_when_disabled(monkeypatch) -> None:
     monkeypatch.setattr(worker._settings, "scheduled_discovery_enabled", False)
     discovery = FakeDiscovery()
-    ctx = {
-        "container": SimpleNamespace(scheduled_sync=FakeSync(), scheduled_discovery=discovery)
-    }
+    ctx = _ctx(discovery)
     result = await worker.scheduled_full_sync(ctx)
     assert discovery.ran is False
-    assert result == "enqueued=3 skipped=1 failed=0"
+    assert result == "discovered=0 newly_enabled=0 enqueued=3 skipped=1 failed=0"
+    assert ctx["container"].sync_runs.recorded[0].discovered == 0

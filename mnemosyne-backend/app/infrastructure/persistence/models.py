@@ -287,6 +287,21 @@ class RepositoryMetricsSnapshotRow(Base):
     health_overall: Mapped[float | None] = mapped_column(Float)
 
 
+class SyncRunHistoryRow(Base):
+    __tablename__ = "sync_run_history"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    trigger: Mapped[str] = mapped_column(String(30))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    discovered: Mapped[int] = mapped_column(Integer, default=0)
+    newly_enabled: Mapped[int] = mapped_column(Integer, default=0)
+    skipped_archived: Mapped[int] = mapped_column(Integer, default=0)
+    enqueued: Mapped[int] = mapped_column(Integer, default=0)
+    skipped: Mapped[int] = mapped_column(Integer, default=0)
+    failed: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class MilestoneRow(Base):
     __tablename__ = "milestones"
     __table_args__ = (UniqueConstraint("repository_id", "number"),)

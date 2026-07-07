@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-07-07
+goal: "Let an admin watch nightly runs: see enqueued/skipped/failed per run and
+  which repos failed/were rate-limited"

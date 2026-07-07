@@ -50,6 +50,12 @@ has manually **disabled is never re-enabled**. Turn it off with `AUTO_ENABLE_NEW
 already-discovered repos is a separate one-time admin action (bulk `PATCH /api/v1/repos/{id}`
 with `{"enabled": true, "indexing_mode": "project_intelligence"}`).
 
+**Watching the runs.** Two admin-only endpoints surface sync activity:
+`GET /api/v1/admin/sync-runs` lists each nightly run's summary (discovered / newly-enabled /
+enqueued / skipped / failed, with timestamps), and `GET /api/v1/admin/sync-jobs` lists recent
+per-repository sync jobs with status, trigger, times, and any failed-step error text — so a
+rate-limited or otherwise failed repo, and its reason, is visible.
+
 **Rate-limit resilience.** The nightly fan-out **staggers** its enqueues
 (`SCHEDULED_SYNC_STAGGER_SECONDS`, default 5s apart) to smooth the request rate, and the GitHub
 client **bounds** how long a single call waits on a rate limit: it honours `Retry-After` and

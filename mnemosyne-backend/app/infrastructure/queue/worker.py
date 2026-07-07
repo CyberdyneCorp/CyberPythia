@@ -4,14 +4,16 @@ Run with: `arq app.infrastructure.queue.worker.WorkerSettings`
 """
 
 import logging
+from datetime import UTC, datetime
 from typing import Any, ClassVar
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from arq.connections import RedisSettings
 from arq.cron import cron
 
 from app.composition import build_container
 from app.config import get_settings
+from app.domain.entities.sync_run import SyncRun
 
 logger = logging.getLogger(__name__)
 
@@ -40,16 +42,36 @@ async def sync_repository(ctx: dict[str, Any], repository_id: str, job_id: str) 
 
 
 async def scheduled_full_sync(ctx: dict[str, Any]) -> str:
-    """Daily cron: discover + auto-enable new repos, then enqueue a full sync of all enabled."""
+    """Daily cron: discover + auto-enable new repos, then enqueue a full sync of all enabled.
+
+    Records a SyncRun history row so admins can watch runs via /api/v1/admin/sync-runs.
+    """
     container = ctx["container"]
-    discovery = ""
+    started = datetime.now(UTC)
+    discovered = newly_enabled = skipped_archived = 0
     if _settings.scheduled_discovery_enabled:
         d = await container.scheduled_discovery.run()
-        discovery = f"discovered={d.discovered} newly_enabled={d.newly_enabled} "
+        discovered, newly_enabled, skipped_archived = (
+            d.discovered, d.newly_enabled, d.skipped_archived
+        )
     summary = await container.scheduled_sync.run()
+    await container.sync_runs.record(
+        SyncRun(
+            id=uuid4(),
+            trigger="scheduler",
+            started_at=started,
+            finished_at=datetime.now(UTC),
+            discovered=discovered,
+            newly_enabled=newly_enabled,
+            skipped_archived=skipped_archived,
+            enqueued=summary.enqueued,
+            skipped=summary.skipped,
+            failed=summary.failed,
+        )
+    )
     return (
-        f"{discovery}enqueued={summary.enqueued} "
-        f"skipped={summary.skipped} failed={summary.failed}"
+        f"discovered={discovered} newly_enabled={newly_enabled} "
+        f"enqueued={summary.enqueued} skipped={summary.skipped} failed={summary.failed}"
     )
 
 

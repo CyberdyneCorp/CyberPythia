@@ -40,6 +40,7 @@ from tests.unit.application.fakes import (
     FakeStorage,
     FakeSyncJobPort,
     FakeSyncLock,
+    FakeSyncRunPort,
 )
 from tests.unit.interfaces.conftest import FakeAuditPort, FakeAuthPort
 
@@ -118,6 +119,7 @@ def build_fake_container():
     prs = FakePullRequestPort()
     files = FakeFilePort()
     sync_jobs = FakeSyncJobPort()
+    sync_runs = FakeSyncRunPort()
     queue = FakeQueue()
     lock = FakeSyncLock()
     embeddings = FakeSearchEmbeddings()
@@ -207,6 +209,7 @@ def build_fake_container():
         source_chunks=source_chunks,
         webhook_deliveries=webhook_deliveries,
         process_webhook=process_webhook,
+        sync_runs=sync_runs,
         intelligence=intelligence,
         delivery_intelligence=delivery_intelligence,
         metrics_history=metrics_history,

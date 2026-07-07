@@ -267,6 +267,21 @@ class FakeSyncJobPort:
         jobs = [j for j in self.items.values() if j.repository_id == repository_id]
         return max(jobs, key=lambda j: j.started_at or NOW, default=None)
 
+    async def list_recent(self, limit=50):
+        jobs = sorted(self.items.values(), key=lambda j: j.started_at or NOW, reverse=True)
+        return jobs[:limit]
+
+
+class FakeSyncRunPort:
+    def __init__(self):
+        self.runs = []
+
+    async def record(self, run):
+        self.runs.append(run)
+
+    async def list_recent(self, limit=50):
+        return sorted(self.runs, key=lambda r: r.finished_at, reverse=True)[:limit]
+
 
 class FakeSyncLock:
     def __init__(self):

@@ -43,6 +43,7 @@ from app.infrastructure.persistence.repositories.misc import (
     PostgresMilestoneRepository,
     PostgresSourceChunkRepository,
     PostgresSyncJobRepository,
+    PostgresSyncRunRepository,
     PostgresWebhookDeliveryRepository,
 )
 from app.infrastructure.persistence.repositories.repositories import PostgresRepositoryRepository
@@ -212,6 +213,10 @@ class Container:
     @cached_property
     def webhook_deliveries(self) -> PostgresWebhookDeliveryRepository:
         return PostgresWebhookDeliveryRepository(self.session_factory)
+
+    @cached_property
+    def sync_runs(self) -> PostgresSyncRunRepository:
+        return PostgresSyncRunRepository(self.session_factory)
 
     @cached_property
     def repository_use_cases(self) -> RepositoryUseCases:

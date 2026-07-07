@@ -14,6 +14,8 @@ from app.interfaces.api.schemas.schemas import (
     ConnectionResponse,
     ConnectionTestResponse,
     ConnectRequest,
+    SyncJobSummaryResponse,
+    SyncRunResponse,
     WebhookDeliveryResponse,
 )
 from app.interfaces.api.security import AdminCaller, get_audit_service
@@ -89,6 +91,51 @@ async def webhook_deliveries(caller: AdminCaller, request: Request) -> Any:
             received_at=d.received_at,
         )
         for d in deliveries
+    ]
+
+
+@admin_router.get("/sync-runs", response_model=list[SyncRunResponse])
+async def sync_runs(caller: AdminCaller, request: Request) -> Any:
+    runs = await request.app.state.container.sync_runs.list_recent(50)
+    return [
+        SyncRunResponse(
+            id=r.id,
+            trigger=r.trigger,
+            started_at=r.started_at,
+            finished_at=r.finished_at,
+            discovered=r.discovered,
+            newly_enabled=r.newly_enabled,
+            skipped_archived=r.skipped_archived,
+            enqueued=r.enqueued,
+            skipped=r.skipped,
+            failed=r.failed,
+        )
+        for r in runs
+    ]
+
+
+@admin_router.get("/sync-jobs", response_model=list[SyncJobSummaryResponse])
+async def sync_jobs(caller: AdminCaller, request: Request) -> Any:
+    container = request.app.state.container
+    jobs = await container.sync_jobs.list_recent(50)
+    names: dict[UUID, str | None] = {}
+    for job in jobs:
+        if job.repository_id not in names:
+            repo = await container.repositories.get(job.repository_id)
+            names[job.repository_id] = str(repo.full_name) if repo else None
+    return [
+        SyncJobSummaryResponse(
+            id=job.id,
+            repository_id=job.repository_id,
+            repository_full_name=names[job.repository_id],
+            mode=job.mode.value,
+            status=job.status.value,
+            triggered_by=job.triggered_by,
+            started_at=job.started_at,
+            finished_at=job.finished_at,
+            errors=[s.error for s in job.steps if s.error],
+        )
+        for job in jobs
     ]
 
 

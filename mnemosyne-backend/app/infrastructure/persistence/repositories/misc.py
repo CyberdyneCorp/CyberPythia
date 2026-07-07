@@ -24,6 +24,7 @@ from app.domain.entities.milestone import Milestone
 from app.domain.entities.source_chunk import SourceChunk
 from app.domain.entities.source_file import SourceFile
 from app.domain.entities.sync_job import SyncJob
+from app.domain.entities.sync_run import SyncRun
 from app.domain.entities.webhook_delivery import WebhookDelivery
 from app.domain.value_objects.enums import IndexingMode
 from app.infrastructure.persistence.mappers import (
@@ -44,6 +45,7 @@ from app.infrastructure.persistence.models import (
     SourceChunkRow,
     SourceFileRow,
     SyncJobRow,
+    SyncRunHistoryRow,
     WebhookDeliveryRow,
 )
 from app.infrastructure.persistence.repositories.base import PostgresRepositoryBase
@@ -207,6 +209,15 @@ class PostgresSyncJobRepository(PostgresRepositoryBase):
                 .limit(1)
             )
             return sync_job_to_entity(row) if row else None
+
+    async def list_recent(self, limit: int = 50) -> list[SyncJob]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(SyncJobRow)
+                .order_by(SyncJobRow.started_at.desc().nulls_last())
+                .limit(limit)
+            )
+            return [sync_job_to_entity(r) for r in rows]
 
 
 class PostgresContextPackRepository(PostgresRepositoryBase):
@@ -480,4 +491,47 @@ def _milestone_to_entity(row: MilestoneRow) -> Milestone:
         open_issues=row.open_issues,
         closed_issues=row.closed_issues,
         updated_at=row.updated_at,
+    )
+
+
+class PostgresSyncRunRepository(PostgresRepositoryBase):
+    async def record(self, run: SyncRun) -> None:
+        async with self._session_factory() as session, session.begin():
+            session.add(
+                SyncRunHistoryRow(
+                    id=run.id,
+                    trigger=run.trigger,
+                    started_at=run.started_at,
+                    finished_at=run.finished_at,
+                    discovered=run.discovered,
+                    newly_enabled=run.newly_enabled,
+                    skipped_archived=run.skipped_archived,
+                    enqueued=run.enqueued,
+                    skipped=run.skipped,
+                    failed=run.failed,
+                )
+            )
+
+    async def list_recent(self, limit: int = 50) -> list[SyncRun]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(SyncRunHistoryRow)
+                .order_by(SyncRunHistoryRow.finished_at.desc())
+                .limit(limit)
+            )
+            return [_sync_run_to_entity(r) for r in rows]
+
+
+def _sync_run_to_entity(row: SyncRunHistoryRow) -> SyncRun:
+    return SyncRun(
+        id=row.id,
+        trigger=row.trigger,
+        started_at=row.started_at,
+        finished_at=row.finished_at,
+        discovered=row.discovered,
+        newly_enabled=row.newly_enabled,
+        skipped_archived=row.skipped_archived,
+        enqueued=row.enqueued,
+        skipped=row.skipped,
+        failed=row.failed,
     )
