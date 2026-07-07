@@ -599,6 +599,63 @@ def build_mcp(
             return repo
         return await container.intelligence.onboarding_summary(repo.id)
 
+    # -- PM/PO delivery tools -------------------------------------------------------
+
+    async def _delivery_call(full_name: str, method: str) -> dict[str, Any]:
+        await auth()
+        repo = await _resolve_enabled(full_name)
+        if isinstance(repo, dict):
+            return repo
+        result = await getattr(container.delivery_intelligence, method)(repo.id)
+        return {"full_name": full_name, **asdict(result)}
+
+    @mcp.tool
+    async def mnemosyne_get_flow_metrics(full_name: str) -> dict[str, Any]:
+        """Flow: cycle/lead-time percentiles (p50/p85/p95), WIP, aging, untriaged backlog."""
+        return await _delivery_call(full_name, "flow")
+
+    @mcp.tool
+    async def mnemosyne_get_throughput_trend(full_name: str) -> dict[str, Any]:
+        """Throughput and net-flow over the metrics time-series (needs accrued history)."""
+        return await _delivery_call(full_name, "throughput")
+
+    @mcp.tool
+    async def mnemosyne_get_backlog_forecast(full_name: str) -> dict[str, Any]:
+        """Projected backlog-clear date from the trailing close rate (or why there is none)."""
+        return await _delivery_call(full_name, "forecast")
+
+    @mcp.tool
+    async def mnemosyne_get_work_mix(full_name: str) -> dict[str, Any]:
+        """Work-mix: feature / bug / tech-debt / docs distribution and the bug ratio."""
+        return await _delivery_call(full_name, "work_mix")
+
+    @mcp.tool
+    async def mnemosyne_get_quality_signals(full_name: str) -> dict[str, Any]:
+        """Quality: bug ratio, reopened-issue rate, and time-to-first-response percentiles."""
+        return await _delivery_call(full_name, "quality")
+
+    @mcp.tool
+    async def mnemosyne_get_team_load(full_name: str) -> dict[str, Any]:
+        """Team load per assignee, reviewer load, and bus-factor risk (no per-person ranking)."""
+        return await _delivery_call(full_name, "team_load")
+
+    @mcp.tool
+    async def mnemosyne_get_milestone_progress(full_name: str) -> dict[str, Any]:
+        """Per-milestone percent complete and projected completion vs. due date."""
+        await auth()
+        repo = await _resolve_enabled(full_name)
+        if isinstance(repo, dict):
+            return repo
+        result = await container.delivery_intelligence.milestones(repo.id)
+        return {"full_name": full_name, "milestones": [asdict(m) for m in result]}
+
+    @mcp.tool
+    async def mnemosyne_get_delivery_scorecard() -> dict[str, Any]:
+        """Portfolio delivery scorecard: predictability, throughput direction, backlog, risk."""
+        await auth()
+        board = await container.delivery_intelligence.delivery_scorecard()
+        return {"scorecard": [asdict(e) for e in board]}
+
     return mcp
 
 

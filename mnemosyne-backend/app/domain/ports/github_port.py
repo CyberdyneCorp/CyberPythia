@@ -71,6 +71,17 @@ class GitHubPullRequestData:
     review_decision: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class GitHubMilestoneData:
+    number: int
+    title: str
+    state: str
+    due_on: datetime | None
+    open_issues: int
+    closed_issues: int
+    updated_at: datetime | None
+
+
 class GitHubAuthError(Exception):
     """Credential rejected by GitHub."""
 
@@ -91,6 +102,10 @@ class GitHubPort(Protocol):
     async def get_tree(self, token: str, full_name: str, branch: str) -> list[GitHubFileData]: ...
 
     async def list_issues(self, token: str, full_name: str) -> list[GitHubIssueData]: ...
+
+    async def list_milestones(
+        self, token: str, full_name: str
+    ) -> list[GitHubMilestoneData]: ...
 
     async def list_pull_requests(
         self, token: str, full_name: str

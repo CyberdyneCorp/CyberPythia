@@ -194,6 +194,8 @@ def issue_to_entity(row: IssueRow) -> Issue:
         updated_at=row.updated_at,
         closed_at=row.closed_at,
         comments_count=row.comments_count,
+        first_response_at=row.first_response_at,
+        reopened_count=row.reopened_count,
     )
 
 
@@ -212,6 +214,8 @@ def issue_update_row(row: IssueRow, entity: Issue) -> None:
     row.updated_at = entity.updated_at
     row.closed_at = entity.closed_at
     row.comments_count = entity.comments_count
+    row.first_response_at = entity.first_response_at
+    row.reopened_count = entity.reopened_count
 
 
 def pr_to_entity(row: PullRequestRow) -> PullRequest:

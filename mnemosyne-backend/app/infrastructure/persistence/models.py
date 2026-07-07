@@ -1,14 +1,16 @@
 """SQLAlchemy ORM models. Domain entities are mapped in the repository adapters."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Date,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -159,6 +161,8 @@ class IssueRow(Base):
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     comments_count: Mapped[int] = mapped_column(Integer, default=0)
+    first_response_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reopened_count: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class PullRequestRow(Base):
@@ -263,6 +267,41 @@ class RepositoryMetricsRow(Base):
     pr_metrics: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
     summary: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
     computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class RepositoryMetricsSnapshotRow(Base):
+    __tablename__ = "repository_metrics_snapshots"
+    __table_args__ = (UniqueConstraint("repository_id", "captured_on"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    repository_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True
+    )
+    captured_on: Mapped[date] = mapped_column(Date)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    open_issues: Mapped[int] = mapped_column(Integer, default=0)
+    closed_issues: Mapped[int] = mapped_column(Integer, default=0)
+    open_prs: Mapped[int] = mapped_column(Integer, default=0)
+    merged_prs: Mapped[int] = mapped_column(Integer, default=0)
+    median_cycle_seconds: Mapped[float | None] = mapped_column(Float)
+    health_overall: Mapped[float | None] = mapped_column(Float)
+
+
+class MilestoneRow(Base):
+    __tablename__ = "milestones"
+    __table_args__ = (UniqueConstraint("repository_id", "number"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    repository_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True
+    )
+    number: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(20))
+    due_on: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    open_issues: Mapped[int] = mapped_column(Integer, default=0)
+    closed_issues: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ContextPackRow(Base):

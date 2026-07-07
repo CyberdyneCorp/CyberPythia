@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 
 from app.application.errors import ApplicationError
+from app.application.use_cases.delivery_intelligence import DeliveryIntelligenceService
 from app.application.use_cases.intelligence import IntelligenceService
 from app.domain.value_objects.health import RepositoryHealth
 from app.interfaces.api.mapping import translate_error
@@ -20,7 +21,12 @@ def get_intelligence(request: Request) -> IntelligenceService:
     return request.app.state.container.intelligence  # type: ignore[no-any-return]
 
 
+def get_delivery(request: Request) -> DeliveryIntelligenceService:
+    return request.app.state.container.delivery_intelligence  # type: ignore[no-any-return]
+
+
 Service = Annotated[IntelligenceService, Depends(get_intelligence)]
+Delivery = Annotated[DeliveryIntelligenceService, Depends(get_delivery)]
 
 
 def _health_dict(health: RepositoryHealth) -> dict[str, Any]:
@@ -98,3 +104,67 @@ async def compare(body: CompareRequest, caller: EntitledCaller, service: Service
         return {"comparison": await service.compare(body.repository_ids)}
     except ApplicationError as exc:
         raise translate_error(exc) from exc
+
+
+# -- PM/PO delivery endpoints ---------------------------------------------------
+
+
+@router.get("/repositories/{repo_id}/flow")
+async def flow(repo_id: UUID, caller: EntitledCaller, delivery: Delivery) -> Any:
+    try:
+        return asdict(await delivery.flow(repo_id))
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
+@router.get("/repositories/{repo_id}/throughput")
+async def throughput(repo_id: UUID, caller: EntitledCaller, delivery: Delivery) -> Any:
+    try:
+        return asdict(await delivery.throughput(repo_id))
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
+@router.get("/repositories/{repo_id}/forecast")
+async def forecast(repo_id: UUID, caller: EntitledCaller, delivery: Delivery) -> Any:
+    try:
+        return asdict(await delivery.forecast(repo_id))
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
+@router.get("/repositories/{repo_id}/work-mix")
+async def work_mix(repo_id: UUID, caller: EntitledCaller, delivery: Delivery) -> Any:
+    try:
+        return asdict(await delivery.work_mix(repo_id))
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
+@router.get("/repositories/{repo_id}/quality")
+async def quality(repo_id: UUID, caller: EntitledCaller, delivery: Delivery) -> Any:
+    try:
+        return asdict(await delivery.quality(repo_id))
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
+@router.get("/repositories/{repo_id}/milestones")
+async def milestones(repo_id: UUID, caller: EntitledCaller, delivery: Delivery) -> Any:
+    try:
+        return {"milestones": [asdict(m) for m in await delivery.milestones(repo_id)]}
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
+@router.get("/repositories/{repo_id}/team-load")
+async def team_load(repo_id: UUID, caller: EntitledCaller, delivery: Delivery) -> Any:
+    try:
+        return asdict(await delivery.team_load(repo_id))
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
+@router.get("/delivery-scorecard")
+async def delivery_scorecard(caller: EntitledCaller, delivery: Delivery) -> Any:
+    return {"scorecard": [asdict(e) for e in await delivery.delivery_scorecard()]}

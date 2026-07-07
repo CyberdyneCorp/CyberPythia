@@ -2,13 +2,23 @@
   import { getContext } from 'svelte';
   import type { AppContext } from '$lib/appContext';
   import { IntelligenceViewModel } from '$lib/viewmodels/IntelligenceViewModel.svelte';
+  import { DeliveryViewModel } from '$lib/viewmodels/DeliveryViewModel.svelte';
 
   const ctx = getContext<AppContext>('app');
   const vm = new IntelligenceViewModel(ctx.intelligenceApi);
+  const deliveryVm = new DeliveryViewModel(ctx.intelligenceApi);
 
   $effect(() => {
     void vm.loadPortfolio();
+    void deliveryVm.loadScorecard();
   });
+
+  function arrow(direction: string | null): string {
+    if (direction === 'down') return '↓ improving';
+    if (direction === 'up') return '↑ growing';
+    if (direction === 'flat') return '→ flat';
+    return '—';
+  }
 
   function gradeClass(grade: string | null): string {
     if (!grade) return '';
@@ -71,6 +81,42 @@
       {:else}<p class="muted">—</p>{/if}
     </div>
   </div>
+{/if}
+
+<h2>Delivery scorecard</h2>
+<p class="muted">
+  PM/PO delivery signals per repository. Throughput direction and backlog trend need
+  accrued history — they fill in as daily snapshots accumulate.
+</p>
+{#if deliveryVm.error}<p class="error">{deliveryVm.error}</p>{/if}
+{#if deliveryVm.scorecard.length}
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Repository</th><th>Median cycle</th><th>Throughput</th>
+          <th>Backlog</th><th>At-risk milestones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each deliveryVm.scorecard as e (e.repository_id)}
+          <tr>
+            <td><a href={`/repos/${e.repository_id}`}>{e.full_name}</a></td>
+            <td>{e.has_data && e.median_cycle_days !== null ? `${e.median_cycle_days} d` : '—'}</td>
+            <td>{arrow(e.throughput_direction)}</td>
+            <td>
+              {#if e.backlog_shrinking === null}<span class="muted">collecting</span>
+              {:else if e.backlog_shrinking}<span class="badge ok">shrinking</span>
+              {:else}<span class="badge">not shrinking</span>{/if}
+            </td>
+            <td>{e.at_risk_milestones > 0 ? `⚠ ${e.at_risk_milestones}` : '—'}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+{:else if !deliveryVm.busy}
+  <p class="muted">No delivery data yet.</p>
 {/if}
 
 <style>

@@ -8,6 +8,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
+from app.domain.entities.metrics_snapshot import MetricsSnapshot
 from app.domain.entities.repository import Repository
 from app.domain.ports.persistence_ports import (
     DocumentPort,
@@ -17,7 +18,9 @@ from app.domain.ports.persistence_ports import (
 )
 from app.domain.services.issue_metrics import IssueMetricsService
 from app.domain.services.pr_metrics import PullRequestMetricsService
+from app.domain.services.repository_health import RepositoryHealthService
 from app.domain.value_objects.enums import DocumentType
+from app.domain.value_objects.health import HealthInputs, RepositorySignals
 
 
 class MetricsWriterProtocol(Protocol):  # PostgresMetricsRepository.save-compatible
@@ -32,6 +35,10 @@ class MetricsWriterProtocol(Protocol):  # PostgresMetricsRepository.save-compati
     ) -> None: ...
 
 
+class MetricsHistoryProtocol(Protocol):  # PostgresMetricsHistoryRepository-compatible
+    async def record(self, snapshot: MetricsSnapshot) -> None: ...
+
+
 class MetricsRecomputeService:
     def __init__(
         self,
@@ -42,6 +49,8 @@ class MetricsRecomputeService:
         metrics_store: MetricsWriterProtocol,
         issue_metrics: IssueMetricsService | None = None,
         pr_metrics: PullRequestMetricsService | None = None,
+        history: MetricsHistoryProtocol | None = None,
+        health: RepositoryHealthService | None = None,
     ) -> None:
         self._issues = issues
         self._pull_requests = pull_requests
@@ -50,6 +59,8 @@ class MetricsRecomputeService:
         self._metrics_store = metrics_store
         self._issue_metrics = issue_metrics or IssueMetricsService()
         self._pr_metrics = pr_metrics or PullRequestMetricsService()
+        self._history = history
+        self._health = health or RepositoryHealthService()
 
     async def recompute(self, repository: Repository) -> None:
         now = datetime.now(UTC)
@@ -86,3 +97,39 @@ class MetricsRecomputeService:
             summary=summary,
             computed_at=now,
         )
+
+        if self._history is not None:
+            # Health for the trend is scored portfolio-style (no file-tree read),
+            # matching how PortfolioIntelligenceService scores the leaderboard.
+            health = self._health.score(
+                HealthInputs(
+                    synced=repository.last_synced_at is not None,
+                    has_readme=bool(summary["has_readme"]),
+                    has_docs=bool(summary["has_docs"]),
+                    has_openspec=bool(summary["has_openspec"]),
+                    merged_prs=pr_metrics.merged_count,
+                    median_merge_seconds=pr_metrics.median_time_to_merge_seconds,
+                    merge_rate=pr_metrics.merge_rate,
+                    median_issue_resolution_seconds=issue_metrics.median_resolution_seconds,
+                    open_issues=issue_metrics.open_count,
+                    stale_issue_count=len(issue_metrics.stale_issues),
+                    open_prs=pr_metrics.open_count,
+                    stale_pr_count=len(pr_metrics.stale_prs),
+                    last_activity=repository.github_updated_at or repository.last_synced_at,
+                    signals=RepositorySignals(),
+                ),
+                now,
+            )
+            await self._history.record(
+                MetricsSnapshot(
+                    repository_id=repository.id,
+                    captured_on=now.date(),
+                    captured_at=now,
+                    open_issues=issue_metrics.open_count,
+                    closed_issues=issue_metrics.closed_count,
+                    open_prs=pr_metrics.open_count,
+                    merged_prs=pr_metrics.merged_count,
+                    median_cycle_seconds=issue_metrics.median_resolution_seconds,
+                    health_overall=health.overall,
+                )
+            )

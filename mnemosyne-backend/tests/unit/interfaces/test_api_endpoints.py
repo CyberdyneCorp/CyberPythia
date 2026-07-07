@@ -162,13 +162,23 @@ def build_fake_container():
         embeddings=embeddings,
         audit=AuditService(audit_port),
     )
+    from app.application.use_cases.delivery_intelligence import DeliveryIntelligenceService
     from app.application.use_cases.intelligence import IntelligenceService
     from app.domain.services.repository_health import RepositoryHealthService
     from app.domain.services.repository_signals import RepositorySignalsService
+    from tests.unit.application.test_delivery_intelligence import (
+        FakeHistoryPort,
+        FakeMilestonePort,
+    )
 
     intelligence = IntelligenceService(
         repositories, files, metrics_store,
         RepositorySignalsService(), RepositoryHealthService(),
+    )
+    metrics_history = FakeHistoryPort()
+    milestones_port = FakeMilestonePort()
+    delivery_intelligence = DeliveryIntelligenceService(
+        repositories, issues, prs, milestones_port, metrics_history,
     )
     return SimpleNamespace(
         settings=None,
@@ -198,6 +208,9 @@ def build_fake_container():
         webhook_deliveries=webhook_deliveries,
         process_webhook=process_webhook,
         intelligence=intelligence,
+        delivery_intelligence=delivery_intelligence,
+        metrics_history=metrics_history,
+        milestones=milestones_port,
     )
 
 

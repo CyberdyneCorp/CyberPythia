@@ -9,6 +9,7 @@ from app.application.audit import AuditService
 from app.application.metrics_recompute import MetricsRecomputeService
 from app.application.use_cases.code import CodeUseCases
 from app.application.use_cases.context import ContextUseCases
+from app.application.use_cases.delivery_intelligence import DeliveryIntelligenceService
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
 from app.application.use_cases.incremental_sync import IncrementalSyncUseCases
 from app.application.use_cases.intelligence import IntelligenceService
@@ -34,7 +35,9 @@ from app.infrastructure.persistence.repositories.misc import (
     PostgresAuditRepository,
     PostgresContextPackRepository,
     PostgresFileRepository,
+    PostgresMetricsHistoryRepository,
     PostgresMetricsRepository,
+    PostgresMilestoneRepository,
     PostgresSourceChunkRepository,
     PostgresSyncJobRepository,
     PostgresWebhookDeliveryRepository,
@@ -141,6 +144,14 @@ class Container:
         return PostgresMetricsRepository(self.session_factory)
 
     @cached_property
+    def metrics_history(self) -> PostgresMetricsHistoryRepository:
+        return PostgresMetricsHistoryRepository(self.session_factory)
+
+    @cached_property
+    def milestones(self) -> PostgresMilestoneRepository:
+        return PostgresMilestoneRepository(self.session_factory)
+
+    @cached_property
     def audit(self) -> PostgresAuditRepository:
         return PostgresAuditRepository(self.session_factory)
 
@@ -163,7 +174,12 @@ class Container:
     @cached_property
     def metrics_recompute(self) -> MetricsRecomputeService:
         return MetricsRecomputeService(
-            self.issues, self.pull_requests, self.documents, self.openspec, self.metrics_store
+            self.issues,
+            self.pull_requests,
+            self.documents,
+            self.openspec,
+            self.metrics_store,
+            history=self.metrics_history,
         )
 
     @cached_property
@@ -235,6 +251,8 @@ class Container:
             metrics_writer=MetricsWriter(store=self.metrics_store),
             source_chunks=self.source_chunks,
             code_chunker=self.code_chunker,
+            milestones=self.milestones,
+            metrics_history=self.metrics_history,
             source_size_cap=self.settings.source_size_cap_bytes,
         )
 
@@ -256,6 +274,16 @@ class Container:
             metrics=self.metrics_store,
             signals=RepositorySignalsService(),
             health=RepositoryHealthService(),
+        )
+
+    @cached_property
+    def delivery_intelligence(self) -> DeliveryIntelligenceService:
+        return DeliveryIntelligenceService(
+            repositories=self.repositories,
+            issues=self.issues,
+            pull_requests=self.pull_requests,
+            milestones=self.milestones,
+            history=self.metrics_history,
         )
 
 

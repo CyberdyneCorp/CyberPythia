@@ -15,6 +15,7 @@ from app.domain.ports.github_port import (
     GitHubAuthError,
     GitHubFileData,
     GitHubIssueData,
+    GitHubMilestoneData,
     GitHubNotFoundError,
     GitHubPullRequestData,
     GitHubRepoData,
@@ -211,6 +212,15 @@ class GitHubClient:
         await self._snapshot(f"raw/github/repos/{full_name}/issues.json", raw)
         return [_issue_from(i) for i in raw]
 
+    async def list_milestones(
+        self, token: str, full_name: str
+    ) -> list[GitHubMilestoneData]:
+        raw = await self._paginate(
+            f"/repos/{full_name}/milestones", token, params={"state": "all"}
+        )
+        await self._snapshot(f"raw/github/repos/{full_name}/milestones.json", raw)
+        return [_milestone_from(m) for m in raw]
+
     async def get_issue(self, token: str, full_name: str, number: int) -> GitHubIssueData:
         response = await self._request(
             "GET", f"{self._base_url}/repos/{full_name}/issues/{number}", token
@@ -264,6 +274,18 @@ def _issue_from(i: dict[str, Any]) -> GitHubIssueData:
         closed_at=_parse_dt(i.get("closed_at")),
         comments_count=i.get("comments", 0),
         is_pull_request="pull_request" in i,
+    )
+
+
+def _milestone_from(m: dict[str, Any]) -> GitHubMilestoneData:
+    return GitHubMilestoneData(
+        number=m["number"],
+        title=m.get("title", ""),
+        state=m.get("state", "open"),
+        due_on=_parse_dt(m.get("due_on")),
+        open_issues=m.get("open_issues", 0),
+        closed_issues=m.get("closed_issues", 0),
+        updated_at=_parse_dt(m.get("updated_at")),
     )
 
 

@@ -8,6 +8,8 @@ from app.domain.entities.context_pack import ContextPack
 from app.domain.entities.document import Document
 from app.domain.entities.github_connection import GitHubConnection
 from app.domain.entities.issue import Issue
+from app.domain.entities.metrics_snapshot import MetricsSnapshot
+from app.domain.entities.milestone import Milestone
 from app.domain.entities.openspec_change import OpenSpecChange
 from app.domain.entities.pull_request import PullRequest
 from app.domain.entities.repository import Repository
@@ -129,3 +131,21 @@ class WebhookDeliveryPort(Protocol):
     async def record(self, delivery: WebhookDelivery) -> None: ...
 
     async def list_recent(self, limit: int = 100) -> list[WebhookDelivery]: ...
+
+
+class MetricsHistoryPort(Protocol):
+    async def record(self, snapshot: MetricsSnapshot) -> None: ...
+
+    async def list_window(
+        self, repository_id: UUID, *, days: int = 180
+    ) -> list[MetricsSnapshot]: ...
+
+    async def prune(self, *, daily_days: int = 180) -> int: ...
+
+
+class MilestonePort(Protocol):
+    async def replace_for_repository(
+        self, repository_id: UUID, milestones: list[Milestone]
+    ) -> None: ...
+
+    async def list_by_repository(self, repository_id: UUID) -> list[Milestone]: ...

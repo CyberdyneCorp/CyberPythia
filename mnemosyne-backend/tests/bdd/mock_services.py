@@ -126,6 +126,10 @@ class MockServices:
         def issues(owner: str, name: str) -> list:
             return gh.get("issues", [])
 
+        @app.get("/github/repos/{owner}/{name}/milestones")
+        def milestones(owner: str, name: str) -> list:
+            return gh.get("milestones", [])
+
         @app.get("/github/repos/{owner}/{name}/pulls")
         def pulls(owner: str, name: str) -> list:
             return gh.get("pulls", [])
@@ -188,6 +192,13 @@ DEMO_FIXTURE: dict[str, Any] = {
         "openspec/changes/add-gpu-backend/proposal.md": "# Proposal: add-gpu-backend",
         "openspec/changes/add-gpu-backend/tasks.md": "- [ ] 1.1 Add OpenCL device discovery",
     },
+    "milestones": [
+        {
+            "number": 1, "title": "v1.0", "state": "open",
+            "due_on": "2026-09-01T00:00:00Z", "open_issues": 1, "closed_issues": 1,
+            "updated_at": "2026-07-01T00:00:00Z",
+        },
+    ],
     "issues": [
         {
             "id": 1, "number": 42, "title": "Add OpenCL backend", "state": "closed",

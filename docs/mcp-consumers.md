@@ -49,6 +49,14 @@ Repositories are addressed by full name (`owner/name`).
 | `mnemosyne_get_portfolio_overview` | cross-repo leaderboard, most-active, abandoned, bug-heavy |
 | `mnemosyne_compare_repositories` | aligned health + metric comparison |
 | `mnemosyne_generate_onboarding_summary` | newcomer brief for a repository |
+| `mnemosyne_get_flow_metrics` | cycle/lead percentiles, WIP, aging, untriaged (Phase 5.1) |
+| `mnemosyne_get_throughput_trend` | items-closed and net-flow over the time-series |
+| `mnemosyne_get_backlog_forecast` | projected backlog-clear date (or why there is none) |
+| `mnemosyne_get_work_mix` | feature/bug/tech-debt/docs distribution + bug ratio |
+| `mnemosyne_get_quality_signals` | bug ratio, reopened-issue rate, first-response percentiles |
+| `mnemosyne_get_milestone_progress` | per-milestone burn-up + projected completion |
+| `mnemosyne_get_team_load` | load per assignee, reviewer load, bus-factor risk |
+| `mnemosyne_get_delivery_scorecard` | portfolio delivery roll-up |
 
 ## Error contract
 

@@ -14,10 +14,14 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from app.application.errors import SyncAlreadyRunningError, UnknownResourceError
-from app.application.metrics_recompute import MetricsRecomputeService
+from app.application.metrics_recompute import (
+    MetricsHistoryProtocol,
+    MetricsRecomputeService,
+)
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
 from app.domain.entities.document import Document
 from app.domain.entities.issue import Issue
+from app.domain.entities.milestone import Milestone
 from app.domain.entities.openspec_change import OpenSpecChange
 from app.domain.entities.pull_request import PullRequest
 from app.domain.entities.repository import Repository
@@ -36,6 +40,7 @@ from app.domain.ports.persistence_ports import (
     DocumentPort,
     FilePort,
     IssuePort,
+    MilestonePort,
     OpenSpecPort,
     PullRequestPort,
     RepositoryPort,
@@ -114,6 +119,8 @@ class SyncRepositoryUseCase:
         metrics_writer: MetricsWriter,
         source_chunks: SourceChunkPort,
         code_chunker: CodeChunkerPort,
+        milestones: "MilestonePort | None" = None,
+        metrics_history: "MetricsHistoryProtocol | None" = None,
         issue_metrics_service: IssueMetricsService | None = None,
         pr_metrics_service: PullRequestMetricsService | None = None,
         source_size_cap: int = 512 * 1024,
@@ -133,6 +140,8 @@ class SyncRepositoryUseCase:
         self._metrics_writer = metrics_writer
         self._source_chunks = source_chunks
         self._code_chunker = code_chunker
+        self._milestones = milestones
+        self._metrics_history = metrics_history
         self._source_size_cap = source_size_cap
         self._issue_metrics = issue_metrics_service or IssueMetricsService()
         self._pr_metrics = pr_metrics_service or PullRequestMetricsService()
@@ -315,7 +324,30 @@ class SyncRepositoryUseCase:
             if not i.is_pull_request  # PRs are never stored as issues (spec)
         ]
         await self._issues.save_many(issues)
+        await self._sync_milestones(ctx)
         return len(issues)
+
+    async def _sync_milestones(self, ctx: "_SyncContext") -> None:
+        if self._milestones is None:
+            return
+        raw = await self._github.list_milestones(ctx.token, ctx.full_name)
+        await self._milestones.replace_for_repository(
+            ctx.repository.id,
+            [
+                Milestone(
+                    id=uuid4(),
+                    repository_id=ctx.repository.id,
+                    number=m.number,
+                    title=m.title,
+                    state=m.state,
+                    due_on=m.due_on,
+                    open_issues=m.open_issues,
+                    closed_issues=m.closed_issues,
+                    updated_at=m.updated_at,
+                )
+                for m in raw
+            ],
+        )
 
     async def _sync_pull_requests(self, ctx: "_SyncContext") -> int:
         raw = await self._github.list_pull_requests(ctx.token, ctx.full_name)
@@ -450,6 +482,7 @@ class SyncRepositoryUseCase:
             self._metrics_writer.store,  # type: ignore[arg-type]
             self._issue_metrics,
             self._pr_metrics,
+            history=self._metrics_history,
         )
         await service.recompute(ctx.repository)
         return 1

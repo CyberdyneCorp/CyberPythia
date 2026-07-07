@@ -11,14 +11,20 @@ import type {
   DocumentSummary,
   IndexingMode,
   Issue,
+  BacklogForecast,
+  DeliveryScorecardEntry,
+  FlowMetrics,
   MaintenanceRisk,
   Metrics,
+  MilestoneProgress,
   OpenSpecChange,
   Page,
   PortfolioOverview,
   PullRequest,
   Repository,
   RepositoryHealth,
+  ThroughputTrend,
+  WorkMix,
   RepositorySummary,
   WebhookDelivery,
   SearchMatch,
@@ -155,5 +161,23 @@ export class IntelligenceApi {
   }
   maintenanceRisk(repoId: string): Promise<MaintenanceRisk> {
     return this.http.get(`/api/v1/intelligence/repositories/${repoId}/maintenance-risk`);
+  }
+  deliveryScorecard(): Promise<{ scorecard: DeliveryScorecardEntry[] }> {
+    return this.http.get('/api/v1/intelligence/delivery-scorecard');
+  }
+  flow(repoId: string): Promise<FlowMetrics> {
+    return this.http.get(`/api/v1/intelligence/repositories/${repoId}/flow`);
+  }
+  throughput(repoId: string): Promise<ThroughputTrend> {
+    return this.http.get(`/api/v1/intelligence/repositories/${repoId}/throughput`);
+  }
+  forecast(repoId: string): Promise<BacklogForecast> {
+    return this.http.get(`/api/v1/intelligence/repositories/${repoId}/forecast`);
+  }
+  workMix(repoId: string): Promise<WorkMix> {
+    return this.http.get(`/api/v1/intelligence/repositories/${repoId}/work-mix`);
+  }
+  milestones(repoId: string): Promise<{ milestones: MilestoneProgress[] }> {
+    return this.http.get(`/api/v1/intelligence/repositories/${repoId}/milestones`);
   }
 }

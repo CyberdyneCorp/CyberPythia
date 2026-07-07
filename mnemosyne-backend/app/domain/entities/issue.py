@@ -24,6 +24,15 @@ class Issue:
     updated_at: datetime | None = None
     closed_at: datetime | None = None
     comments_count: int = 0
+    first_response_at: datetime | None = None
+    reopened_count: int = 0
+
+    @property
+    def first_response_seconds(self) -> float | None:
+        """created_at -> first non-author response; None when not captured."""
+        if self.first_response_at is None or self.created_at is None:
+            return None
+        return (self.first_response_at - self.created_at).total_seconds()
 
     @property
     def resolution_time_seconds(self) -> float | None:

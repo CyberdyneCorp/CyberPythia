@@ -237,3 +237,71 @@ export interface MaintenanceRisk {
   level: string;
   reasons: string[];
 }
+
+export interface PercentileBlock {
+  n: number;
+  p50: number | null;
+  p85: number | null;
+  p95: number | null;
+}
+
+export interface FlowMetrics {
+  has_data: boolean;
+  resolution_seconds: PercentileBlock;
+  merge_seconds: PercentileBlock;
+  wip_issues: number;
+  wip_prs: number;
+  issue_aging: Record<string, number>;
+  pr_aging: Record<string, number>;
+  untriaged_issues: number;
+}
+
+export interface TrendPoint {
+  date: string;
+  closed_issues: number;
+  open_issues: number;
+  net_flow: number;
+}
+
+export interface ThroughputTrend {
+  has_data: boolean;
+  points: TrendPoint[];
+  reason: string | null;
+}
+
+export interface BacklogForecast {
+  has_data: boolean;
+  open_issues: number;
+  close_rate_per_day: number | null;
+  projected_days_to_clear: number | null;
+  projected_clear_date: string | null;
+  reason: string | null;
+}
+
+export interface WorkMix {
+  has_data: boolean;
+  distribution: Record<string, number>;
+  bug_ratio: number | null;
+}
+
+export interface MilestoneProgress {
+  number: number;
+  title: string;
+  state: string;
+  percent_complete: number | null;
+  open_issues: number;
+  closed_issues: number;
+  due_on: string | null;
+  projected_completion: string | null;
+  at_risk: boolean;
+}
+
+export interface DeliveryScorecardEntry {
+  repository_id: string;
+  full_name: string;
+  has_data: boolean;
+  median_cycle_days: number | null;
+  throughput_direction: string | null;
+  backlog_shrinking: boolean | null;
+  at_risk_milestones: number;
+}

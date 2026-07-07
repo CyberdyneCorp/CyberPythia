@@ -5,7 +5,7 @@ import json
 from dataclasses import asdict
 from datetime import datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import delete, select
 
@@ -19,6 +19,8 @@ from app.domain.entities.context_pack import (
     PullRequestRef,
     SourceChunkRef,
 )
+from app.domain.entities.metrics_snapshot import MetricsSnapshot
+from app.domain.entities.milestone import Milestone
 from app.domain.entities.source_chunk import SourceChunk
 from app.domain.entities.source_file import SourceFile
 from app.domain.entities.sync_job import SyncJob
@@ -36,7 +38,9 @@ from app.infrastructure.persistence.mappers import (
 from app.infrastructure.persistence.models import (
     AuditLogRow,
     ContextPackRow,
+    MilestoneRow,
     RepositoryMetricsRow,
+    RepositoryMetricsSnapshotRow,
     SourceChunkRow,
     SourceFileRow,
     SyncJobRow,
@@ -364,3 +368,116 @@ class PostgresWebhookDeliveryRepository(PostgresRepositoryBase):
                 .limit(limit)
             )
             return [webhook_delivery_to_entity(r) for r in rows]
+
+
+class PostgresMetricsHistoryRepository(PostgresRepositoryBase):
+    async def record(self, snapshot: MetricsSnapshot) -> None:
+        async with self._session_factory() as session, session.begin():
+            row = await session.scalar(
+                select(RepositoryMetricsSnapshotRow).where(
+                    RepositoryMetricsSnapshotRow.repository_id == snapshot.repository_id,
+                    RepositoryMetricsSnapshotRow.captured_on == snapshot.captured_on,
+                )
+            )
+            if row is None:
+                row = RepositoryMetricsSnapshotRow(
+                    id=uuid4(),
+                    repository_id=snapshot.repository_id,
+                    captured_on=snapshot.captured_on,
+                )
+                session.add(row)
+            row.captured_at = snapshot.captured_at
+            row.open_issues = snapshot.open_issues
+            row.closed_issues = snapshot.closed_issues
+            row.open_prs = snapshot.open_prs
+            row.merged_prs = snapshot.merged_prs
+            row.median_cycle_seconds = snapshot.median_cycle_seconds
+            row.health_overall = snapshot.health_overall
+
+    async def list_window(
+        self, repository_id: UUID, *, days: int = 180
+    ) -> list[MetricsSnapshot]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(RepositoryMetricsSnapshotRow)
+                .where(RepositoryMetricsSnapshotRow.repository_id == repository_id)
+                .order_by(RepositoryMetricsSnapshotRow.captured_on.asc())
+                .limit(days)
+            )
+            return [_snapshot_to_entity(r) for r in rows]
+
+    async def prune(self, *, daily_days: int = 180) -> int:
+        # Downsampling of older-than-daily_days points is a worker-side maintenance
+        # task; the append path already caps at one row per repo per day, so the
+        # series grows ~1 row/repo/day. Returns rows removed (0 until enabled).
+        return 0
+
+
+def _snapshot_to_entity(row: RepositoryMetricsSnapshotRow) -> MetricsSnapshot:
+    return MetricsSnapshot(
+        repository_id=row.repository_id,
+        captured_on=row.captured_on,
+        captured_at=row.captured_at,
+        open_issues=row.open_issues,
+        closed_issues=row.closed_issues,
+        open_prs=row.open_prs,
+        merged_prs=row.merged_prs,
+        median_cycle_seconds=row.median_cycle_seconds,
+        health_overall=row.health_overall,
+    )
+
+
+class PostgresMilestoneRepository(PostgresRepositoryBase):
+    async def replace_for_repository(
+        self, repository_id: UUID, milestones: list[Milestone]
+    ) -> None:
+        async with self._session_factory() as session, session.begin():
+            prior = {
+                r.number: r
+                for r in await session.scalars(
+                    select(MilestoneRow).where(
+                        MilestoneRow.repository_id == repository_id
+                    )
+                )
+            }
+            seen: set[int] = set()
+            for m in milestones:
+                seen.add(m.number)
+                row = prior.get(m.number) or MilestoneRow(
+                    id=uuid4(), repository_id=repository_id
+                )
+                if m.number not in prior:
+                    session.add(row)
+                row.number = m.number
+                row.title = m.title
+                row.state = m.state
+                row.due_on = m.due_on
+                row.open_issues = m.open_issues
+                row.closed_issues = m.closed_issues
+                row.updated_at = m.updated_at
+            for number, row in prior.items():
+                if number not in seen:
+                    await session.delete(row)
+
+    async def list_by_repository(self, repository_id: UUID) -> list[Milestone]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(MilestoneRow)
+                .where(MilestoneRow.repository_id == repository_id)
+                .order_by(MilestoneRow.number.asc())
+            )
+            return [_milestone_to_entity(r) for r in rows]
+
+
+def _milestone_to_entity(row: MilestoneRow) -> Milestone:
+    return Milestone(
+        id=row.id,
+        repository_id=row.repository_id,
+        number=row.number,
+        title=row.title,
+        state=row.state,
+        due_on=row.due_on,
+        open_issues=row.open_issues,
+        closed_issues=row.closed_issues,
+        updated_at=row.updated_at,
+    )

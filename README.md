@@ -89,7 +89,10 @@ build a semantic **code search** index (Phase 3).
 The **Intelligence** dashboard scores each repository's **health** (0–100 + grade
 + findings) and rolls the org up into a portfolio view — leaderboard, most-active,
 abandoned, and bug-heavy repositories — plus delivery/backlog/bottleneck/maintenance
-analytics over MCP and REST (Phase 5); see
+analytics over MCP and REST (Phase 5). For project managers and POs, Phase 5.1 adds
+**delivery intelligence** — cycle/lead-time percentiles, aging WIP, throughput and backlog
+**forecasting**, work-mix, quality signals, milestone burn-up, and team-load/bus-factor —
+on a forward-only metrics time-series; see
 [docs/engineering-intelligence.md](docs/engineering-intelligence.md).
 
 ## Docs

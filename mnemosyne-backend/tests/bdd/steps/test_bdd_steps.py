@@ -188,6 +188,24 @@ def portfolio_includes_repo(api, state):
     assert str(state["repo_id"]) in ids, overview
 
 
+@then("the delivery flow report has cycle-time percentiles and work-in-progress")
+def delivery_flow_report(api, state):
+    flow = api.get(
+        f"/api/v1/intelligence/repositories/{state['repo_id']}/flow"
+    ).json()
+    assert flow["has_data"] is True, flow
+    assert flow["resolution_seconds"]["n"] >= 1
+    assert "wip_issues" in flow and "issue_aging" in flow
+
+
+@then("the repository has at least one captured milestone")
+def repo_has_milestone(api, state):
+    result = api.get(
+        f"/api/v1/intelligence/repositories/{state['repo_id']}/milestones"
+    ).json()
+    assert len(result["milestones"]) >= 1, result
+
+
 # -- context pack scenarios -------------------------------------------------------------
 
 

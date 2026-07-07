@@ -7,6 +7,7 @@ import { ConnectionsViewModel } from './ConnectionsViewModel.svelte';
 import { AuthViewModel } from './AuthViewModel.svelte';
 import { CodeSearchViewModel } from './CodeSearchViewModel.svelte';
 import { IntelligenceViewModel, RepositoryHealthViewModel } from './IntelligenceViewModel.svelte';
+import { DeliveryViewModel, RepositoryDeliveryViewModel } from './DeliveryViewModel.svelte';
 
 function repo(overrides: Partial<Repository> = {}): Repository {
   return {
@@ -368,5 +369,93 @@ describe('RepositoryHealthViewModel', () => {
     await vm.load();
     expect(vm.health?.grade).toBe('A');
     expect(vm.health?.components).toHaveLength(1);
+  });
+});
+
+describe('DeliveryViewModel', () => {
+  it('loads the delivery scorecard', async () => {
+    const api = {
+      deliveryScorecard: async () => ({
+        scorecard: [
+          {
+            repository_id: 'r1',
+            full_name: 'cyberdyne/a',
+            has_data: true,
+            median_cycle_days: 3.2,
+            throughput_direction: 'down',
+            backlog_shrinking: true,
+            at_risk_milestones: 1
+          }
+        ]
+      })
+    };
+    const vm = new DeliveryViewModel(api as never);
+    await vm.loadScorecard();
+    expect(vm.scorecard).toHaveLength(1);
+    expect(vm.scorecard[0].throughput_direction).toBe('down');
+    expect(vm.error).toBeNull();
+  });
+
+  it('surfaces scorecard load errors', async () => {
+    const api = {
+      deliveryScorecard: async () => {
+        throw new ApiError(500, 'server', 'down');
+      }
+    };
+    const vm = new DeliveryViewModel(api as never);
+    await vm.loadScorecard();
+    expect(vm.error).toBe('down');
+  });
+});
+
+describe('RepositoryDeliveryViewModel', () => {
+  it('loads per-repo flow, forecast, work-mix, milestones', async () => {
+    const api = {
+      flow: async () => ({
+        has_data: true,
+        resolution_seconds: { n: 3, p50: 1, p85: 2, p95: 3 },
+        merge_seconds: { n: 0, p50: null, p85: null, p95: null },
+        wip_issues: 4,
+        wip_prs: 1,
+        issue_aging: { '0-7': 2, '7-30': 1, '30-90': 0, '90+': 1 },
+        pr_aging: {},
+        untriaged_issues: 1
+      }),
+      forecast: async () => ({
+        has_data: true,
+        open_issues: 9,
+        close_rate_per_day: 2,
+        projected_days_to_clear: 4.5,
+        projected_clear_date: '2026-07-12',
+        reason: null
+      }),
+      throughput: async () => ({ has_data: false, points: [], reason: 'insufficient history' }),
+      workMix: async () => ({
+        has_data: true,
+        distribution: { feature: 2, bug: 1, tech_debt: 0, docs: 0, other: 0 },
+        bug_ratio: 0.33
+      }),
+      milestones: async () => ({
+        milestones: [
+          {
+            number: 1,
+            title: 'v1',
+            state: 'open',
+            percent_complete: 50,
+            open_issues: 2,
+            closed_issues: 2,
+            due_on: '2026-08-01',
+            projected_completion: '2026-07-20',
+            at_risk: false
+          }
+        ]
+      })
+    };
+    const vm = new RepositoryDeliveryViewModel(api as never, 'r1');
+    await vm.load();
+    expect(vm.flow?.wip_issues).toBe(4);
+    expect(vm.forecast?.projected_clear_date).toBe('2026-07-12');
+    expect(vm.workMix?.distribution.feature).toBe(2);
+    expect(vm.milestones).toHaveLength(1);
   });
 });

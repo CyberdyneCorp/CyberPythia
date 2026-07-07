@@ -103,6 +103,37 @@ async def test_issues_snapshot_raw_and_exclude_flag(storage):
 
 
 @respx.mock
+async def test_list_milestones(storage):
+    respx.get(f"{API_BASE}/repos/cyberdyne/a/milestones").respond(
+        json=[
+            {
+                "number": 1,
+                "title": "v1",
+                "state": "open",
+                "due_on": "2026-08-01T00:00:00Z",
+                "open_issues": 3,
+                "closed_issues": 7,
+                "updated_at": "2026-07-01T00:00:00Z",
+            },
+            {
+                "number": 2,
+                "title": "backlog",
+                "state": "open",
+                "due_on": None,
+                "open_issues": 5,
+                "closed_issues": 0,
+            },
+        ]
+    )
+    milestones = await GitHubClient(storage=storage).list_milestones(TOKEN, "cyberdyne/a")
+    assert len(milestones) == 2
+    assert milestones[0].title == "v1"
+    assert milestones[0].due_on is not None
+    assert milestones[1].due_on is None
+    assert milestones[0].closed_issues == 7
+
+
+@respx.mock
 async def test_pull_requests_first_review_and_reviewers(storage):
     respx.get(f"{API_BASE}/repos/cyberdyne/a/pulls").respond(
         json=[

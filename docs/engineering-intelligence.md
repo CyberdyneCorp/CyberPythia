@@ -90,7 +90,52 @@ POST /api/v1/intelligence/compare        # { "repository_ids": [...] }
 - **Health panel** on each repository detail page: overall score, grade, the component
   breakdown (with *n/a* for components the mode can't score), and findings.
 
+## PM/PO delivery intelligence (Phase 5.1)
+
+Phase 5.1 adds the metrics project managers and product owners actually ask for. It stands
+on two foundations: a **forward-only metrics time-series** (`repository_metrics_snapshots`,
+one row per repo per day, appended on every recompute) and lightly **enriched capture**
+(milestone due dates + totals, issue first-response, reopened count).
+
+### Metrics
+
+- **Flow** (`/flow`, `mnemosyne_get_flow_metrics`) — cycle/lead-time **percentiles**
+  (p50/p85/p95) for issue resolution and PR merge, WIP counts, aging buckets
+  (0–7 / 7–30 / 30–90 / 90+ days), and untriaged backlog (open issues with no label/assignee).
+  Percentiles answer "85% of issues close within N days" — a commitment you can make.
+- **Throughput trend** (`/throughput`, `mnemosyne_get_throughput_trend`) — items closed per
+  period and created-vs-closed net flow, over the time-series.
+- **Backlog forecast** (`/forecast`, `mnemosyne_get_backlog_forecast`) — projected date the
+  open backlog clears at the trailing close rate, or an explicit reason ("backlog growing",
+  "insufficient history"). The projection is a linear estimate, not a Monte-Carlo model.
+- **Work mix** (`/work-mix`, `mnemosyne_get_work_mix`) — issue counts by class
+  (feature / bug / tech-debt / docs / other) via a configurable label→class map, plus bug ratio.
+- **Quality** (`/quality`, `mnemosyne_get_quality_signals`) — bug ratio, reopened-issue rate,
+  time-to-first-response percentiles.
+- **Milestones** (`/milestones`, `mnemosyne_get_milestone_progress`) — percent complete and a
+  projected completion date per milestone, flagged **at-risk** when the projection is past the
+  due date.
+- **Team load** (`/team-load`, `mnemosyne_get_team_load`) — open items per assignee, reviewer
+  load, and a **bus factor** (smallest set of authors covering ≥ 50% of PRs). Reports
+  distribution and concentration risk only — never a per-person performance score or ranking.
+- **Delivery scorecard** (`/delivery-scorecard`, `mnemosyne_get_delivery_scorecard`) — the
+  portfolio roll-up: median cycle, throughput direction, backlog trend, at-risk milestones.
+
+### The forward-only caveat
+
+The time-series is **not back-filled**: throughput, net-flow, forecast, and milestone
+projection are empty until snapshots accumulate (a snapshot lands on every sync/webhook, so
+in practice within a day or two). The UI shows "collecting history" rather than fabricating a
+line, and the tools return a structured insufficient-history result. Everything that doesn't
+need history — percentiles, aging, WIP, work-mix, quality, team-load — is available immediately.
+
+### Label→class map (default, config-overridable)
+
+`bug|defect|regression → bug`, `feature|enhancement → feature`,
+`tech-debt|refactor|chore → tech_debt`, `docs|documentation → docs`, anything else → `other`.
+
 ## Not in this change
 
-- Historical trend lines / regression alerts (needs a health-snapshot time series).
-- Configurable scoring weights; dependency-freshness/CVE scanning; people analytics.
+- Story points / estimates, GitHub Projects v2 sprints, individual performance ranking,
+  cost attribution, external PM-tool (Jira/Linear) sync.
+- Configurable scoring weights; dependency-freshness/CVE scanning.
