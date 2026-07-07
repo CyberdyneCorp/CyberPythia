@@ -83,3 +83,20 @@ class TestCallerIdentityCyberdyneAuthModel:
     def test_scope_carrying_entitlement_grants_access(self):
         caller = CallerIdentity(subject="u1", scopes=frozenset({"cyb_50Udgx"}))
         assert caller.can_access("cyb_50Udgx", "mnemosyne")
+
+
+class TestFullContextMode:
+    def test_code_context_includes_everything_but_full(self):
+        m = IndexingMode.CODE_CONTEXT
+        assert m.includes_issues_and_prs and m.includes_file_tree and m.includes_source_code
+
+    def test_full_context_includes_all(self):
+        m = IndexingMode.FULL_CONTEXT
+        assert m.includes_issues_and_prs and m.includes_file_tree and m.includes_source_code
+
+    def test_code_metadata_excludes_source(self):
+        assert not IndexingMode.CODE_METADATA.includes_source_code
+
+    def test_lower_modes_exclude_source(self):
+        assert not IndexingMode.DOCS_ONLY.includes_source_code
+        assert not IndexingMode.PROJECT_INTELLIGENCE.includes_source_code

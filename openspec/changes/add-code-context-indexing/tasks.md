@@ -4,10 +4,10 @@
 
 ## 1. Domain: modes, entity, chunker
 
-- [ ] 1.1 Add `full_context` to `IndexingMode`; add `includes_source_code` (true for `code_context`/`full_context`); make `code_context` include issues/PRs. Unit tests for the mode matrix.
-- [ ] 1.2 Add `SyncStep.SOURCE_CODE`; `SyncJob.steps_for_mode` inserts it after `FILE_TREE`, before `EMBEDDINGS`, only for code modes. Unit tests.
-- [ ] 1.3 `SourceChunk` entity (`chunk_type`, `symbol_name`, `start_line`, `end_line`, `content`, `content_hash`, `embedded`) + `ChunkType` value object (`function`, `method`, `class`, `interface`, `struct`, `module`, `window`). Add content-capture fields to `SourceFile` (`content_captured`, `content_hash`, `quarantined`). Unit tests.
-- [ ] 1.4 `CodeChunkerPort` + pure-Python `code_chunker` domain service: brace-language symbol chunking (C/C++/Java/Go/TS/JS/Solidity/Rust), Python indentation chunking, windowed fallback, oversized-body sub-splitting, deterministic hashing. Thorough unit tests per language + fallback + determinism.
+- [x] 1.1 Add `full_context` to `IndexingMode`; add `includes_source_code` (true for `code_context`/`full_context`); make `code_context` include issues/PRs. Unit tests for the mode matrix.
+- [x] 1.2 Add `SyncStep.SOURCE_CODE`; `SyncJob.steps_for_mode` inserts it after `FILE_TREE`, before `EMBEDDINGS`, only for code modes. Unit tests.
+- [x] 1.3 `SourceChunk` entity (`chunk_type`, `symbol_name`, `start_line`, `end_line`, `content`, `content_hash`, `embedded`) + `ChunkType` value object (`function`, `method`, `class`, `interface`, `struct`, `module`, `window`). Add content-capture fields to `SourceFile` (`content_captured`, `content_hash`, `quarantined`). Unit tests.
+- [x] 1.4 `CodeChunkerPort` + pure-Python `code_chunker` domain service: brace-language symbol chunking (C/C++/Java/Go/TS/JS/Solidity/Rust), Python indentation chunking, windowed fallback, oversized-body sub-splitting, deterministic hashing. Thorough unit tests per language + fallback + determinism.
 
 ## 2. Persistence
 

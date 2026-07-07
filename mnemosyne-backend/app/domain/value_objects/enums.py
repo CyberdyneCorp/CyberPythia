@@ -18,14 +18,39 @@ class IndexingMode(StrEnum):
     DOCS_ONLY = "docs_only"
     PROJECT_INTELLIGENCE = "project_intelligence"
     CODE_METADATA = "code_metadata"
+    CODE_CONTEXT = "code_context"
+    FULL_CONTEXT = "full_context"
 
     @property
     def includes_issues_and_prs(self) -> bool:
-        return self in (IndexingMode.PROJECT_INTELLIGENCE, IndexingMode.CODE_METADATA)
+        return self in (
+            IndexingMode.PROJECT_INTELLIGENCE,
+            IndexingMode.CODE_METADATA,
+            IndexingMode.CODE_CONTEXT,
+            IndexingMode.FULL_CONTEXT,
+        )
 
     @property
     def includes_file_tree(self) -> bool:
-        return self is IndexingMode.CODE_METADATA
+        return self in (
+            IndexingMode.CODE_METADATA,
+            IndexingMode.CODE_CONTEXT,
+            IndexingMode.FULL_CONTEXT,
+        )
+
+    @property
+    def includes_source_code(self) -> bool:
+        return self in (IndexingMode.CODE_CONTEXT, IndexingMode.FULL_CONTEXT)
+
+
+class ChunkType(StrEnum):
+    FUNCTION = "function"
+    METHOD = "method"
+    CLASS = "class"
+    INTERFACE = "interface"
+    STRUCT = "struct"
+    MODULE = "module"
+    WINDOW = "window"  # fallback for unsupported languages / oversized bodies
 
 
 class DocumentType(StrEnum):
@@ -65,6 +90,7 @@ class SyncStep(StrEnum):
     ISSUES = "issues"
     PULL_REQUESTS = "pull_requests"
     FILE_TREE = "file_tree"
+    SOURCE_CODE = "source_code"
     EMBEDDINGS = "embeddings"
     METRICS = "metrics"
 

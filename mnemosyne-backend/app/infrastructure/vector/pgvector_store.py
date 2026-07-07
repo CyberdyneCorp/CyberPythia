@@ -104,7 +104,7 @@ def _hash_embedding(text: str, dimensions: int) -> list[float]:
 
     vector = [0.0] * dimensions
     for token in re.findall(r"[a-z0-9]{2,}", text.lower()):
-        digest = hashlib.md5(token.encode()).digest()  # noqa: S324 - not security
+        digest = hashlib.md5(token.encode()).digest()
         index = int.from_bytes(digest[:4], "big") % dimensions
         vector[index] += 1.0
     norm = math.sqrt(sum(v * v for v in vector)) or 1.0

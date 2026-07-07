@@ -38,6 +38,8 @@ class SyncJob:
             steps += [SyncStep.ISSUES, SyncStep.PULL_REQUESTS]
         if mode.includes_file_tree:
             steps += [SyncStep.FILE_TREE]
+        if mode.includes_source_code:
+            steps += [SyncStep.SOURCE_CODE]
         steps += [SyncStep.EMBEDDINGS, SyncStep.METRICS]
         return steps
 

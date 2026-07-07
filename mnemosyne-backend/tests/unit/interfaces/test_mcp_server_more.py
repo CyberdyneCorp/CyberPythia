@@ -9,10 +9,8 @@ from fastmcp.exceptions import ToolError
 
 from app.domain.entities.pull_request import PullRequest
 from app.domain.entities.source_file import SourceFile
-from app.domain.ports.auth_port import AuthUnavailableError, TokenInvalidError
 from app.domain.ports.infra_ports import ChunkMatch
 from app.domain.value_objects.enums import IndexingMode, PullRequestState
-from app.domain.value_objects.identity import CallerIdentity
 from app.interfaces.mcp.server import build_mcp
 from tests.unit.interfaces.test_api_endpoints import build_fake_container
 from tests.unit.interfaces.test_mcp_server import entitled_caller, payload, seed_repo

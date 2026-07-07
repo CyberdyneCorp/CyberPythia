@@ -180,3 +180,22 @@ class TestSyncJob:
         job = self.make_job(IndexingMode.DOCS_ONLY)
         with pytest.raises(KeyError):
             job.record_step(SyncStep.FILE_TREE, SyncStatus.SUCCEEDED)
+
+
+class TestSourceCodeSyncSteps:
+    def test_source_code_step_only_for_code_modes(self):
+        from app.domain.entities.sync_job import SyncJob
+        from app.domain.value_objects.enums import IndexingMode, SyncStep
+
+        def steps(mode):
+            j = SyncJob(id=uuid4(), repository_id=uuid4(), mode=mode)
+            j.plan()
+            return [s.step for s in j.steps]
+
+        assert SyncStep.SOURCE_CODE not in steps(IndexingMode.CODE_METADATA)
+        cc = steps(IndexingMode.CODE_CONTEXT)
+        assert SyncStep.SOURCE_CODE in cc
+        # positioned after file_tree, before embeddings
+        assert cc.index(SyncStep.SOURCE_CODE) > cc.index(SyncStep.FILE_TREE)
+        assert cc.index(SyncStep.SOURCE_CODE) < cc.index(SyncStep.EMBEDDINGS)
+        assert SyncStep.SOURCE_CODE in steps(IndexingMode.FULL_CONTEXT)

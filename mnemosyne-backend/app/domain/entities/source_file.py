@@ -18,3 +18,8 @@ class SourceFile:
     is_important: bool = False
     important_kind: str | None = None  # e.g. "dependency_manifest", "ci_workflow"
     last_seen_at: datetime | None = None
+    # Source-content capture (mode: code_context / full_context)
+    content: str | None = None
+    content_captured: bool = False
+    content_hash: str | None = None
+    quarantined: bool = False

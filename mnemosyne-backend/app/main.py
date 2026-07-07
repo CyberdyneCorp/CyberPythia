@@ -6,9 +6,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import get_settings
-
 from app.composition import Container, build_container
+from app.config import get_settings
 from app.interfaces.api.errors import register_error_handlers
 from app.interfaces.api.routers import github, health, repositories
 
