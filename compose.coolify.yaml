@@ -58,6 +58,9 @@ services:
     command: python -m app.interfaces.mcp.server
     environment:
       <<: *backend-env
+      # FastMCP DNS-rebinding protection 421s requests whose Host isn't allowed;
+      # behind the Coolify proxy the public hostname must be allowlisted.
+      FASTMCP_HTTP_ALLOWED_HOSTS: ${FASTMCP_HTTP_ALLOWED_HOSTS:-["mnemosyne.mcp.coolify.cyberdynecorp.ai"]}
     depends_on:
       postgres:
         condition: service_healthy

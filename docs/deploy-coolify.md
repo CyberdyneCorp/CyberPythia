@@ -27,8 +27,12 @@ Coolify → New Resource → **Docker Compose** → this repository, compose fil
 | Service | Port | Domain |
 | --- | --- | --- |
 | `mnemosyne-api` | 8000 | `mnemosyne.backend.<domain>` |
-| `mnemosyne-mcp` | 8100 | `mnemosyne-mcp.<domain>` |
+| `mnemosyne-mcp` | 8100 | `mnemosyne.mcp.<domain>` — set the domain **with the port** (`https://mnemosyne.mcp.<domain>:8100`) so Coolify routes to container port 8100 instead of the image's first exposed port |
 | `mnemosyne-web` | 3000 | `mnemosyne.<domain>` |
+
+If the MCP domain differs from the default, also set
+`FASTMCP_HTTP_ALLOWED_HOSTS='["mnemosyne.mcp.<domain>"]'` — FastMCP's
+DNS-rebinding protection returns 421 for Host headers not on the allowlist.
 
 The API container runs `alembic upgrade head` on boot.
 
