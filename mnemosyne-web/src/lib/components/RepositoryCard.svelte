@@ -49,6 +49,8 @@
       <option value="docs_only">docs_only</option>
       <option value="project_intelligence">project_intelligence</option>
       <option value="code_metadata">code_metadata</option>
+      <option value="code_context">code_context</option>
+      <option value="full_context">full_context</option>
     </select>
     <button
       class="secondary"

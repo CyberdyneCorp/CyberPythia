@@ -9,11 +9,13 @@
     type Tab
   } from '$lib/viewmodels/RepositoryDetailViewModel.svelte';
   import { AskViewModel } from '$lib/viewmodels/AskViewModel.svelte';
+  import { CodeSearchViewModel } from '$lib/viewmodels/CodeSearchViewModel.svelte';
 
   const ctx = getContext<AppContext>('app');
   const repoId = page.params.id!;
   const vm = new RepositoryDetailViewModel(ctx.repositoriesApi, repoId);
   const askVm = new AskViewModel(ctx.contextApi, repoId);
+  const codeVm = new CodeSearchViewModel(ctx.codeApi, repoId);
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
@@ -23,6 +25,7 @@
     { id: 'pull-requests', label: 'Pull Requests' },
     { id: 'files', label: 'Files' },
     { id: 'metrics', label: 'Metrics' },
+    { id: 'code-context', label: 'Code Context' },
     { id: 'agent-context', label: 'Agent Context' }
   ];
 
@@ -209,6 +212,44 @@
       <strong>{(pm.stale_prs as unknown[])?.length ?? 0}</strong><span>stale PRs</span>
     </div>
   </div>
+{/if}
+
+{#if vm.tab === 'code-context'}
+  <div class="card">
+    <div class="ask-row">
+      <input
+        placeholder="Search code semantically, e.g. how are GPU kernels dispatched"
+        bind:value={codeVm.query}
+        onkeydown={(e) => e.key === 'Enter' && codeVm.search()}
+      />
+      <button disabled={codeVm.busy} onclick={() => codeVm.search()}>
+        {codeVm.busy ? 'Searching…' : 'Search'}
+      </button>
+    </div>
+    {#if codeVm.notIndexed}
+      <p class="muted">
+        Source code is not indexed for this repository. Enable the
+        <code>code_context</code> or <code>full_context</code> indexing mode on the
+        dashboard and re-sync to search code.
+      </p>
+    {/if}
+    {#if codeVm.error}<p class="error">{codeVm.error}</p>{/if}
+  </div>
+
+  {#each codeVm.results as match, i (i)}
+    <div class="card code-match">
+      <div class="head">
+        <code>{match.path}</code>
+        {#if match.symbol_name}
+          <span class="badge">{match.chunk_type} {match.symbol_name}</span>
+        {:else}
+          <span class="badge">{match.chunk_type}</span>
+        {/if}
+        <span class="muted">lines {match.start_line}–{match.end_line} · score {match.score}</span>
+      </div>
+      <pre>{match.excerpt}</pre>
+    </div>
+  {/each}
 {/if}
 
 {#if vm.tab === 'agent-context'}

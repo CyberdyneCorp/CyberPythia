@@ -42,8 +42,8 @@
 
 ## 8. Web UI
 
-- [ ] 8.1 Code Context tab: semantic code-search box, ranked symbol results (path/symbol/type/line span/excerpt) with file+line links, on-demand content viewer; not-indexed message for non-code repos. New API client methods + viewmodel.
-- [ ] 8.2 Viewmodel unit tests; extend the populated-dashboard Playwright spec to cover code search on a `code_context` pilot repo.
+- [x] 8.1 Code Context tab: semantic code-search box, ranked symbol results (path/symbol/type/line span/excerpt) with file+line links, on-demand content viewer; not-indexed message for non-code repos. New API client methods + viewmodel.
+- [x] 8.2 Viewmodel unit tests; extend the populated-dashboard Playwright spec to cover code search on a `code_context` pilot repo.
 
 ## 9. Docs, deploy, verification
 

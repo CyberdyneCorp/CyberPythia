@@ -23,7 +23,12 @@ export interface ConnectionTest {
   rate_limit?: { limit: number; remaining: number };
 }
 
-export type IndexingMode = 'docs_only' | 'project_intelligence' | 'code_metadata';
+export type IndexingMode =
+  | 'docs_only'
+  | 'project_intelligence'
+  | 'code_metadata'
+  | 'code_context'
+  | 'full_context';
 
 export interface Repository {
   id: string;
@@ -159,4 +164,21 @@ export interface ContextPack {
   excluded_categories: string[];
   sync_timestamp: string | null;
   created_at: string | null;
+}
+
+export interface CodeChunkMatch {
+  path: string;
+  symbol_name: string | null;
+  chunk_type: string;
+  start_line: number;
+  end_line: number;
+  excerpt: string;
+  score: number;
+}
+
+export interface FileContent {
+  path: string;
+  language: string | null;
+  size_bytes: number;
+  content: string;
 }

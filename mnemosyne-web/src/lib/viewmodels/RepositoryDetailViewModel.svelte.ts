@@ -20,6 +20,7 @@ export type Tab =
   | 'pull-requests'
   | 'files'
   | 'metrics'
+  | 'code-context'
   | 'agent-context';
 
 export class RepositoryDetailViewModel {
@@ -67,6 +68,7 @@ export class RepositoryDetailViewModel {
         case 'metrics':
           this.metrics = await this.api.metrics(this.repoId);
           break;
+        case 'code-context':
         case 'agent-context':
           break;
       }

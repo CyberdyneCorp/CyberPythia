@@ -5,6 +5,7 @@ import { RepositoryListViewModel } from './RepositoryListViewModel.svelte';
 import { AskViewModel } from './AskViewModel.svelte';
 import { ConnectionsViewModel } from './ConnectionsViewModel.svelte';
 import { AuthViewModel } from './AuthViewModel.svelte';
+import { CodeSearchViewModel } from './CodeSearchViewModel.svelte';
 
 function repo(overrides: Partial<Repository> = {}): Repository {
   return {
@@ -229,5 +230,55 @@ describe('AuthViewModel', () => {
     const vm = new AuthViewModel(auth as never, api as never);
     await vm.initialize();
     expect(vm.signedIn).toBe(false);
+  });
+});
+
+describe('CodeSearchViewModel', () => {
+  it('returns code matches', async () => {
+    const api = {
+      search: async () => [
+        {
+          path: 'src/gpu.cpp',
+          symbol_name: 'dispatch',
+          chunk_type: 'function',
+          start_line: 1,
+          end_line: 5,
+          excerpt: 'void dispatch()',
+          score: 0.9
+        }
+      ]
+    };
+    const vm = new CodeSearchViewModel(api as never, 'r1');
+    vm.query = 'dispatch';
+    await vm.search();
+    expect(vm.results).toHaveLength(1);
+    expect(vm.notIndexed).toBe(false);
+  });
+
+  it('flags not-indexed repositories', async () => {
+    const api = {
+      search: async () => {
+        throw new ApiError(409, 'source_not_indexed', 'not indexed');
+      }
+    };
+    const vm = new CodeSearchViewModel(api as never, 'r1');
+    vm.query = 'anything';
+    await vm.search();
+    expect(vm.notIndexed).toBe(true);
+    expect(vm.error).toBeNull();
+  });
+
+  it('ignores too-short queries', async () => {
+    let called = false;
+    const api = {
+      search: async () => {
+        called = true;
+        return [];
+      }
+    };
+    const vm = new CodeSearchViewModel(api as never, 'r1');
+    vm.query = 'x';
+    await vm.search();
+    expect(called).toBe(false);
   });
 });

@@ -2,10 +2,12 @@
 import type { HttpClient } from '$lib/api/http';
 import type {
   AskResult,
+  CodeChunkMatch,
   Connection,
   ConnectionTest,
   ContextPack,
   Document,
+  FileContent,
   DocumentSummary,
   IndexingMode,
   Issue,
@@ -105,5 +107,16 @@ export class ContextApi {
   }
   buildContextPack(repoId: string, query: string): Promise<ContextPack> {
     return this.http.post(`/api/v1/repos/${repoId}/context-pack`, { query });
+  }
+}
+
+export class CodeApi {
+  constructor(private http: HttpClient) {}
+
+  search(repoId: string, query: string): Promise<CodeChunkMatch[]> {
+    return this.http.post(`/api/v1/repos/${repoId}/code-search`, { query });
+  }
+  fileContent(repoId: string, fileId: string): Promise<FileContent> {
+    return this.http.get(`/api/v1/repos/${repoId}/files/${fileId}/content`);
   }
 }
