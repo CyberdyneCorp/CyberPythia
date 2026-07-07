@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.domain.entities.repository import Repository
 from app.infrastructure.persistence.mappers import repository_to_entity, repository_update_row
@@ -44,7 +44,7 @@ class PostgresRepositoryRepository(PostgresRepositoryBase):
 
     async def list_all(self, *, enabled_only: bool = False) -> list[Repository]:
         async with self._session_factory() as session:
-            stmt = select(RepositoryRow).order_by(RepositoryRow.full_name)
+            stmt = select(RepositoryRow).order_by(func.lower(RepositoryRow.full_name))
             if enabled_only:
                 stmt = stmt.where(RepositoryRow.enabled.is_(True))
             rows = await session.scalars(stmt)

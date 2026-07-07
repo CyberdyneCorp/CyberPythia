@@ -37,6 +37,9 @@ class FakeMilestonePort:
     async def list_by_repository(self, repository_id):
         return list(self.items.get(repository_id, []))
 
+    async def list_all(self):
+        return {k: list(v) for k, v in self.items.items()}
+
 
 class FakeHistoryPort:
     def __init__(self) -> None:
@@ -48,8 +51,25 @@ class FakeHistoryPort:
     async def list_window(self, repository_id, *, days=180):
         return sorted(self.rows.get(repository_id, []), key=lambda s: s.captured_on)
 
+    async def list_all_windows(self, *, days=180):
+        return {
+            rid: sorted(snaps, key=lambda s: s.captured_on)
+            for rid, snaps in self.rows.items()
+        }
+
     async def prune(self, *, daily_days=180) -> int:
         return 0
+
+
+class FakeMetricsReader:
+    def __init__(self) -> None:
+        self.rows: dict = {}
+
+    async def get(self, repository_id):
+        return self.rows.get(repository_id)
+
+    async def list_all(self):
+        return dict(self.rows)
 
 
 def make_repo(**kw) -> Repository:
@@ -102,12 +122,13 @@ def _snap(repo_id, day, closed, opened) -> MetricsSnapshot:
 async def env():
     repos, issues, prs = FakeRepositoryPort(), FakeIssuePort(), FakePullRequestPort()
     milestones, history = FakeMilestonePort(), FakeHistoryPort()
-    svc = DeliveryIntelligenceService(repos, issues, prs, milestones, history)
+    metrics = FakeMetricsReader()
+    svc = DeliveryIntelligenceService(repos, issues, prs, milestones, history, metrics)
     repo = make_repo()
     await repos.save(repo)
     return SimpleNamespace(
         svc=svc, repos=repos, issues=issues, prs=prs,
-        milestones=milestones, history=history, repo=repo,
+        milestones=milestones, history=history, metrics=metrics, repo=repo,
     )
 
 
@@ -221,7 +242,12 @@ async def test_milestone_progress_and_at_risk(env) -> None:
 
 async def test_delivery_scorecard(env) -> None:
     rid = env.repo.id
-    await env.issues.save_many([issue(1, rid, state=IssueState.CLOSED, days_open=4)])
+    # scorecard median now comes from the persisted metrics row (batched), not a live load
+    env.metrics.rows[rid] = {
+        "issue_metrics": {"median_resolution_seconds": 4 * 86400.0},
+        "pr_metrics": {},
+        "summary": {},
+    }
     for day, closed, opened in [(1, 5, 20), (2, 10, 9)]:
         await env.history.record(_snap(rid, day, closed, opened))
     board = await env.svc.delivery_scorecard(NOW)
@@ -230,3 +256,11 @@ async def test_delivery_scorecard(env) -> None:
     assert entry.has_data
     assert entry.throughput_direction == "down"  # open 20 -> 9
     assert entry.median_cycle_days == 4.0
+
+
+async def test_delivery_scorecard_no_metrics_is_marked(env) -> None:
+    # enabled repo with no metrics row -> has_data False, no fabricated numbers
+    board = await env.svc.delivery_scorecard(NOW)
+    assert len(board) == 1
+    assert board[0].has_data is False
+    assert board[0].median_cycle_days is None

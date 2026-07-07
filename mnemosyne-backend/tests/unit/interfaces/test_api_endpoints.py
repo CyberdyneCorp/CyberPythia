@@ -180,7 +180,7 @@ def build_fake_container():
     metrics_history = FakeHistoryPort()
     milestones_port = FakeMilestonePort()
     delivery_intelligence = DeliveryIntelligenceService(
-        repositories, issues, prs, milestones_port, metrics_history,
+        repositories, issues, prs, milestones_port, metrics_history, metrics_store,
     )
     return SimpleNamespace(
         settings=None,

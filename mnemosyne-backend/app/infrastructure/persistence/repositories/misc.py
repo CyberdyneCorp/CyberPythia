@@ -417,6 +417,21 @@ class PostgresMetricsHistoryRepository(PostgresRepositoryBase):
             )
             return [_snapshot_to_entity(r) for r in rows]
 
+    async def list_all_windows(
+        self, *, days: int = 180
+    ) -> dict[UUID, list[MetricsSnapshot]]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(RepositoryMetricsSnapshotRow).order_by(
+                    RepositoryMetricsSnapshotRow.repository_id,
+                    RepositoryMetricsSnapshotRow.captured_on.asc(),
+                )
+            )
+            out: dict[UUID, list[MetricsSnapshot]] = {}
+            for row in rows:
+                out.setdefault(row.repository_id, []).append(_snapshot_to_entity(row))
+            return out
+
     async def prune(self, *, daily_days: int = 180) -> int:
         # Downsampling of older-than-daily_days points is a worker-side maintenance
         # task; the append path already caps at one row per repo per day, so the
@@ -478,6 +493,18 @@ class PostgresMilestoneRepository(PostgresRepositoryBase):
                 .order_by(MilestoneRow.number.asc())
             )
             return [_milestone_to_entity(r) for r in rows]
+
+    async def list_all(self) -> dict[UUID, list[Milestone]]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(MilestoneRow).order_by(
+                    MilestoneRow.repository_id, MilestoneRow.number.asc()
+                )
+            )
+            out: dict[UUID, list[Milestone]] = {}
+            for row in rows:
+                out.setdefault(row.repository_id, []).append(_milestone_to_entity(row))
+            return out
 
 
 def _milestone_to_entity(row: MilestoneRow) -> Milestone:

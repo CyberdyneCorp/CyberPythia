@@ -315,6 +315,7 @@ class Container:
             pull_requests=self.pull_requests,
             milestones=self.milestones,
             history=self.metrics_history,
+            metrics=self.metrics_store,
         )
 
 

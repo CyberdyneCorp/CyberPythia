@@ -47,6 +47,14 @@ class TestMetricsHistoryRepository:
         assert len(window) == 1
         assert window[0].open_issues == 25
 
+    async def test_list_all_windows_groups_by_repo(self, session_factory):
+        repo = await seed_repo(session_factory)
+        adapter = PostgresMetricsHistoryRepository(session_factory)
+        await adapter.record(_snap(repo.id, 1, open_issues=20))
+        await adapter.record(_snap(repo.id, 2, open_issues=10))
+        grouped = await adapter.list_all_windows()
+        assert [s.open_issues for s in grouped[repo.id]] == [20, 10]  # chronological
+
 
 class TestMilestoneRepository:
     async def test_replace_reconciles(self, session_factory):
@@ -79,3 +87,17 @@ class TestMilestoneRepository:
         second = await adapter.list_by_repository(repo.id)
         assert {m.number for m in second} == {1, 3}
         assert next(m for m in second if m.number == 1).state == "closed"
+
+    async def test_list_all_groups_by_repo(self, session_factory):
+        repo = await seed_repo(session_factory)
+        adapter = PostgresMilestoneRepository(session_factory)
+        await adapter.replace_for_repository(
+            repo.id,
+            [
+                Milestone(id=uuid4(), repository_id=repo.id, number=1, title="v1",
+                          state="open", due_on=None, open_issues=1, closed_issues=0),
+            ],
+        )
+        grouped = await adapter.list_all()
+        assert repo.id in grouped
+        assert grouped[repo.id][0].number == 1

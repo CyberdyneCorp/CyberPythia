@@ -7,6 +7,7 @@ instead of fabricating zeros.
 
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
+from typing import Any
 from uuid import UUID
 
 from app.application.dto.delivery import (
@@ -22,8 +23,10 @@ from app.application.dto.delivery import (
     WorkMix,
 )
 from app.application.errors import UnknownResourceError
+from app.application.use_cases.intelligence import MetricsReader
 from app.domain.entities.issue import Issue
 from app.domain.entities.metrics_snapshot import MetricsSnapshot
+from app.domain.entities.milestone import Milestone
 from app.domain.entities.pull_request import PullRequest
 from app.domain.entities.repository import Repository
 from app.domain.ports.persistence_ports import (
@@ -61,12 +64,14 @@ class DeliveryIntelligenceService:
         pull_requests: PullRequestPort,
         milestones: MilestonePort,
         history: MetricsHistoryPort,
+        metrics: "MetricsReader",
     ) -> None:
         self._repositories = repositories
         self._issues = issues
         self._pull_requests = pull_requests
         self._milestones = milestones
         self._history = history
+        self._metrics = metrics
 
     async def _repo(self, repository_id: UUID) -> Repository:
         repo = await self._repositories.get(repository_id)
@@ -251,31 +256,58 @@ class DeliveryIntelligenceService:
     async def delivery_scorecard(
         self, now: datetime | None = None
     ) -> list[DeliveryScorecardEntry]:
+        """Portfolio roll-up computed from batched reads (no per-repo query loop).
+
+        Reads the enabled repos, all persisted metrics rows, all snapshot series,
+        and all milestones in four queries, then shapes each entry in memory — so
+        the scorecard scales to hundreds of repos.
+        """
         now = now or datetime.now(UTC)
         repos = await self._repositories.list_all(enabled_only=True)
-        out: list[DeliveryScorecardEntry] = []
-        for repo in repos:
-            series = await self._series(repo.id)
-            flow = await self.flow(repo.id, now)
-            forecast = await self.forecast(repo.id, now)
-            milestones = await self.milestones(repo.id, now)
-            median = flow.resolution_seconds.p50
-            out.append(
-                DeliveryScorecardEntry(
-                    repository_id=str(repo.id),
-                    full_name=str(repo.full_name),
-                    has_data=flow.has_data,
-                    median_cycle_days=round(median / _DAY, 1) if median is not None else None,
-                    throughput_direction=self._direction(series),
-                    backlog_shrinking=(
-                        forecast.projected_days_to_clear is not None
-                        if forecast.has_data
-                        else None
-                    ),
-                    at_risk_milestones=sum(1 for m in milestones if m.at_risk),
-                )
+        all_metrics = await self._metrics.list_all()
+        all_history = await self._history.list_all_windows(days=180)
+        all_milestones = await self._milestones.list_all()
+        return [
+            self._scorecard_entry(
+                repo,
+                all_metrics.get(repo.id),
+                all_history.get(repo.id, []),
+                all_milestones.get(repo.id, []),
+                now,
             )
-        return out
+            for repo in repos
+        ]
+
+    def _scorecard_entry(
+        self,
+        repo: Repository,
+        metrics: dict[str, Any] | None,
+        series: list[MetricsSnapshot],
+        milestones: list[Milestone],
+        now: datetime,
+    ) -> DeliveryScorecardEntry:
+        median = (metrics or {}).get("issue_metrics", {}).get("median_resolution_seconds")
+        rate = self._close_rate_per_day(series)
+        backlog: bool | None = None
+        if len(series) >= _MIN_TREND_POINTS:
+            closed = [p.closed_issues for p in self._trend_points(series)]
+            backlog = ds.backlog_forecast(
+                series[-1].open_issues, closed, min_points=1
+            ).projected_days is not None
+        at_risk = sum(
+            1
+            for m in milestones
+            if self._project_milestone(m.open_issues, m.due_on, rate, now)[1]
+        )
+        return DeliveryScorecardEntry(
+            repository_id=str(repo.id),
+            full_name=str(repo.full_name),
+            has_data=metrics is not None,
+            median_cycle_days=round(median / _DAY, 1) if median is not None else None,
+            throughput_direction=self._direction(series),
+            backlog_shrinking=backlog,
+            at_risk_milestones=at_risk,
+        )
 
     @staticmethod
     def _direction(series: list[MetricsSnapshot]) -> str | None:
