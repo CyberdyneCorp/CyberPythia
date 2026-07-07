@@ -82,9 +82,9 @@
     padding-left: 1.1rem;
   }
   .findings li.warning {
-    color: #b45309;
+    color: var(--ac);
   }
   .findings li.critical {
-    color: #b91c1c;
+    color: var(--red);
   }
 </style>

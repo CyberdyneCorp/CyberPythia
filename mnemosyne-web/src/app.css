@@ -1,15 +1,62 @@
+/* Mnemosyne visual system — adopted from the Claude Design proposal.
+   Dark-first, warm amber accent, IBM Plex Sans + Mono. Light theme via `.light`
+   on <html>. Legacy variable names are aliased so existing components keep working. */
+
 :root {
-  --bg: #0f1117;
-  --surface: #181b24;
-  --surface-2: #1f2330;
-  --border: #2c3140;
-  --text: #e6e9f0;
-  --muted: #8b93a7;
-  --accent: #4f8cff;
-  --ok: #3fb96f;
-  --warn: #e0a52e;
-  --err: #e05b5b;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --bg: #0e0f12;
+  --bg2: #13151a;
+  --panel: #16181e;
+  --panel2: #1a1d24;
+  --line: #23262e;
+  --line2: #2d313b;
+  --tx: #e9eaee;
+  --tx2: #9aa1ad;
+  --tx3: #5f6673;
+  --ac: #e8a33d;
+  --acb: rgba(232, 163, 61, 0.13);
+  --green: #54c283;
+  --greenb: rgba(84, 194, 131, 0.13);
+  --red: #e0606b;
+  --redb: rgba(224, 96, 107, 0.12);
+  --blue: #6ea3e0;
+  --blueb: rgba(110, 163, 224, 0.13);
+  --sh: 0 1px 2px rgba(0, 0, 0, 0.35);
+
+  /* legacy aliases (existing components reference these) */
+  --surface: var(--panel);
+  --surface-2: var(--panel2);
+  --border: var(--line);
+  --text: var(--tx);
+  --muted: var(--tx2);
+  --accent: var(--ac);
+  --ok: var(--green);
+  --warn: var(--ac);
+  --err: var(--red);
+
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+
+:root.light {
+  --bg: #f6f5f2;
+  --bg2: #fdfcfa;
+  --panel: #ffffff;
+  --panel2: #faf9f6;
+  --line: #e5e2da;
+  --line2: #d4d0c6;
+  --tx: #191b1f;
+  --tx2: #59606d;
+  --tx3: #969caa;
+  --ac: #a86f14;
+  --acb: rgba(168, 111, 20, 0.1);
+  --green: #1c8f52;
+  --greenb: rgba(28, 143, 82, 0.1);
+  --red: #c23842;
+  --redb: rgba(194, 56, 66, 0.09);
+  --blue: #2f6cb0;
+  --blueb: rgba(47, 108, 176, 0.1);
+  --sh: 0 1px 2px rgba(30, 26, 16, 0.06);
+  color-scheme: light;
 }
 
 * {
@@ -19,93 +66,206 @@
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--text);
+  color: var(--tx);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--tx2);
 }
 
 a {
-  color: var(--accent);
+  color: var(--ac);
   text-decoration: none;
+}
+a:hover {
+  color: var(--tx);
+}
+
+code,
+.mono {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+.eyebrow {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--tx3);
 }
 
 button {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 0.45rem 0.9rem;
+  background: var(--ac);
+  color: #141414;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 0.5rem 0.95rem;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: opacity 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+button:hover {
+  opacity: 0.9;
 }
 
 button.secondary {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--tx2);
+  border: 1px solid var(--line);
+  font-weight: 500;
+}
+button.secondary:hover {
+  color: var(--tx);
+  border-color: var(--line2);
+  opacity: 1;
 }
 
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: default;
 }
 
 input,
 textarea,
 select {
-  background: var(--surface-2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.45rem 0.6rem;
-  font-size: 0.9rem;
+  background: var(--bg2);
+  color: var(--tx);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.12s ease;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--ac);
+}
+::placeholder {
+  color: var(--tx3);
 }
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--panel);
+  border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 1rem;
+  padding: 1.1rem 1.2rem;
+  box-shadow: var(--sh);
 }
 
 .muted {
-  color: var(--muted);
+  color: var(--tx2);
 }
-
 .error {
-  color: var(--err);
+  color: var(--red);
+  font-size: 0.85rem;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
 }
-
 th,
 td {
   text-align: left;
-  padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--border);
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--line);
 }
-
 th {
-  color: var(--muted);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tx3);
   font-weight: 500;
+}
+tbody tr:hover {
+  background: var(--panel2);
+}
+td.num,
+td .mono {
+  font-variant-numeric: tabular-nums;
 }
 
 .badge {
   display: inline-block;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
+  padding: 0.12rem 0.5rem;
+  border-radius: 5px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  color: var(--tx2);
 }
-
 .badge.ok {
-  color: var(--ok);
+  color: var(--green);
+  background: var(--greenb);
+  border-color: transparent;
 }
 .badge.warn {
-  color: var(--warn);
+  color: var(--ac);
+  background: var(--acb);
+  border-color: transparent;
 }
 .badge.err {
-  color: var(--err);
+  color: var(--red);
+  background: var(--redb);
+  border-color: transparent;
+}
+
+.stats {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  min-width: 90px;
+}
+.stat strong {
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.stat span {
+  font-size: 0.72rem;
+  color: var(--tx3);
+}
+
+.row {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.grade {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-weight: 600;
 }

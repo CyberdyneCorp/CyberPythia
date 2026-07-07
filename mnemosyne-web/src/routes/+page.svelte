@@ -12,8 +12,13 @@
   });
 </script>
 
-<h1>Repositories</h1>
-<input class="filter" placeholder="Filter repositories…" bind:value={vm.filter} />
+<div class="page-head">
+  <h1>Repositories</h1>
+  {#if vm.repositories.length}
+    <span class="mono count">{vm.repositories.length} indexed</span>
+  {/if}
+</div>
+<input class="filter" placeholder="Filter repositories… (name, language, mode)" bind:value={vm.filter} />
 {#if vm.error}<p class="error">{vm.error}</p>{/if}
 {#if vm.loading && vm.repositories.length === 0}
   <p class="muted">Loading…</p>
@@ -39,10 +44,19 @@
 {/if}
 
 <style>
+  .page-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+  .count {
+    font-size: 0.75rem;
+    color: var(--tx3);
+  }
   .filter {
     width: 100%;
-    max-width: 420px;
-    margin-bottom: 1rem;
+    max-width: 460px;
+    margin: 0.9rem 0 1rem;
   }
   .grid {
     display: grid;
