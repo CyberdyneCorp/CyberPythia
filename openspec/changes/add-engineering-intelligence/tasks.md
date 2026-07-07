@@ -31,4 +31,4 @@
 ## 5. Docs, gate, deploy, verify
 
 - [x] 5.1 Docs: `docs/engineering-intelligence.md` (what each score/metric means, weights, absent-not-zero, the eight tools + endpoints); update README + `docs/mcp-consumers.md`.
-- [ ] 5.2 Full gate: ruff, mypy --strict, unit ≥ 90%, integration, BDD, `openspec validate --all --strict`, `npm run build` + frontend tests, docker build. Deploy to Coolify. Verify live over REST + MCP + browser against the two indexed repos (CyberdyneAuth, CyberPythia): health score + grade, portfolio overview, a bottleneck/risk read, and the dashboard render. Add a BDD scenario for the health endpoint.
+- [x] 5.2 Full gate: ruff, mypy --strict, unit ≥ 90%, integration, BDD, `openspec validate --all --strict`, `npm run build` + frontend tests, docker build. Deploy to Coolify. Verify live over REST + MCP + browser against the two indexed repos (CyberdyneAuth, CyberPythia): health score + grade, portfolio overview, a bottleneck/risk read, and the dashboard render. Add a BDD scenario for the health endpoint.
