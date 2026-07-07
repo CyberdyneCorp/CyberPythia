@@ -21,5 +21,11 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure'
   },
+  projects: [
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    // CyberdyneAuth rate-limits logins per IP: authenticate once in `setup`,
+    // then reuse the stored session everywhere except the login specs.
+    { name: 'e2e', testMatch: /.*\.spec\.ts/, dependencies: ['setup'] }
+  ],
   reporter: [['list']]
 });

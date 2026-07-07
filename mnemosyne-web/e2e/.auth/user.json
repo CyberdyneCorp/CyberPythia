@@ -1,0 +1,45 @@
+{
+  "cookies": [
+    {
+      "name": "refresh_token",
+      "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6Im1HS1lZTXQ3cmJXUmtYOVFUWkJBdnI4SUQwa3g0dUthb2tjNjhnektCWEkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJjeWJlcmR5bmUtYXV0aCIsInN1YiI6Ijk2OGE3MGFmLThiNGMtNDEzYy1hNTAyLWZlMGZiZTljZTNhZCIsImp0aSI6IjU1NGRiY2QyLTY0MDgtNDljZS04YWJiLTNhMjYxNTljMGIxMCIsInNpZCI6ImVlMmRkMzM0LTNjZWEtNGM3My04MTkwLTZlOThjZmQ2NDJjNCIsInR5cGUiOiJyZWZyZXNoIiwiaWF0IjoxNzgzNDM2MDU0LCJleHAiOjE3ODYwMjgwNTR9.tp27jq_yvInyblX7eRlgLQiKjXW9iXrn19ZYYzxgrKNrZQAaSt77phGHR_hi7SaRR3ru7Gs4IOrNQ_DIS8DjmwynznZyKFHpXLeOsXre5GnWHJfKwQIfuHmB8dQJ8waHg6o_79rYmOTGfvOwfWqtb9YUxnmYsEmwwowAur-razHPzdPwacGRgj3rv7MU5gIqkprDfStnff9sVoO4civn4Gvx3WpHrrAwYoxu4k4EpO4YWRMV1zfQXqGUXGrR7TjKOyMYXW3IkpHzRkZ_5lEdABXJMC253XtoEjlNbyeQ56XgZk-FLHuiWKrYi6N9tUhte02_G3gsHflq7FZa2l-PzA",
+      "domain": ".coolify.cyberdynecorp.ai",
+      "path": "/api/v1/auth",
+      "expires": 1786028054.477584,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "access_token",
+      "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6Im1HS1lZTXQ3cmJXUmtYOVFUWkJBdnI4SUQwa3g0dUthb2tjNjhnektCWEkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJjeWJlcmR5bmUtYXV0aCIsInN1YiI6Ijk2OGE3MGFmLThiNGMtNDEzYy1hNTAyLWZlMGZiZTljZTNhZCIsImp0aSI6IjRiZGYwMDgzLTc2ZjEtNDI5MC1iY2NhLTQ1M2VhZTcwYTYzOCIsInR5cGUiOiJhY2Nlc3MiLCJpYXQiOjE3ODM0MzYwNTQsImV4cCI6MTc4MzQzNjk1NH0.PD1JskVgljVX3iwHwhIkce_Ydz8RD-AlLO-zN3esDM0YnIKLnSSncgDr059cG08pWG_kB0aK52SNo0uxVGja2TwCipLPdP6d4SmorJBz84UAUJx7r4rdlzCPduyQs18A5tMlfVen9dOMITzkvWQKBz9x_ITHHkeXAxx8uMQNrVNNNSW_CJOiafKQ6kgbXR9MD52UZSiCmEy4uzSZLNDJE2smhuMSmSDVyZe7qhha4AxvA6O7UoX4v4SbsCmzqy0L1Vi9IRmEUgXMIIuPaBkS9OgHZW7ZGFAK6hro4pk1pzmfdyeWVukASy6BB3oOyd6cjXUJkGiA-xaXatxQGH0V9g",
+      "domain": ".coolify.cyberdynecorp.ai",
+      "path": "/",
+      "expires": 1783436954.477045,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "csrf",
+      "value": "-O-rBAW7QhsFbpQ36q7wmJzVAltJKJ1WXQubvc5pnp4",
+      "domain": ".coolify.cyberdynecorp.ai",
+      "path": "/",
+      "expires": 1783436954.477618,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://mnemosyne.coolify.cyberdynecorp.ai",
+      "localStorage": [
+        {
+          "name": "oidc.user:https://auth.backend.coolify.cyberdynecorp.ai:cyb_W6D9o0J3y1PnHcN4",
+          "value": "{\"id_token\":\"eyJhbGciOiJSUzI1NiIsImtpZCI6Im1HS1lZTXQ3cmJXUmtYOVFUWkJBdnI4SUQwa3g0dUthb2tjNjhnektCWEkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2F1dGguYmFja2VuZC5jb29saWZ5LmN5YmVyZHluZWNvcnAuYWkiLCJzdWIiOiI5NjhhNzBhZi04YjRjLTQxM2MtYTUwMi1mZTBmYmU5Y2UzYWQiLCJhdWQiOiJjeWJfVzZEOW8wSjN5MVBuSGNONCIsImlhdCI6MTc4MzQzNjA1NSwiZXhwIjoxNzgzNDM2OTU1LCJhdXRoX3RpbWUiOjE3ODM0MzYwNTUsImVtYWlsIjoibGVvdGVzdEB0ZXN0LmNvbSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZX0.m8AMluMSwrt3x7IlQKsZeok5tSxpWpXHBilZ3AzuGZvKAPEezYiWBrXJEIWdffbOoSHeFNACOKQiSCoW4PdEarwAt65JcUc05FOEbfZarB8xvWgzILUjcNrOJem0XmyQ3LXmKJgeXypXntQLkXxZsVaNHlOOmQSIF9aAtxFDRY-y6MnnuEADHYybvLm7Ar2acxo-JqEXxsIHyfkLfrv_fLEgiFY0eNfMUsQXUXWxPjxYLWkfPz6dE3FApV5wdMcSqFHPMSqwxqf4uyXmfVDKTfxmsgQZW5LGj3RPutgzE-sHURAHEkod--VcSsEtT_RmxC5z0gIaA-mqKVVBdhHL6A\",\"session_state\":null,\"access_token\":\"eyJhbGciOiJSUzI1NiIsImtpZCI6Im1HS1lZTXQ3cmJXUmtYOVFUWkJBdnI4SUQwa3g0dUthb2tjNjhnektCWEkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJjeWJlcmR5bmUtYXV0aCIsInN1YiI6Ijk2OGE3MGFmLThiNGMtNDEzYy1hNTAyLWZlMGZiZTljZTNhZCIsImp0aSI6IjA0ZDUzZTczLTU3NDQtNDNjMy1iNzNjLTY0YWFhNmIzZmUzMiIsInR5cGUiOiJhY2Nlc3MiLCJpYXQiOjE3ODM0MzYwNTUsImV4cCI6MTc4MzQzNjk1NX0.nrZvNMgHaS6BLC4TSPtO5jMKnoP1i1R0l4WB8mbbzMdeCZg9SOsrCj4Jh51laG9ABuyADvTYNJSIvNUMyJvnUsUeihFOQjGWkLURD37ctq_JSUm2DohrouJq-ytkLakBHgtANXPCTqK3Tey_FuW2ZbUVNRKh5H_b5dQbGR45JkkiBtvZ5mjEofRlbnUo4wfuMFM1jAPPj5LQmVD4ynJ32s0YJpjAGQR9btzVel1IJQWLPLNZ4LhsXDI_MG6oVoV36fpkZpPwD_KzCUnyYXZNTdbdSINPcIQY_oWGlHZJOW79DIwlPfK4bLJ-86zcUwDMAYT-gERsn83qvnd4YlBe7A\",\"refresh_token\":\"eyJhbGciOiJSUzI1NiIsImtpZCI6Im1HS1lZTXQ3cmJXUmtYOVFUWkJBdnI4SUQwa3g0dUthb2tjNjhnektCWEkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJjeWJlcmR5bmUtYXV0aCIsInN1YiI6Ijk2OGE3MGFmLThiNGMtNDEzYy1hNTAyLWZlMGZiZTljZTNhZCIsImp0aSI6ImZlYmM1OTJjLTA2M2QtNDA5My05ZWIyLTYyMTFmMzJjZmYxYSIsInNpZCI6ImRkYmQzNGVjLTZhZGQtNDBlZS1hZjIyLWVjYTQ4MjdlZjJlNCIsInR5cGUiOiJyZWZyZXNoIiwiaWF0IjoxNzgzNDM2MDU1LCJleHAiOjE3ODYwMjgwNTV9.jGIWtZ1W422FEH7VqVyoi-urcz36cVnNOVw9iqO0LvVFKAchAVA2NIBNUIP0MZGOTD5eemsauiSPhThtSLlmTdgP4ptHqU9rmvrbEvbEtPl-q7c8rEUuSZTv0TvjfZbG1sMWD0M_BAg3Hx6QQrOatE3SfOUNeropbpcOkDZeAz8hPdX7hzNZJXkHM2zvFf98C69dO_fk2uZvh-Ye1WTIjKIh1fLn1Am7EEA7S6xf3M-iKspP6b0wxzvM4jRsuRkeDWDd8ZxxTqwFOEzTOO97l3iuvmMFBP_Gs2Zh8Z0ULWCOPBGkK5yfWI0be5BD0WkeAeYE4doA6cp_PaXOgVYiDg\",\"token_type\":\"Bearer\",\"scope\":\"email offline_access openid profile\",\"profile\":{\"iss\":\"https://auth.backend.coolify.cyberdynecorp.ai\",\"sub\":\"968a70af-8b4c-413c-a502-fe0fbe9ce3ad\",\"aud\":\"cyb_W6D9o0J3y1PnHcN4\",\"iat\":1783436055,\"exp\":1783436955,\"email\":\"leotest@test.com\",\"email_verified\":false},\"expires_at\":1783436955}"
+        }
+      ]
+    }
+  ]
+}

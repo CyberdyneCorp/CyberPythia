@@ -18,7 +18,7 @@
   {#if pack.relevant_docs.length}
     <h4>Relevant docs</h4>
     <ul>
-      {#each pack.relevant_docs as doc (doc.path)}
+      {#each pack.relevant_docs as doc, i (i)}
         <li>
           <a href={`/repos/${repoId}?tab=documentation`}>{doc.path}</a>
           <span class="badge">{doc.doc_type}</span>
@@ -67,7 +67,7 @@
   {#if pack.relevant_files.length}
     <h4>Relevant files</h4>
     <ul>
-      {#each pack.relevant_files as file (file.path)}
+      {#each pack.relevant_files as file, i (i)}
         <li><code>{file.path}</code> {#if file.kind}<span class="badge">{file.kind}</span>{/if}</li>
       {/each}
     </ul>

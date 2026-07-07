@@ -222,10 +222,18 @@ class ContextUseCases:
             }
         blocks = [f"[{m.path}] {m.excerpt}" for m in strong]
         answer = await self._answerer.answer(question, blocks)
+        # Dedupe citations by path (a doc can contribute several chunks),
+        # keeping the highest-scoring occurrence and original order.
+        best: dict[str, ChunkMatch] = {}
+        for m in strong:
+            existing = best.get(m.path)
+            if existing is None or m.score > existing.score:
+                best[m.path] = m
         return {
             "answer": answer,
             "sources": [
-                {"path": m.path, "title": m.title, "score": round(m.score, 4)} for m in strong
+                {"path": m.path, "title": m.title, "score": round(m.score, 4)}
+                for m in best.values()
             ],
             "grounded": True,
         }

@@ -90,7 +90,7 @@
   <table>
     <thead><tr><th>Path</th><th>Type</th><th>Title</th></tr></thead>
     <tbody>
-      {#each vm.docs as doc (doc.id)}
+      {#each vm.docs as doc, i (i)}
         <tr>
           <td><button class="link" onclick={() => vm.openDoc(doc.id)}>{doc.path}</button></td>
           <td><span class="badge">{doc.type}</span></td>
@@ -105,7 +105,7 @@
 {/if}
 
 {#if vm.tab === 'openspec'}
-  {#each vm.openspec as change (change.change_id)}
+  {#each vm.openspec as change, i (i)}
     <details class="card">
       <summary>
         <strong>{change.change_id}</strong>
@@ -129,7 +129,7 @@
       <tr><th>#</th><th>Title</th><th>State</th><th>Author</th><th>Labels</th><th>Resolution</th></tr>
     </thead>
     <tbody>
-      {#each vm.issues as issue (issue.number)}
+      {#each vm.issues as issue, i (i)}
         <tr>
           <td>{issue.number}</td>
           <td>{issue.title}</td>
@@ -149,7 +149,7 @@
       <tr><th>#</th><th>Title</th><th>State</th><th>Author</th><th>Δ</th><th>To merge</th><th>To review</th></tr>
     </thead>
     <tbody>
-      {#each vm.pullRequests as pr (pr.number)}
+      {#each vm.pullRequests as pr, i (i)}
         <tr>
           <td>{pr.number}</td>
           <td>{pr.title}</td>
@@ -168,7 +168,7 @@
   <table>
     <thead><tr><th>Path</th><th>Language</th><th>Size</th><th>Kind</th></tr></thead>
     <tbody>
-      {#each vm.files as file (file.path)}
+      {#each vm.files as file, i (i)}
         <tr>
           <td><code>{file.path}</code></td>
           <td>{file.language ?? ''}</td>
@@ -236,7 +236,7 @@
       {#if askVm.askResult.sources.length}
         <h4>Sources</h4>
         <ul>
-          {#each askVm.askResult.sources as source (source.path)}
+          {#each askVm.askResult.sources as source, i (i)}
             <li>
               <a href={`/repos/${repoId}?tab=documentation`}>{source.path}</a>
               <span class="muted">score {source.score}</span>

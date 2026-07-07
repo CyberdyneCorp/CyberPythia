@@ -283,3 +283,18 @@ class TestAsk:
         assert "does not cover" in result["answer"]
         assert "issues" in result["answer"]  # lists indexed content types
         assert env["answerer"].calls == []  # LLM never called
+
+
+class TestAskDeduplicatesSources:
+    async def test_repeated_document_cited_once(self, env):
+        repo = await seed_repo(env)
+        # Two chunks of the same document + one of another
+        env["embeddings"].matches = [
+            doc_match("docs/2fa.md", 0.8),
+            doc_match("docs/2fa.md", 0.6),
+            doc_match("README.md", 0.5),
+        ]
+        result = await env["use_cases"].ask(repo.id, "how does 2fa work?")
+        paths = [s["path"] for s in result["sources"]]
+        assert paths == ["docs/2fa.md", "README.md"]  # deduped, order preserved
+        assert result["sources"][0]["score"] == 0.8  # kept the higher score
