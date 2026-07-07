@@ -24,4 +24,20 @@ test.describe('engineering intelligence', () => {
     // component breakdown renders (documentation is always present once synced)
     await expect(page.getByText('documentation')).toBeVisible();
   });
+
+  test('dashboard shows the PM/PO delivery scorecard', async ({ page }) => {
+    await page.goto('/intelligence');
+    await expect(page.getByRole('heading', { name: 'Delivery scorecard' })).toBeVisible({
+      timeout: 20_000
+    });
+    const row = page.locator('tr', { hasText: 'CyberdyneCorp/CyberdyneAuth' });
+    await expect(row.first()).toBeVisible();
+  });
+
+  test('repository detail shows the delivery panel', async ({ page }) => {
+    // CyberdyneAuth has issues/PRs -> flow has data
+    await page.goto('/repos/9dc307cb-880f-4edb-a0c3-a910cc419036');
+    await expect(page.getByRole('heading', { name: 'Delivery' })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Cycle time (issue resolution)')).toBeVisible({ timeout: 20_000 });
+  });
 });
