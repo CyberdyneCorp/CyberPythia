@@ -3,6 +3,9 @@ import { expect, test } from '@playwright/test';
 /** Requires at least one synced repository (pilot: CyberdyneCorp/CyberdyneAuth). */
 test.use({ storageState: 'e2e/.auth/user.json' });
 
+// CyberdyneCorp/CyberPythia, indexed in code_context mode
+const CODE_PILOT_ID = '02573958-e1bb-4f6a-adc2-4528bab2ceaf';
+
 test.describe('populated dashboard', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
@@ -57,3 +60,15 @@ test.describe('populated dashboard', () => {
     await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible({ timeout: 60_000 });
   });
 });
+
+  test('code context tab searches source code (code_context pilot)', async ({ page }) => {
+    // Navigate straight to the detail page (the dashboard renders 345 cards).
+    await page.goto(`/repos/${CODE_PILOT_ID}?tab=code-context`);
+    await page.getByRole('button', { name: 'Code Context', exact: true }).click();
+    await page
+      .getByPlaceholder(/Search code semantically/)
+      .fill('symbol-aware code chunking heuristic');
+    await page.getByRole('button', { name: 'Search' }).click();
+    await expect(page.locator('.code-match').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('.code-match pre').first()).toBeVisible();
+  });
