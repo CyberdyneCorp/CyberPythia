@@ -517,7 +517,106 @@ def build_mcp(
         except ApplicationError as exc:
             return await _code_error(exc)
 
+    # -- engineering-intelligence tools ---------------------------------------------
+
+    async def _resolve_enabled(full_name: str) -> Repository | dict[str, Any]:
+        repository = await container.repositories.get_by_full_name(full_name)
+        if repository is None or not repository.enabled:
+            return _error("unknown_repository", f"repository '{full_name}' is not indexed")
+        return repository
+
+    @mcp.tool
+    async def mnemosyne_get_repository_health(full_name: str) -> dict[str, Any]:
+        """Health score (0-100), grade, component breakdown, and findings for a repository."""
+        await auth()
+        repo = await _resolve_enabled(full_name)
+        if isinstance(repo, dict):
+            return repo
+        return _health_dict(full_name, await container.intelligence.health(repo.id))
+
+    @mcp.tool
+    async def mnemosyne_get_delivery_metrics(full_name: str) -> dict[str, Any]:
+        """Delivery analytics: merge rate, median merge/resolution time, PR size distribution."""
+        await auth()
+        repo = await _resolve_enabled(full_name)
+        if isinstance(repo, dict):
+            return repo
+        return {"full_name": full_name, **asdict(await container.intelligence.delivery(repo.id))}
+
+    @mcp.tool
+    async def mnemosyne_get_backlog_metrics(full_name: str) -> dict[str, Any]:
+        """Backlog analytics: open/stale issues, open-to-closed ratio, oldest open age."""
+        await auth()
+        repo = await _resolve_enabled(full_name)
+        if isinstance(repo, dict):
+            return repo
+        return {"full_name": full_name, **asdict(await container.intelligence.backlog(repo.id))}
+
+    @mcp.tool
+    async def mnemosyne_get_review_bottlenecks(full_name: str) -> dict[str, Any]:
+        """Review bottlenecks: slow/absent-review PRs and reviewer-load concentration."""
+        await auth()
+        repo = await _resolve_enabled(full_name)
+        if isinstance(repo, dict):
+            return repo
+        result = await container.intelligence.review_bottlenecks(repo.id)
+        return {"full_name": full_name, **asdict(result)}
+
+    @mcp.tool
+    async def mnemosyne_get_maintenance_risk(full_name: str) -> dict[str, Any]:
+        """Maintenance-risk level (low/medium/high) with the reasons that raised it."""
+        await auth()
+        repo = await _resolve_enabled(full_name)
+        if isinstance(repo, dict):
+            return repo
+        result = await container.intelligence.maintenance_risk(repo.id)
+        return {"full_name": full_name, **asdict(result)}
+
+    @mcp.tool
+    async def mnemosyne_get_portfolio_overview() -> dict[str, Any]:
+        """Cross-repo overview: health leaderboard, most-active, abandoned, bug-heavy repos."""
+        await auth()
+        return asdict(await container.intelligence.portfolio())
+
+    @mcp.tool
+    async def mnemosyne_compare_repositories(full_names: list[str]) -> dict[str, Any]:
+        """Compare repositories by health grade and key delivery metrics, side by side."""
+        await auth()
+        ids = []
+        for name in full_names:
+            repo = await _resolve_enabled(name)
+            if isinstance(repo, dict):
+                return repo
+            ids.append(repo.id)
+        return {"comparison": await container.intelligence.compare(ids)}
+
+    @mcp.tool
+    async def mnemosyne_generate_onboarding_summary(full_name: str) -> dict[str, Any]:
+        """Newcomer brief: health, docs/OpenSpec presence, and top findings for a repository."""
+        await auth()
+        repo = await _resolve_enabled(full_name)
+        if isinstance(repo, dict):
+            return repo
+        return await container.intelligence.onboarding_summary(repo.id)
+
     return mcp
+
+
+def _health_dict(full_name: str, health: Any) -> dict[str, Any]:
+    return {
+        "full_name": full_name,
+        "has_data": health.has_data,
+        "overall": health.overall,
+        "grade": health.grade.value if health.grade else None,
+        "components": [
+            {"name": c.name, "weight": c.weight, "score": c.score, "inputs": c.inputs}
+            for c in health.components
+        ],
+        "findings": [
+            {"severity": f.severity.value, "message": f.message, "metric": f.metric}
+            for f in health.findings
+        ],
+    }
 
 
 def _issue_dict(issue: Any) -> dict[str, Any]:

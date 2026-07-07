@@ -6,6 +6,7 @@ import { AskViewModel } from './AskViewModel.svelte';
 import { ConnectionsViewModel } from './ConnectionsViewModel.svelte';
 import { AuthViewModel } from './AuthViewModel.svelte';
 import { CodeSearchViewModel } from './CodeSearchViewModel.svelte';
+import { IntelligenceViewModel, RepositoryHealthViewModel } from './IntelligenceViewModel.svelte';
 
 function repo(overrides: Partial<Repository> = {}): Repository {
   return {
@@ -319,5 +320,53 @@ describe('ConnectionsViewModel — GitHub App', () => {
     const vm2 = new ConnectionsViewModel(failing as never, {} as never);
     await vm2.loadDeliveries();
     expect(vm2.deliveries).toEqual([]);
+  });
+});
+
+describe('IntelligenceViewModel', () => {
+  it('loads the portfolio overview', async () => {
+    const api = {
+      portfolio: async () => ({
+        total_repositories: 2,
+        scored: 1,
+        leaderboard: [
+          { repository_id: 'r1', full_name: 'cyberdyne/a', has_data: true, overall: 88, grade: 'B' }
+        ],
+        most_active: ['cyberdyne/a'],
+        abandoned: [],
+        bug_heavy: ['cyberdyne/a']
+      })
+    };
+    const vm = new IntelligenceViewModel(api as never);
+    await vm.loadPortfolio();
+    expect(vm.overview?.scored).toBe(1);
+    expect(vm.overview?.leaderboard[0].grade).toBe('B');
+    expect(vm.error).toBeNull();
+  });
+
+  it('surfaces portfolio load errors', async () => {
+    const api = { portfolio: async () => { throw new ApiError(500, 'server', 'nope'); } };
+    const vm = new IntelligenceViewModel(api as never);
+    await vm.loadPortfolio();
+    expect(vm.error).toBe('nope');
+    expect(vm.overview).toBeNull();
+  });
+});
+
+describe('RepositoryHealthViewModel', () => {
+  it('loads a repository health score', async () => {
+    const api = {
+      health: async () => ({
+        has_data: true,
+        overall: 91,
+        grade: 'A',
+        components: [{ name: 'documentation', weight: 0.25, score: 100, inputs: {} }],
+        findings: []
+      })
+    };
+    const vm = new RepositoryHealthViewModel(api as never, 'r1');
+    await vm.load();
+    expect(vm.health?.grade).toBe('A');
+    expect(vm.health?.components).toHaveLength(1);
   });
 });

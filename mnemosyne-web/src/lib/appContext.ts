@@ -1,7 +1,13 @@
 /** Frontend composition root (browser only). */
 import { authService } from '$lib/auth/cyberdyneAuthService';
 import { HttpClient } from '$lib/api/http';
-import { CodeApi, ContextApi, GitHubApi, RepositoriesApi } from '$lib/api/mnemosyneApi';
+import {
+  CodeApi,
+  ContextApi,
+  GitHubApi,
+  IntelligenceApi,
+  RepositoriesApi
+} from '$lib/api/mnemosyneApi';
 
 export interface AppContext {
   auth: ReturnType<typeof authService>;
@@ -9,6 +15,7 @@ export interface AppContext {
   repositoriesApi: RepositoriesApi;
   contextApi: ContextApi;
   codeApi: CodeApi;
+  intelligenceApi: IntelligenceApi;
 }
 
 let context: AppContext | null = null;
@@ -22,7 +29,8 @@ export function appContext(): AppContext {
       githubApi: new GitHubApi(http),
       repositoriesApi: new RepositoriesApi(http),
       contextApi: new ContextApi(http),
-      codeApi: new CodeApi(http)
+      codeApi: new CodeApi(http),
+      intelligenceApi: new IntelligenceApi(http)
     };
   }
   return context;

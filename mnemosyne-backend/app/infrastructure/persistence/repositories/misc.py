@@ -315,12 +315,21 @@ class PostgresMetricsRepository(PostgresRepositoryBase):
             row = await session.get(RepositoryMetricsRow, repository_id)
             if row is None:
                 return None
-            return {
-                "issue_metrics": row.issue_metrics,
-                "pr_metrics": row.pr_metrics,
-                "summary": row.summary,
-                "computed_at": row.computed_at.isoformat(),
-            }
+            return self._to_dict(row)
+
+    async def list_all(self) -> dict[UUID, dict[str, Any]]:
+        async with self._session_factory() as session:
+            rows = (await session.execute(select(RepositoryMetricsRow))).scalars().all()
+            return {row.repository_id: self._to_dict(row) for row in rows}
+
+    @staticmethod
+    def _to_dict(row: RepositoryMetricsRow) -> dict[str, Any]:
+        return {
+            "issue_metrics": row.issue_metrics,
+            "pr_metrics": row.pr_metrics,
+            "summary": row.summary,
+            "computed_at": row.computed_at.isoformat(),
+        }
 
 
 class PostgresWebhookDeliveryRepository(PostgresRepositoryBase):

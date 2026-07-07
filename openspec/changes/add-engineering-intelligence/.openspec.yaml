@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-07-07
+goal: "Turn the captured GitHub data into engineering-intelligence: per-repo
+  health scores and org-wide analytics for PMs, developers, and business"

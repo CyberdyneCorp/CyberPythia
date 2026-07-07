@@ -86,6 +86,12 @@ repositories, choose indexing modes
 modes additionally capture source-code content, chunk it by symbol, and
 build a semantic **code search** index (Phase 3).
 
+The **Intelligence** dashboard scores each repository's **health** (0–100 + grade
++ findings) and rolls the org up into a portfolio view — leaderboard, most-active,
+abandoned, and bug-heavy repositories — plus delivery/backlog/bottleneck/maintenance
+analytics over MCP and REST (Phase 5); see
+[docs/engineering-intelligence.md](docs/engineering-intelligence.md).
+
 ## Docs
 
 - [docs/auth-integration.md](docs/auth-integration.md) — CyberdyneAuth setup:
@@ -93,6 +99,7 @@ build a semantic **code search** index (Phase 3).
 - [docs/mcp-consumers.md](docs/mcp-consumers.md) — the MCP tool suite for agents
 - [docs/mnemosyneignore.md](docs/mnemosyneignore.md) — excluding paths from indexing
 - [docs/github-app.md](docs/github-app.md) — GitHub App + webhooks (near-real-time sync)
+- [docs/engineering-intelligence.md](docs/engineering-intelligence.md) — health scores + portfolio analytics
 - [docs/deploy-coolify.md](docs/deploy-coolify.md) — production deployment
 
 ## Security model

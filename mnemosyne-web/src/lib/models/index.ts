@@ -193,3 +193,47 @@ export interface FileContent {
   size_bytes: number;
   content: string;
 }
+
+export interface HealthComponent {
+  name: string;
+  weight: number;
+  score: number | null;
+  inputs: Record<string, unknown>;
+}
+
+export interface HealthFinding {
+  severity: 'info' | 'warning' | 'critical';
+  message: string;
+  metric: string;
+}
+
+export interface RepositoryHealth {
+  has_data: boolean;
+  overall: number | null;
+  grade: string | null;
+  components: HealthComponent[];
+  findings: HealthFinding[];
+}
+
+export interface PortfolioEntry {
+  repository_id: string;
+  full_name: string;
+  has_data: boolean;
+  overall: number | null;
+  grade: string | null;
+}
+
+export interface PortfolioOverview {
+  total_repositories: number;
+  scored: number;
+  leaderboard: PortfolioEntry[];
+  most_active: string[];
+  abandoned: string[];
+  bug_heavy: string[];
+}
+
+export interface MaintenanceRisk {
+  has_data: boolean;
+  level: string;
+  reasons: string[];
+}

@@ -167,6 +167,27 @@ def avg_pr_merge(api, state, days):
     assert metrics["pr_metrics"]["avg_time_to_merge_seconds"] == days * 86400
 
 
+# -- engineering-intelligence scenarios -------------------------------------------------
+
+
+@then("the repository health report has a grade and an overall score")
+def repo_health_report(api, state):
+    health = api.get(
+        f"/api/v1/intelligence/repositories/{state['repo_id']}/health"
+    ).json()
+    assert health["has_data"] is True, health
+    assert health["grade"] in {"A", "B", "C", "D", "F"}
+    assert isinstance(health["overall"], (int, float))
+    assert any(c["name"] == "documentation" for c in health["components"])
+
+
+@then("the portfolio overview includes the repository")
+def portfolio_includes_repo(api, state):
+    overview = api.get("/api/v1/intelligence/portfolio").json()
+    ids = {e["repository_id"] for e in overview["leaderboard"]}
+    assert str(state["repo_id"]) in ids, overview
+
+
 # -- context pack scenarios -------------------------------------------------------------
 
 

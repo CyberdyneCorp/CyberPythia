@@ -24,6 +24,7 @@
     <a href="/" class="brand">🧠 Mnemosyne</a>
     <nav>
       <a href="/">Repositories</a>
+      <a href="/intelligence">Intelligence</a>
       <a href="/connections">GitHub Connection</a>
     </nav>
     <div class="session">

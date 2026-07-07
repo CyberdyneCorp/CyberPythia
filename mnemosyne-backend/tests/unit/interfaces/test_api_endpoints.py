@@ -84,6 +84,9 @@ class FakeMetricsStore:
     async def get(self, repository_id):
         return self.data.get(repository_id)
 
+    async def list_all(self):
+        return dict(self.data)
+
     async def save(self, repository_id, **kw):
         self.data[repository_id] = kw
 
@@ -142,7 +145,6 @@ def build_fake_container():
     from app.application.use_cases.process_webhook import ProcessWebhookDelivery
     from tests.unit.application.test_process_webhook import FakeDeliveryPort
 
-    connection_uc_app = connection_uc  # already created above
     metrics_recompute = MetricsRecomputeService(
         issues, prs, documents, openspec, metrics_store
     )
@@ -159,6 +161,14 @@ def build_fake_container():
         source_chunks=source_chunks,
         embeddings=embeddings,
         audit=AuditService(audit_port),
+    )
+    from app.application.use_cases.intelligence import IntelligenceService
+    from app.domain.services.repository_health import RepositoryHealthService
+    from app.domain.services.repository_signals import RepositorySignalsService
+
+    intelligence = IntelligenceService(
+        repositories, files, metrics_store,
+        RepositorySignalsService(), RepositoryHealthService(),
     )
     return SimpleNamespace(
         settings=None,
@@ -187,6 +197,7 @@ def build_fake_container():
         source_chunks=source_chunks,
         webhook_deliveries=webhook_deliveries,
         process_webhook=process_webhook,
+        intelligence=intelligence,
     )
 
 

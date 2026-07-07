@@ -187,6 +187,10 @@ class SearchMatchResponse(BaseModel):
     score: float
 
 
+class CompareRequest(BaseModel):
+    repository_ids: list[UUID] = Field(min_length=1, max_length=20)
+
+
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
 

@@ -11,11 +11,14 @@ import type {
   DocumentSummary,
   IndexingMode,
   Issue,
+  MaintenanceRisk,
   Metrics,
   OpenSpecChange,
   Page,
+  PortfolioOverview,
   PullRequest,
   Repository,
+  RepositoryHealth,
   RepositorySummary,
   WebhookDelivery,
   SearchMatch,
@@ -138,5 +141,19 @@ export class CodeApi {
   }
   fileContent(repoId: string, fileId: string): Promise<FileContent> {
     return this.http.get(`/api/v1/repos/${repoId}/files/${fileId}/content`);
+  }
+}
+
+export class IntelligenceApi {
+  constructor(private http: HttpClient) {}
+
+  portfolio(): Promise<PortfolioOverview> {
+    return this.http.get('/api/v1/intelligence/portfolio');
+  }
+  health(repoId: string): Promise<RepositoryHealth> {
+    return this.http.get(`/api/v1/intelligence/repositories/${repoId}/health`);
+  }
+  maintenanceRisk(repoId: string): Promise<MaintenanceRisk> {
+    return this.http.get(`/api/v1/intelligence/repositories/${repoId}/maintenance-risk`);
   }
 }

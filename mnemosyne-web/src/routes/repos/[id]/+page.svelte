@@ -4,6 +4,7 @@
   import type { AppContext } from '$lib/appContext';
   import DocumentViewer from '$lib/components/DocumentViewer.svelte';
   import ContextPackPanel from '$lib/components/ContextPackPanel.svelte';
+  import HealthPanel from '$lib/components/HealthPanel.svelte';
   import {
     RepositoryDetailViewModel,
     type Tab
@@ -87,6 +88,7 @@
       </div>
     {/if}
   </div>
+  <HealthPanel api={ctx.intelligenceApi} {repoId} />
 {/if}
 
 {#if vm.tab === 'documentation'}

@@ -41,6 +41,14 @@ Repositories are addressed by full name (`owner/name`).
 | `mnemosyne_explain_repository_structure` | tree, languages, important files, key symbols |
 | `mnemosyne_build_context_pack` | task-specific context bundle |
 | `mnemosyne_answer_from_repo_context` | grounded Q&A with citations |
+| `mnemosyne_get_repository_health` | health score, grade, components, findings (Phase 5) |
+| `mnemosyne_get_delivery_metrics` | cycle/lead time, PR size distribution, throughput |
+| `mnemosyne_get_backlog_metrics` | open/stale backlog, ratios, oldest-open age |
+| `mnemosyne_get_review_bottlenecks` | slow/absent-review PRs, reviewer-load concentration |
+| `mnemosyne_get_maintenance_risk` | risk level (low/medium/high) with reasons |
+| `mnemosyne_get_portfolio_overview` | cross-repo leaderboard, most-active, abandoned, bug-heavy |
+| `mnemosyne_compare_repositories` | aligned health + metric comparison |
+| `mnemosyne_generate_onboarding_summary` | newcomer brief for a repository |
 
 ## Error contract
 

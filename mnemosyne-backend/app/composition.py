@@ -11,11 +11,14 @@ from app.application.use_cases.code import CodeUseCases
 from app.application.use_cases.context import ContextUseCases
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
 from app.application.use_cases.incremental_sync import IncrementalSyncUseCases
+from app.application.use_cases.intelligence import IntelligenceService
 from app.application.use_cases.process_webhook import ProcessWebhookDelivery
 from app.application.use_cases.repositories import RepositoryUseCases
 from app.application.use_cases.sync_repository import MetricsWriter, SyncRepositoryUseCase
 from app.config import Settings, get_settings
 from app.domain.services.code_chunker import HeuristicCodeChunker
+from app.domain.services.repository_health import RepositoryHealthService
+from app.domain.services.repository_signals import RepositorySignalsService
 from app.infrastructure.auth.cyberdyne_auth import CyberdyneAuthAdapter
 from app.infrastructure.github.app_auth import GitHubAppAuth
 from app.infrastructure.github.client import GitHubClient
@@ -243,6 +246,16 @@ class Container:
             source_chunks=self.source_chunks,
             embeddings=self.embeddings,
             audit=self.audit_service,
+        )
+
+    @cached_property
+    def intelligence(self) -> IntelligenceService:
+        return IntelligenceService(
+            repositories=self.repositories,
+            files=self.files,
+            metrics=self.metrics_store,
+            signals=RepositorySignalsService(),
+            health=RepositoryHealthService(),
         )
 
 
