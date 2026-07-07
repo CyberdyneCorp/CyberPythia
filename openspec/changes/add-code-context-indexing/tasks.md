@@ -47,5 +47,5 @@
 
 ## 9. Docs, deploy, verification
 
-- [ ] 9.1 Update README + docs (indexing modes table incl. `code_context`/`full_context`, code MCP tools in `docs/mcp-consumers.md`, security note on source capture). New env: source size cap, window size/overlap.
+- [x] 9.1 Update README + docs (indexing modes table incl. `code_context`/`full_context`, code MCP tools in `docs/mcp-consumers.md`, security note on source capture). New env: source size cap, window size/overlap.
 - [ ] 9.2 Run full gate (ruff, mypy --strict, unit coverage ≥ 90%, integration, BDD) + `openspec validate --all --strict`; deploy `0002` migration + code; set a pilot repo to `code_context`, re-sync, verify real code search/symbol/content over REST + MCP + UI.

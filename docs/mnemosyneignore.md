@@ -28,6 +28,8 @@ secrets/  credentials/  private/  node_modules/  dist/  build/  target/
 ## Secret quarantine
 
 Captured documents are scanned (token patterns + entropy) before persistence.
-A document containing a detected secret is stored as **metadata only**
-(path/type/hash), flagged `quarantined`, and excluded from embeddings and
-agent responses.
+A document — or, in `code_context`/`full_context` mode, a source file —
+containing a detected secret is stored as **metadata only** (path/type/hash),
+flagged `quarantined`, and excluded from embeddings and agent responses.
+Source capture additionally skips binary/generated files and any file over
+the size cap (`SOURCE_SIZE_CAP_BYTES`, default 512 KB).

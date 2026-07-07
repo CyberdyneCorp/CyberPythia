@@ -34,6 +34,11 @@ Repositories are addressed by full name (`owner/name`).
 | `mnemosyne_list_pull_requests` / `mnemosyne_get_pull_request` | PRs |
 | `mnemosyne_get_pr_review_metrics` | merge time, first review, merge rate |
 | `mnemosyne_find_stale_issues` / `mnemosyne_find_stale_prs` | staleness report |
+| `mnemosyne_search_code` | semantic search over source code (code_context/full_context) |
+| `mnemosyne_get_symbol_context` | look up chunks defining a symbol |
+| `mnemosyne_get_file_content` | captured content of a source file by path |
+| `mnemosyne_get_related_files` | files related via import/reference heuristics |
+| `mnemosyne_explain_repository_structure` | tree, languages, important files, key symbols |
 | `mnemosyne_build_context_pack` | task-specific context bundle |
 | `mnemosyne_answer_from_repo_context` | grounded Q&A with citations |
 
@@ -45,8 +50,10 @@ Tools return structured errors so agents can branch:
 {"error": {"code": "repository_not_synced", "message": "…"}}
 ```
 
-Codes: `unknown_repository`, `repository_not_synced`, `mode_excludes_content`,
-`not_found`, `application_error`. Authentication failures raise MCP tool
+Codes: `unknown_repository`, `repository_not_synced`, `mode_excludes_content`
+(returned by code tools when a repo isn't indexed in a code mode),
+`content_unavailable` (quarantined/uncaptured file), `not_found`,
+`application_error`. Authentication failures raise MCP tool
 errors prefixed `unauthenticated:` / `missing_entitlement:` /
 `auth_unavailable:`.
 

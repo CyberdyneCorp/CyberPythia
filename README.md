@@ -78,7 +78,10 @@ with the same bearer token. See [docs/mcp-consumers.md](docs/mcp-consumers.md).
 
 **Dashboard** — sign in with "Connect with Cyberdyne". Admins register the
 GitHub PAT, discover repositories, choose indexing modes
-(`docs_only` / `project_intelligence` / `code_metadata`), and trigger syncs.
+(`docs_only` / `project_intelligence` / `code_metadata` / `code_context` /
+`full_context`), and trigger syncs. The `code_context` and `full_context`
+modes additionally capture source-code content, chunk it by symbol, and
+build a semantic **code search** index (Phase 3).
 
 ## Docs
 
