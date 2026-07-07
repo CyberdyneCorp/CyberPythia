@@ -36,9 +36,27 @@ class ConnectionResponse(BaseModel):
     id: UUID
     owner: str
     owner_type: str
+    kind: str
     token_hint: str
     permissions: list[str]
     status: str
+    installation_id: str | None = None
+
+
+class AppConnectRequest(BaseModel):
+    app_id: str = Field(min_length=1)
+    installation_id: str = Field(min_length=1)
+    private_key: str = Field(min_length=40, description="App private key PEM")
+    webhook_secret: str = Field(min_length=1)
+
+
+class WebhookDeliveryResponse(BaseModel):
+    delivery_id: str
+    event: str
+    action: str | None
+    repository_full_name: str | None
+    outcome: str
+    received_at: datetime
 
 
 class ConnectionTestResponse(BaseModel):

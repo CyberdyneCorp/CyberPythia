@@ -137,6 +137,22 @@ def build_fake_container():
         metrics_store=metrics_store,
     )
     source_chunks = FakeSourceChunkPort()
+    from app.application.metrics_recompute import MetricsRecomputeService
+    from app.application.use_cases.incremental_sync import IncrementalSyncUseCases
+    from app.application.use_cases.process_webhook import ProcessWebhookDelivery
+    from tests.unit.application.test_process_webhook import FakeDeliveryPort
+
+    connection_uc_app = connection_uc  # already created above
+    metrics_recompute = MetricsRecomputeService(
+        issues, prs, documents, openspec, metrics_store
+    )
+    incremental = IncrementalSyncUseCases(
+        repositories, issues, prs, github, connection_uc, metrics_recompute
+    )
+    webhook_deliveries = FakeDeliveryPort()
+    process_webhook = ProcessWebhookDelivery(
+        webhook_deliveries, connections, incremental, repo_uc
+    )
     code_uc = CodeUseCases(
         repositories=repositories,
         files=files,
@@ -169,6 +185,8 @@ def build_fake_container():
         context_use_cases=context_uc,
         code_use_cases=code_uc,
         source_chunks=source_chunks,
+        webhook_deliveries=webhook_deliveries,
+        process_webhook=process_webhook,
     )
 
 
@@ -433,6 +451,10 @@ class TestOpenApiContract:
             "/api/v1/repos/{repo_id}/symbols",
             "/api/v1/repos/{repo_id}/files/{file_id}/content",
             "/api/v1/repos/{repo_id}/files/{file_id}/related",
+            "/api/v1/github/app/connect",
+            "/api/v1/github/app/installations/{connection_id}/repos",
+            "/api/v1/webhooks/github",
+            "/api/v1/admin/webhook-deliveries",
             "/api/v1/health",
         }
         missing = expected - paths
@@ -445,6 +467,8 @@ class TestOpenApiContract:
         assert "security" in repos_get
         health_get = spec["paths"]["/api/v1/health"]["get"]
         assert "security" not in health_get
+        webhook_post = spec["paths"]["/api/v1/webhooks/github"]["post"]
+        assert "security" not in webhook_post
 
 
 class TestCors:
@@ -547,6 +571,97 @@ class TestCodeEndpoints:
             denied = await c.get(
                 f"/api/v1/repos/{repo.id}/symbols",
                 headers={"Authorization": "Bearer unentitled-token"},
+            )
+        assert no_token.status_code == 401
+        assert denied.status_code == 403
+
+
+class TestGitHubAppAndWebhookEndpoints:
+    async def _seed_app_connection(self, container, installation_id="99", secret="whsec"):
+        from app.domain.entities.github_connection import GitHubConnection
+        from app.domain.value_objects.enums import ConnectionKind
+
+        conn = GitHubConnection(
+            id=uuid4(), owner="cyberdyne", owner_type="Organization",
+            kind=ConnectionKind.GITHUB_APP, app_id="12345", installation_id=installation_id,
+            encrypted_private_key=b"enc:pk",
+            encrypted_webhook_secret=f"enc:{secret}".encode(),
+        )
+        await container.connections.save(conn)
+        return conn
+
+    async def test_app_connect_requires_admin(self, client):
+        body = {"app_id": "1", "installation_id": "99",
+                "private_key": "-" * 50, "webhook_secret": "s"}
+        async with client as c:
+            no = await c.post("/api/v1/github/app/connect", json=body, headers=user())
+        assert no.status_code == 403
+
+    async def test_webhook_valid_signature_dispatches(self, client, container):
+        import json as _json
+
+        from app.domain.services.webhook_signature import compute_signature
+
+        await self._seed_app_connection(container)
+        # an enabled synced repo so a push enqueues a sync
+        await seed_repo(container)
+        container.repositories.items[  # ensure full_name matches payload
+            next(iter(container.repositories.items))
+        ].enabled = True
+        payload = {
+            "installation": {"id": 99},
+            "repository": {"full_name": "cyberdyne/a"},
+        }
+        body = _json.dumps(payload).encode()
+        sig = compute_signature("whsec", body)
+        async with client as c:
+            resp = await c.post(
+                "/api/v1/webhooks/github",
+                content=body,
+                headers={
+                    "X-Hub-Signature-256": sig,
+                    "X-GitHub-Event": "push",
+                    "X-GitHub-Delivery": "delivery-abc",
+                    "Content-Type": "application/json",
+                },
+            )
+        assert resp.status_code == 200
+        assert resp.text == "processed"
+
+    async def test_webhook_invalid_signature_401(self, client, container):
+        import json as _json
+
+        await self._seed_app_connection(container)
+        body = _json.dumps({"installation": {"id": 99}}).encode()
+        async with client as c:
+            resp = await c.post(
+                "/api/v1/webhooks/github",
+                content=body,
+                headers={
+                    "X-Hub-Signature-256": "sha256=deadbeef",
+                    "X-GitHub-Event": "push",
+                    "X-GitHub-Delivery": "d2",
+                },
+            )
+        assert resp.status_code == 401
+
+    async def test_webhook_missing_signature_401(self, client, container):
+        import json as _json
+
+        await self._seed_app_connection(container)
+        body = _json.dumps({"installation": {"id": 99}}).encode()
+        async with client as c:
+            resp = await c.post(
+                "/api/v1/webhooks/github", content=body,
+                headers={"X-GitHub-Event": "push", "X-GitHub-Delivery": "d3"},
+            )
+        assert resp.status_code == 401
+
+    async def test_webhook_deliveries_admin_only(self, client):
+        async with client as c:
+            no_token = await c.get("/api/v1/admin/webhook-deliveries")
+            denied = await c.get(
+                "/api/v1/admin/webhook-deliveries", headers=user()
             )
         assert no_token.status_code == 401
         assert denied.status_code == 403

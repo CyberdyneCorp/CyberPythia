@@ -33,8 +33,8 @@
 
 ## 6. REST API
 
-- [ ] 6.1 Public webhook router `POST /api/v1/webhooks/github` (raw-body signature verify, fast 2xx/401), registered outside bearer auth. Admin `POST /github/app/connect`, `GET /github/app/installations/{id}/repos`, `GET /admin/webhook-deliveries`. Schemas + OpenAPI security (admin bearer; webhook none).
-- [ ] 6.2 Interface tests: webhook valid-signature 2xx + dispatch, invalid/missing-signature 401, redelivery idempotent, app-connect admin-gated, deliveries list; OpenAPI contract for the four paths.
+- [x] 6.1 Public webhook router `POST /api/v1/webhooks/github` (raw-body signature verify, fast 2xx/401), registered outside bearer auth. Admin `POST /github/app/connect`, `GET /github/app/installations/{id}/repos`, `GET /admin/webhook-deliveries`. Schemas + OpenAPI security (admin bearer; webhook none).
+- [x] 6.2 Interface tests: webhook valid-signature 2xx + dispatch, invalid/missing-signature 401, redelivery idempotent, app-connect admin-gated, deliveries list; OpenAPI contract for the four paths.
 
 ## 7. Web UI
 
