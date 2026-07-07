@@ -1,0 +1,119 @@
+# Coolify deployment for Mnemosyne (design D10).
+#
+# One Coolify "Docker Compose" resource with 7 services. Expose these
+# services via Coolify domain mappings:
+#   mnemosyne-api  -> https://mnemosyne.backend.<domain>   (port 8000)
+#   mnemosyne-mcp  -> https://mnemosyne.mcp.<domain>       (port 8100)
+#   mnemosyne-web  -> https://mnemosyne.<domain>           (port 3000)
+#
+# Required secrets (set in Coolify, mark 🔒):
+#   TOKEN_ENCRYPTION_KEY   🔒 Fernet key for GitHub PATs at rest
+#   CYBERDYNEAUTH_CLIENT_SECRET 🔒 mnemosyne-backend service client
+#   OPENAI_API_KEY         🔒 embeddings + ask (optional: degraded mode without)
+#   POSTGRES_PASSWORD, MINIO_ROOT_PASSWORD 🔒
+
+x-backend-env: &backend-env
+  APP_ENV: production
+  DATABASE_URL: postgresql+asyncpg://mnemosyne:${POSTGRES_PASSWORD}@postgres:5432/mnemosyne
+  REDIS_URL: redis://redis:6379/0
+  MINIO_ENDPOINT: minio:9000
+  MINIO_ACCESS_KEY: mnemosyne
+  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+  MINIO_BUCKET: mnemosyne-artifacts
+  CYBERDYNEAUTH_ISSUER: ${CYBERDYNEAUTH_ISSUER:-https://auth.backend.coolify.cyberdynecorp.ai}
+  CYBERDYNEAUTH_CLIENT_ID: ${CYBERDYNEAUTH_CLIENT_ID:-mnemosyne-backend}
+  CYBERDYNEAUTH_CLIENT_SECRET: ${CYBERDYNEAUTH_CLIENT_SECRET}
+  AUTH_VALIDATION_MODE: ${AUTH_VALIDATION_MODE:-jwks}
+  TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+
+services:
+  mnemosyne-api:
+    build:
+      context: ./mnemosyne-backend
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    environment:
+      <<: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/api/v1/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  mnemosyne-mcp:
+    build:
+      context: ./mnemosyne-backend
+    command: python -m app.interfaces.mcp.server
+    environment:
+      <<: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  mnemosyne-worker:
+    build:
+      context: ./mnemosyne-backend
+    command: arq app.infrastructure.queue.worker.WorkerSettings
+    environment:
+      <<: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+
+  mnemosyne-web:
+    build:
+      context: ./mnemosyne-web
+    environment:
+      PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL}
+      PUBLIC_AUTH_ISSUER: ${CYBERDYNEAUTH_ISSUER:-https://auth.backend.coolify.cyberdynecorp.ai}
+      PUBLIC_AUTH_CLIENT_ID: ${PUBLIC_AUTH_CLIENT_ID:-mnemosyne-web}
+    depends_on:
+      - mnemosyne-api
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: mnemosyne
+      POSTGRES_USER: mnemosyne
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mnemosyne"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+
+  minio:
+    image: minio/minio:latest
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: mnemosyne
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

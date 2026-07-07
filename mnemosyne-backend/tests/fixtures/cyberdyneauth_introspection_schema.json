@@ -1,0 +1,129 @@
+{
+  "IntrospectionResponse": {
+    "properties": {
+      "active": {
+        "type": "boolean",
+        "title": "Active"
+      },
+      "sub": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Sub"
+      },
+      "scope": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Scope"
+      },
+      "aud": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Aud"
+      },
+      "exp": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Exp"
+      },
+      "iat": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Iat"
+      },
+      "client_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Client Id"
+      },
+      "token_type": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Token Type"
+      },
+      "username": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Username"
+      },
+      "is_admin": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Is Admin"
+      },
+      "entitlements": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Entitlements"
+      }
+    },
+    "type": "object",
+    "required": [
+      "active"
+    ],
+    "title": "IntrospectionResponse",
+    "description": "RFC 7662 introspection response (neutral over user vs. client tokens)."
+  }
+}

@@ -1,0 +1,111 @@
+"""EmbeddingPort adapter: OpenAI embeddings + pgvector storage (design D7)."""
+
+from uuid import UUID, uuid4
+
+from openai import AsyncOpenAI
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from app.config import get_settings
+from app.domain.ports.infra_ports import ChunkMatch
+from app.infrastructure.persistence.models import DocumentChunkRow, DocumentRow
+
+EXCERPT_CHARS = 400
+
+
+class PgVectorEmbeddingStore:
+    def __init__(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        openai_client: AsyncOpenAI | None = None,
+    ) -> None:
+        self._session_factory = session_factory
+        self._settings = get_settings()
+        self._openai = openai_client
+
+    def _client(self) -> AsyncOpenAI:
+        if self._openai is None:
+            self._openai = AsyncOpenAI(api_key=self._settings.openai_api_key)
+        return self._openai
+
+    async def _embed_texts(self, texts: list[str]) -> list[list[float]]:
+        if not self._settings.openai_api_key and self._openai is None:
+            # Degraded mode (no API key): deterministic bag-of-words hashing.
+            # Weak but functional similarity for dev/BDD stacks.
+            return [_hash_embedding(t, self._settings.embedding_dimensions) for t in texts]
+        response = await self._client().embeddings.create(
+            model=self._settings.embedding_model,
+            input=texts,
+            dimensions=self._settings.embedding_dimensions,
+        )
+        return [item.embedding for item in response.data]
+
+    async def embed_document(
+        self, document_id: UUID, repository_id: UUID, chunks: list[str]
+    ) -> int:
+        if not chunks:
+            return 0
+        vectors = await self._embed_texts(chunks)
+        async with self._session_factory() as session, session.begin():
+            await session.execute(
+                delete(DocumentChunkRow).where(DocumentChunkRow.document_id == document_id)
+            )
+            for index, (content, vector) in enumerate(zip(chunks, vectors, strict=True)):
+                session.add(
+                    DocumentChunkRow(
+                        id=uuid4(),
+                        document_id=document_id,
+                        repository_id=repository_id,
+                        chunk_index=index,
+                        content=content,
+                        embedding=vector,
+                    )
+                )
+        return len(chunks)
+
+    async def delete_document(self, document_id: UUID) -> None:
+        async with self._session_factory() as session, session.begin():
+            await session.execute(
+                delete(DocumentChunkRow).where(DocumentChunkRow.document_id == document_id)
+            )
+
+    async def search(
+        self, repository_id: UUID, query: str, *, limit: int = 8
+    ) -> list[ChunkMatch]:
+        (query_vector,) = await self._embed_texts([query])
+        async with self._session_factory() as session:
+            distance = DocumentChunkRow.embedding.cosine_distance(query_vector)
+            rows = (
+                await session.execute(
+                    select(DocumentChunkRow, DocumentRow, distance.label("distance"))
+                    .join(DocumentRow, DocumentRow.id == DocumentChunkRow.document_id)
+                    .where(DocumentChunkRow.repository_id == repository_id)
+                    .order_by(distance)
+                    .limit(limit)
+                )
+            ).all()
+        return [
+            ChunkMatch(
+                document_id=chunk.document_id,
+                path=doc.path,
+                title=doc.title,
+                doc_type=doc.type,
+                excerpt=chunk.content[:EXCERPT_CHARS],
+                score=max(0.0, 1.0 - float(dist)),  # cosine distance -> similarity
+            )
+            for chunk, doc, dist in rows
+        ]
+
+
+def _hash_embedding(text: str, dimensions: int) -> list[float]:
+    import hashlib
+    import math
+    import re
+
+    vector = [0.0] * dimensions
+    for token in re.findall(r"[a-z0-9]{2,}", text.lower()):
+        digest = hashlib.md5(token.encode()).digest()  # noqa: S324 - not security
+        index = int.from_bytes(digest[:4], "big") % dimensions
+        vector[index] += 1.0
+    norm = math.sqrt(sum(v * v for v in vector)) or 1.0
+    return [v / norm for v in vector]

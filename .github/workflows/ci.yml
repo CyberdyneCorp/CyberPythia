@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mnemosyne-backend
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: mnemosyne
+          POSTGRES_USER: mnemosyne
+          POSTGRES_PASSWORD: mnemosyne
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U mnemosyne"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: mnemosyne
+          MINIO_ROOT_PASSWORD: mnemosyne-secret
+        ports: ["9000:9000"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check .
+      - name: Typecheck
+        run: uv run mypy app
+      - name: Unit tests with coverage gate
+        run: uv run pytest tests/unit --cov --cov-report=term-missing
+      - name: Integration tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://mnemosyne:mnemosyne@localhost:5432/mnemosyne
+          REDIS_URL: redis://localhost:6379/0
+          MINIO_ENDPOINT: localhost:9000
+        run: uv run pytest tests/integration -m integration
+      - name: Docker build
+        run: docker build -t mnemosyne-backend:ci .
+
+  openspec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g @fission-ai/openspec@latest
+      - run: openspec validate --all --strict

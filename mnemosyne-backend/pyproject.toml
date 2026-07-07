@@ -1,0 +1,87 @@
+[project]
+name = "mnemosyne"
+version = "0.1.0"
+description = "Mnemosyne — GitHub context & memory layer (MCP + REST) for AI agents and humans"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "fastmcp>=2.10",
+    "uvicorn[standard]>=0.34",
+    "sqlalchemy[asyncio]>=2.0.40",
+    "asyncpg>=0.30",
+    "alembic>=1.15",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.8",
+    "pgvector>=0.3.6",
+    "redis>=5.2",
+    "arq>=0.26",
+    "minio>=7.2",
+    "httpx>=0.28",
+    "PyJWT[crypto]>=2.10",
+    "cryptography>=44",
+    "openai>=1.75",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.26",
+    "pytest-cov>=6.0",
+    "pytest-bdd>=8.1",
+    "ruff>=0.11",
+    "mypy>=1.15",
+    "aiosqlite>=0.21",
+    "respx>=0.22",
+    "asgi-lifespan>=2.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+markers = [
+    "integration: requires real Postgres/Redis/MinIO (docker compose)",
+    "bdd: end-to-end behavior tests against a running server",
+]
+
+[tool.coverage.run]
+source = ["app/domain", "app/application", "app/interfaces"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF", "ASYNC"]
+ignore = ["B008"]  # FastAPI Depends() in defaults
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E501"]  # fixture literals may exceed the line limit
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+exclude = ["tests/"]
+
+[[tool.mypy.overrides]]
+module = ["arq.*", "minio.*", "pgvector.*"]
+ignore_missing_imports = true

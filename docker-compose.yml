@@ -1,0 +1,111 @@
+services:
+  mnemosyne-api:
+    build:
+      context: ./mnemosyne-backend
+    container_name: mnemosyne-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mnemosyne:mnemosyne@postgres:5432/mnemosyne
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: minio:9000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    profiles: ["app"]
+
+  mnemosyne-mcp:
+    build:
+      context: ./mnemosyne-backend
+    container_name: mnemosyne-mcp
+    command: python -m app.interfaces.mcp.server
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mnemosyne:mnemosyne@postgres:5432/mnemosyne
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8100:8100"
+    profiles: ["app"]
+
+  mnemosyne-worker:
+    build:
+      context: ./mnemosyne-backend
+    container_name: mnemosyne-worker
+    command: arq app.infrastructure.queue.worker.WorkerSettings
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mnemosyne:mnemosyne@postgres:5432/mnemosyne
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: minio:9000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    profiles: ["app"]
+
+  mnemosyne-web:
+    build:
+      context: ./mnemosyne-web
+    container_name: mnemosyne-web
+    environment:
+      PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:8000}
+    depends_on:
+      - mnemosyne-api
+    ports:
+      - "3000:3000"
+    profiles: ["app"]
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: mnemosyne-postgres
+    environment:
+      POSTGRES_DB: mnemosyne
+      POSTGRES_USER: mnemosyne
+      POSTGRES_PASSWORD: mnemosyne
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  # 5433 on the host: local machines often run their own postgres on 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mnemosyne"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: mnemosyne-redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:latest
+    container_name: mnemosyne-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: mnemosyne
+      MINIO_ROOT_PASSWORD: mnemosyne-secret
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
