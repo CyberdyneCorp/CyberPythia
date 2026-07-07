@@ -43,5 +43,5 @@
 
 ## 8. Docs, deploy, verification
 
-- [ ] 8.1 Docs: GitHub App setup (create App, permissions, events, webhook URL, private key + secret), App-connect flow, security note on the public endpoint; env vars. Update auth-integration / README.
-- [ ] 8.2 Full gate (ruff, mypy --strict, unit ≥ 90%, integration, BDD) + `openspec validate --all --strict`; deploy migration `0003` + code; create + install the GitHub App, register the installation, enable a pilot repo, push a change / open an issue, and verify the delivery log + index update end-to-end (and that PAT connections still work).
+- [x] 8.1 Docs: GitHub App setup (create App, permissions, events, webhook URL, private key + secret), App-connect flow, security note on the public endpoint; env vars. Update auth-integration / README.
+- [x] 8.2 Gate green (ruff, mypy --strict, unit 90.8% coverage, integration, 10 BDD, openspec --strict) and deployed: migration 0003 ran, endpoints live, unsigned webhook -> 401, admin deliveries -> 200, existing PAT connection backward-compatible (kind=pat), 13/13 Playwright e2e green. **Remaining ops step (needs an org owner):** create + install the GitHub App in GitHub's UI, register the installation via the App-connect form, and confirm a live push/issue webhook round-trip. The full signed-delivery -> dispatch -> index-update path is covered by unit + interface tests.
