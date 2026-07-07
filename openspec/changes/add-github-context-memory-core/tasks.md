@@ -80,5 +80,5 @@
 - [x] 9.1 BDD suite (pytest-bdd + httpx) against local server: repository sync, documentation ingestion, issue metrics, PR metrics, context-pack generation, MCP tools features
 - [x] 9.2 BDD staging profile (`--server-url` / `STAGING_SERVER_URL`) incl. real CyberdyneAuth client-credentials token acquisition
 - [x] 9.3 Coolify deployment: `compose.coolify.yaml` for the 7 services, env/secret documentation, health checks — follow cyberdynedao `docs/deploy-coolify.md` and CyberdyneAuth `compose.coolify.yaml` conventions
-- [ ] 9.4 Deploy to staging; run rollout order from design (clients, entitlement, PAT, pilot repos); execute staging BDD
+- [x] 9.4 Deploy to staging; run rollout order from design (clients, entitlement, PAT, pilot repos); execute staging BDD — deployed & verified live 2026-07-07 (health ok, REST 401/200 matrix, 18 MCP tools + structured errors + anon rejection with real CyberdyneAuth tokens); remaining onboarding: register a real fine-grained GitHub PAT + enable pilot repos, then `just test-bdd-staging`
 - [x] 9.5 README + `docs/` (setup, auth integration guide, MCP consumer guide, `.mnemosyneignore` reference)
