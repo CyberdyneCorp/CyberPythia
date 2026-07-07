@@ -22,7 +22,9 @@ class _Repositories(Protocol):
 
 
 class _Trigger(Protocol):
-    async def trigger_sync(self, repository_id: UUID, *, triggered_by: str) -> object: ...
+    async def trigger_sync(
+        self, repository_id: UUID, *, triggered_by: str, defer_seconds: float = 0.0
+    ) -> object: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,16 +35,27 @@ class ScheduledSyncSummary:
 
 
 class ScheduledSyncService:
-    def __init__(self, repositories: _Repositories, repository_use_cases: _Trigger) -> None:
+    def __init__(
+        self,
+        repositories: _Repositories,
+        repository_use_cases: _Trigger,
+        *,
+        stagger_seconds: float = 0.0,
+    ) -> None:
         self._repositories = repositories
         self._use_cases = repository_use_cases
+        self._stagger_seconds = stagger_seconds
 
     async def run(self) -> ScheduledSyncSummary:
         repositories = await self._repositories.list_all(enabled_only=True)
         enqueued = skipped = failed = 0
-        for repo in repositories:
+        for index, repo in enumerate(repositories):
             try:
-                await self._use_cases.trigger_sync(repo.id, triggered_by="scheduler")
+                await self._use_cases.trigger_sync(
+                    repo.id,
+                    triggered_by="scheduler",
+                    defer_seconds=index * self._stagger_seconds,
+                )
                 enqueued += 1
             except SyncAlreadyRunningError:
                 skipped += 1

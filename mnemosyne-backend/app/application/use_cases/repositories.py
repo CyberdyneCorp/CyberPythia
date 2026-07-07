@@ -91,7 +91,9 @@ class RepositoryUseCases:
         await self._repositories.save(repository)
         return repository
 
-    async def trigger_sync(self, repository_id: UUID, *, triggered_by: str) -> SyncJob:
+    async def trigger_sync(
+        self, repository_id: UUID, *, triggered_by: str, defer_seconds: float = 0.0
+    ) -> SyncJob:
         """Enqueue a sync unless one is already running (spec: sync conflict)."""
         repository = await self.get(repository_id)
         if not repository.enabled:
@@ -115,6 +117,7 @@ class RepositoryUseCases:
         await self._queue.enqueue(
             "sync_repository",
             {"repository_id": str(repository_id), "job_id": str(job.id)},
+            defer_seconds=defer_seconds,
         )
         return job
 

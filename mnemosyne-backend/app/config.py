@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     auto_enable_mode: str = "project_intelligence"
     auto_enable_archived: bool = False
 
+    # Rate-limit resilience for the nightly fan-out
+    scheduled_sync_stagger_seconds: float = 5.0  # defer between successive enqueues
+    github_rate_limit_max_wait_seconds: int = 60  # cap; beyond this, fail fast + retry next run
+
     @property
     def jwks_url(self) -> str:
         return self.cyberdyneauth_jwks_url or f"{self.cyberdyneauth_issuer}/.well-known/jwks.json"

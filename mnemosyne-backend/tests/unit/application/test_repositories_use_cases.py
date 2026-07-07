@@ -122,7 +122,7 @@ class TestTriggerSync:
         assert job.triggered_by == "admin-1"
         assert len(job.steps) > 0
         assert queue.jobs == [
-            ("sync_repository", {"repository_id": str(repo.id), "job_id": str(job.id)})
+            ("sync_repository", {"repository_id": str(repo.id), "job_id": str(job.id)}, 0.0)
         ]
 
     async def test_trigger_on_disabled_repo_rejected(self, env):

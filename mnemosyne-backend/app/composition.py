@@ -71,7 +71,11 @@ class Container:
 
     @cached_property
     def github(self) -> GitHubClient:
-        return GitHubClient(storage=self.storage, base_url=self.settings.github_api_base_url)
+        return GitHubClient(
+            storage=self.storage,
+            base_url=self.settings.github_api_base_url,
+            max_wait_seconds=self.settings.github_rate_limit_max_wait_seconds,
+        )
 
     @cached_property
     def storage(self) -> MinioStorageAdapter:
@@ -281,7 +285,11 @@ class Container:
 
     @cached_property
     def scheduled_sync(self) -> ScheduledSyncService:
-        return ScheduledSyncService(self.repositories, self.repository_use_cases)
+        return ScheduledSyncService(
+            self.repositories,
+            self.repository_use_cases,
+            stagger_seconds=self.settings.scheduled_sync_stagger_seconds,
+        )
 
     @cached_property
     def scheduled_discovery(self) -> ScheduledDiscoveryService:

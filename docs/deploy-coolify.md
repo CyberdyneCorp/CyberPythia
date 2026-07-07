@@ -28,6 +28,8 @@ Coolify → New Resource → **Docker Compose** → this repository, compose fil
 | `AUTO_ENABLE_NEW_REPOS` | `true` (default) — auto-enable newly-seen non-archived repos | |
 | `AUTO_ENABLE_MODE` | indexing mode for auto-enabled repos (default `project_intelligence`) | |
 | `AUTO_ENABLE_ARCHIVED` | `false` (default) — skip archived repos when auto-enabling | |
+| `SCHEDULED_SYNC_STAGGER_SECONDS` | defer between successive nightly enqueues (default `5.0`) | |
+| `GITHUB_RATE_LIMIT_MAX_WAIT_SECONDS` | cap on in-request rate-limit wait; beyond it, fail fast (default `60`) | |
 
 ## Scheduled daily sync
 
@@ -47,6 +49,15 @@ has manually **disabled is never re-enabled**. Turn it off with `AUTO_ENABLE_NEW
 (or `SCHEDULED_DISCOVERY_ENABLED=false` to skip discovery entirely). Enabling the *existing*
 already-discovered repos is a separate one-time admin action (bulk `PATCH /api/v1/repos/{id}`
 with `{"enabled": true, "indexing_mode": "project_intelligence"}`).
+
+**Rate-limit resilience.** The nightly fan-out **staggers** its enqueues
+(`SCHEDULED_SYNC_STAGGER_SECONDS`, default 5s apart) to smooth the request rate, and the GitHub
+client **bounds** how long a single call waits on a rate limit: it honours `Retry-After` and
+`X-RateLimit-Reset` up to `GITHUB_RATE_LIMIT_MAX_WAIT_SECONDS` (default 60s), then **fails that
+call fast** so the worker slot is freed and the repo is retried on the next daily run — rather
+than blocking a slot for up to an hour. On a large enabled set this trades one repo's freshness
+for completing the overall run; the durable capacity fix is an org fine-grained PAT or GitHub App
+(higher hourly limits).
 
 ## 3. Domains
 

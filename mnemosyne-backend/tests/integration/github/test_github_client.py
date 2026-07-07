@@ -4,7 +4,11 @@ import httpx
 import pytest
 import respx
 
-from app.domain.ports.github_port import GitHubAuthError, GitHubNotFoundError
+from app.domain.ports.github_port import (
+    GitHubAuthError,
+    GitHubNotFoundError,
+    GitHubRateLimitError,
+)
 from app.infrastructure.github.client import API_BASE, GitHubClient
 
 TOKEN = "ghp_test"
@@ -222,6 +226,43 @@ async def test_rate_limit_backoff_then_success():
         ),
     ]
     repo = await GitHubClient().get_repository(TOKEN, "cyberdyne/a")
+    assert repo.full_name == "cyberdyne/a"
+    assert route.call_count == 2
+
+
+@respx.mock
+async def test_rate_limit_beyond_cap_fails_fast():
+    # reset far in the future -> wait exceeds the cap -> raise immediately, no blocking
+    route = respx.get(f"{API_BASE}/repos/cyberdyne/a")
+    route.side_effect = [
+        httpx.Response(
+            403,
+            headers={"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "9999999999"},
+            text="API rate limit exceeded",
+        )
+    ]
+    with pytest.raises(GitHubRateLimitError):
+        await GitHubClient(max_wait_seconds=60).get_repository(TOKEN, "cyberdyne/a")
+    assert route.call_count == 1  # did not retry / block
+
+
+@respx.mock
+async def test_retry_after_secondary_limit_honoured():
+    route = respx.get(f"{API_BASE}/repos/cyberdyne/a")
+    route.side_effect = [
+        httpx.Response(429, headers={"Retry-After": "1"}, text="secondary rate limit"),
+        httpx.Response(
+            200,
+            json={
+                "id": 1,
+                "full_name": "cyberdyne/a",
+                "visibility": "private",
+                "default_branch": "main",
+                "archived": False,
+            },
+        ),
+    ]
+    repo = await GitHubClient(max_wait_seconds=60).get_repository(TOKEN, "cyberdyne/a")
     assert repo.full_name == "cyberdyne/a"
     assert route.call_count == 2
 

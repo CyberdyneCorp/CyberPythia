@@ -90,6 +90,10 @@ class GitHubNotFoundError(Exception):
     pass
 
 
+class GitHubRateLimitError(Exception):
+    """Rate limited with a reset further out than the client's max wait — fail fast."""
+
+
 class GitHubPort(Protocol):
     async def validate_token(self, token: str) -> GitHubTokenInfo: ...
 

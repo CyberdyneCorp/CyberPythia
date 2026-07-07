@@ -6,7 +6,9 @@ from uuid import UUID
 
 
 class QueuePort(Protocol):
-    async def enqueue(self, job_name: str, payload: dict[str, Any]) -> None: ...
+    async def enqueue(
+        self, job_name: str, payload: dict[str, Any], *, defer_seconds: float = 0.0
+    ) -> None: ...
 
 
 class SyncLockPort(Protocol):

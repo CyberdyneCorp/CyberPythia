@@ -1,5 +1,6 @@
 """QueuePort and SyncLockPort adapters backed by Redis (arq for jobs)."""
 
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
@@ -24,9 +25,16 @@ class ArqQueueAdapter:
             self._pool = await create_pool(RedisSettings.from_dsn(self._redis_url))
         return self._pool
 
-    async def enqueue(self, job_name: str, payload: dict[str, Any]) -> None:
+    async def enqueue(
+        self, job_name: str, payload: dict[str, Any], *, defer_seconds: float = 0.0
+    ) -> None:
         pool = await self._get_pool()
-        await pool.enqueue_job(job_name, **payload)
+        if defer_seconds > 0:
+            await pool.enqueue_job(
+                job_name, **payload, _defer_by=timedelta(seconds=defer_seconds)
+            )
+        else:
+            await pool.enqueue_job(job_name, **payload)
 
     async def close(self) -> None:
         if self._pool is not None:

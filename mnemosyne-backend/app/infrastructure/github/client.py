@@ -18,6 +18,7 @@ from app.domain.ports.github_port import (
     GitHubMilestoneData,
     GitHubNotFoundError,
     GitHubPullRequestData,
+    GitHubRateLimitError,
     GitHubRepoData,
     GitHubTokenInfo,
 )
@@ -48,11 +49,13 @@ class GitHubClient:
         storage: ObjectStoragePort | None = None,
         base_url: str = API_BASE,
         max_rate_limit_waits: int = 3,
+        max_wait_seconds: float = 60.0,
     ) -> None:
         self._client = client or httpx.AsyncClient(timeout=30)
         self._storage = storage
         self._base_url = base_url
         self._max_rate_limit_waits = max_rate_limit_waits
+        self._max_wait_seconds = max_wait_seconds
 
     @staticmethod
     def _headers(token: str) -> dict[str, str]:
@@ -71,11 +74,17 @@ class GitHubClient:
             )
             if response.status_code in (403, 429) and (
                 response.headers.get("X-RateLimit-Remaining") == "0"
+                or response.headers.get("Retry-After") is not None
                 or "rate limit" in response.text.lower()
             ):
-                reset = int(response.headers.get("X-RateLimit-Reset", "0"))
-                delay = max(1.0, reset - datetime.now(UTC).timestamp() + 1)
-                await asyncio.sleep(min(delay, 3600))
+                delay = self._rate_limit_delay(response)
+                if delay > self._max_wait_seconds:
+                    # Reset is beyond our cap: fail fast so the worker slot is freed
+                    # and this repo is retried on the next scheduled run.
+                    raise GitHubRateLimitError(
+                        f"rate limited; resets in ~{int(delay)}s (> {self._max_wait_seconds}s cap)"
+                    )
+                await asyncio.sleep(delay)
                 continue
             if response.status_code >= 500 and server_error_retries < MAX_SERVER_ERROR_RETRIES:
                 # GitHub intermittently 502s (seen live on /issues); retry briefly
@@ -89,6 +98,14 @@ class GitHubClient:
             raise GitHubNotFoundError(url)
         response.raise_for_status()
         return response
+
+    def _rate_limit_delay(self, response: httpx.Response) -> float:
+        """Seconds to wait before retrying: Retry-After (secondary) or X-RateLimit-Reset."""
+        retry_after = response.headers.get("Retry-After")
+        if retry_after is not None and retry_after.isdigit():
+            return max(1.0, float(retry_after))
+        reset = int(response.headers.get("X-RateLimit-Reset", "0"))
+        return max(1.0, reset - datetime.now(UTC).timestamp() + 1)
 
     async def _paginate(
         self, url: str, token: str, params: dict[str, Any] | None = None

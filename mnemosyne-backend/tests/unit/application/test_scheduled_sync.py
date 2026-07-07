@@ -23,8 +23,8 @@ class RecordingTrigger:
         self.calls: list = []
         self._raise_for = raise_for or {}
 
-    async def trigger_sync(self, repository_id, *, triggered_by):
-        self.calls.append((repository_id, triggered_by))
+    async def trigger_sync(self, repository_id, *, triggered_by, defer_seconds=0.0):
+        self.calls.append((repository_id, triggered_by, defer_seconds))
         exc = self._raise_for.get(repository_id)
         if exc is not None:
             raise exc
@@ -48,10 +48,29 @@ async def test_enqueues_all_enabled_repos_only() -> None:
     trigger = RecordingTrigger()
     summary = await ScheduledSyncService(repos, trigger).run()
     assert summary.enqueued == 2
-    enqueued_ids = {rid for rid, _ in trigger.calls}
+    enqueued_ids = {rid for rid, _, _ in trigger.calls}
     assert enqueued_ids == {a.id, b.id}
     assert c.id not in enqueued_ids
-    assert all(by == "scheduler" for _, by in trigger.calls)
+    assert all(by == "scheduler" for _, by, _ in trigger.calls)
+
+
+async def test_staggers_enqueues_with_increasing_defer() -> None:
+    repos = FakeRepositoryPort()
+    await _seed(
+        repos, ("cyberdyne/a", True), ("cyberdyne/b", True), ("cyberdyne/c", True)
+    )
+    trigger = RecordingTrigger()
+    await ScheduledSyncService(repos, trigger, stagger_seconds=5.0).run()
+    defers = sorted(defer for _, _, defer in trigger.calls)
+    assert defers == [0.0, 5.0, 10.0]  # 0, 1x, 2x stagger
+
+
+async def test_no_defer_when_stagger_zero() -> None:
+    repos = FakeRepositoryPort()
+    await _seed(repos, ("cyberdyne/a", True), ("cyberdyne/b", True))
+    trigger = RecordingTrigger()
+    await ScheduledSyncService(repos, trigger).run()  # default stagger 0
+    assert all(defer == 0.0 for _, _, defer in trigger.calls)
 
 
 async def test_skips_already_running() -> None:

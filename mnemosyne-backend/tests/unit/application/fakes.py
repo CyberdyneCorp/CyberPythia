@@ -289,8 +289,8 @@ class FakeQueue:
     def __init__(self):
         self.jobs = []
 
-    async def enqueue(self, job_name, payload):
-        self.jobs.append((job_name, payload))
+    async def enqueue(self, job_name, payload, *, defer_seconds=0.0):
+        self.jobs.append((job_name, payload, defer_seconds))
 
 
 class FakeStorage:
