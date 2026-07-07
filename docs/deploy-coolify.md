@@ -24,6 +24,10 @@ Coolify → New Resource → **Docker Compose** → this repository, compose fil
 | `SCHEDULED_SYNC_ENABLED` | `true` (default) — daily full re-sync of all enabled repos | |
 | `SCHEDULED_SYNC_HOUR` | UTC hour for the daily sync (default `3`) | |
 | `SCHEDULED_SYNC_MINUTE` | minute of that hour (default `0`) | |
+| `SCHEDULED_DISCOVERY_ENABLED` | `true` (default) — daily re-discovery before the sync | |
+| `AUTO_ENABLE_NEW_REPOS` | `true` (default) — auto-enable newly-seen non-archived repos | |
+| `AUTO_ENABLE_MODE` | indexing mode for auto-enabled repos (default `project_intelligence`) | |
+| `AUTO_ENABLE_ARCHIVED` | `false` (default) — skip archived repos when auto-enabling | |
 
 ## Scheduled daily sync
 
@@ -34,6 +38,15 @@ pipeline: a repo already syncing is skipped, the daily fan-out is absorbed by th
 `max_jobs` limit and per-repo locks, and one repo failing does not stop the rest. Set
 `SCHEDULED_SYNC_ENABLED=false` to turn it off, or change the hour/minute. It logs
 `scheduled full sync: enqueued=… skipped=… failed=…` on each run.
+
+Before the sync, the same daily job re-runs **discovery** for every connection and
+**auto-enables newly-appearing non-archived repositories** in `AUTO_ENABLE_MODE` (default
+`project_intelligence` — docs/OpenSpec/issues/PRs/metrics, no source embeddings, cheap at
+scale). It only enables repos whose GitHub id was **not seen before**, so a repository an admin
+has manually **disabled is never re-enabled**. Turn it off with `AUTO_ENABLE_NEW_REPOS=false`
+(or `SCHEDULED_DISCOVERY_ENABLED=false` to skip discovery entirely). Enabling the *existing*
+already-discovered repos is a separate one-time admin action (bulk `PATCH /api/v1/repos/{id}`
+with `{"enabled": true, "indexing_mode": "project_intelligence"}`).
 
 ## 3. Domains
 

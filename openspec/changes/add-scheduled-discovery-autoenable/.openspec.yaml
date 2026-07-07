@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-07-07
+goal: "Keep the indexed set current: automatically pick up and enable new
+  repositories the PAT/App can see, each day, without overriding manual
+  disables"

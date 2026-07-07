@@ -40,10 +40,17 @@ async def sync_repository(ctx: dict[str, Any], repository_id: str, job_id: str) 
 
 
 async def scheduled_full_sync(ctx: dict[str, Any]) -> str:
-    """Daily cron: enqueue a full sync for every enabled repository."""
+    """Daily cron: discover + auto-enable new repos, then enqueue a full sync of all enabled."""
     container = ctx["container"]
+    discovery = ""
+    if _settings.scheduled_discovery_enabled:
+        d = await container.scheduled_discovery.run()
+        discovery = f"discovered={d.discovered} newly_enabled={d.newly_enabled} "
     summary = await container.scheduled_sync.run()
-    return f"enqueued={summary.enqueued} skipped={summary.skipped} failed={summary.failed}"
+    return (
+        f"{discovery}enqueued={summary.enqueued} "
+        f"skipped={summary.skipped} failed={summary.failed}"
+    )
 
 
 def _cron_jobs() -> list[Any]:

@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     scheduled_sync_hour: int = 3  # UTC hour, off-peak
     scheduled_sync_minute: int = 0
 
+    # Scheduled discovery + auto-enable of newly-seen repos (runs before the daily sync)
+    scheduled_discovery_enabled: bool = True
+    auto_enable_new_repos: bool = True
+    auto_enable_mode: str = "project_intelligence"
+    auto_enable_archived: bool = False
+
     @property
     def jwks_url(self) -> str:
         return self.cyberdyneauth_jwks_url or f"{self.cyberdyneauth_issuer}/.well-known/jwks.json"

@@ -15,12 +15,14 @@ from app.application.use_cases.incremental_sync import IncrementalSyncUseCases
 from app.application.use_cases.intelligence import IntelligenceService
 from app.application.use_cases.process_webhook import ProcessWebhookDelivery
 from app.application.use_cases.repositories import RepositoryUseCases
+from app.application.use_cases.scheduled_discovery import ScheduledDiscoveryService
 from app.application.use_cases.scheduled_sync import ScheduledSyncService
 from app.application.use_cases.sync_repository import MetricsWriter, SyncRepositoryUseCase
 from app.config import Settings, get_settings
 from app.domain.services.code_chunker import HeuristicCodeChunker
 from app.domain.services.repository_health import RepositoryHealthService
 from app.domain.services.repository_signals import RepositorySignalsService
+from app.domain.value_objects.enums import IndexingMode
 from app.infrastructure.auth.cyberdyne_auth import CyberdyneAuthAdapter
 from app.infrastructure.github.app_auth import GitHubAppAuth
 from app.infrastructure.github.client import GitHubClient
@@ -280,6 +282,17 @@ class Container:
     @cached_property
     def scheduled_sync(self) -> ScheduledSyncService:
         return ScheduledSyncService(self.repositories, self.repository_use_cases)
+
+    @cached_property
+    def scheduled_discovery(self) -> ScheduledDiscoveryService:
+        return ScheduledDiscoveryService(
+            self.repositories,
+            self.connections,
+            self.repository_use_cases,
+            auto_enable=self.settings.auto_enable_new_repos,
+            mode=IndexingMode(self.settings.auto_enable_mode),
+            include_archived=self.settings.auto_enable_archived,
+        )
 
     @cached_property
     def delivery_intelligence(self) -> DeliveryIntelligenceService:
