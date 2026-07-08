@@ -12,6 +12,7 @@ from app.domain.value_objects.identity import CallerIdentity
 from app.interfaces.mcp.oauth import (
     CALLER_CLAIM,
     CompositeTokenVerifier,
+    build_mcp_auth,
     build_oauth_proxy,
     caller_from_access_token,
 )
@@ -78,9 +79,17 @@ class TestCompositeTokenVerifier:
 
 
 class TestBuildOAuthProxy:
+    def test_build_mcp_auth_composes_proxy_and_verifier(self):
+        # MultiAuth = OAuth proxy (interactive) + verifier (API keys / bearers),
+        # so all credential types coexist on one server.
+        from fastmcp.server.auth.auth import MultiAuth
+
+        auth = build_mcp_auth(FakeAuthPort(), _oauth_settings())
+        assert isinstance(auth, MultiAuth)
+
     def test_builds_with_derived_upstream_endpoints(self):
         settings = _oauth_settings()
-        proxy = build_oauth_proxy(FakeAuthPort(), settings)
+        proxy = build_oauth_proxy(_verifier(), settings)
         assert proxy is not None
         # derived from the CyberdyneAuth issuer
         assert settings.mcp_oauth_upstream_authorize_url.endswith("/oauth2/authorize")
@@ -88,11 +97,11 @@ class TestBuildOAuthProxy:
 
     def test_requires_base_url(self):
         with pytest.raises(ValueError, match="public_base_url"):
-            build_oauth_proxy(FakeAuthPort(), _oauth_settings(mcp_oauth_public_base_url=""))
+            build_oauth_proxy(_verifier(), _oauth_settings(mcp_oauth_public_base_url=""))
 
     def test_requires_client_credentials(self):
         with pytest.raises(ValueError, match="client_id/secret"):
-            build_oauth_proxy(FakeAuthPort(), _oauth_settings(mcp_oauth_client_secret=""))
+            build_oauth_proxy(_verifier(), _oauth_settings(mcp_oauth_client_secret=""))
 
     def test_points_fastmcp_home_at_a_writable_created_dir(self, tmp_path):
         # Regression: OAuthProxy persists DCR clients under FastMCP's home dir,
@@ -103,9 +112,16 @@ class TestBuildOAuthProxy:
 
         storage = tmp_path / "does" / "not" / "exist" / "yet"
         assert not storage.exists()
-        build_oauth_proxy(FakeAuthPort(), _oauth_settings(mcp_oauth_storage_dir=str(storage)))
+        build_oauth_proxy(_verifier(), _oauth_settings(mcp_oauth_storage_dir=str(storage)))
         assert storage.is_dir()  # created, parents and all
         assert fastmcp.settings.home == storage  # the singleton OAuthProxy reads
+
+    async def test_verifier_still_accepts_api_keys_under_multiauth(self):
+        # The MultiAuth verifier is the same composite that resolves API keys,
+        # so a directly presented `mnem_` key still authenticates with OAuth on.
+        auth = build_mcp_auth(FakeAuthPort(), _oauth_settings())
+        access = await auth.verify_token("mnem_ok")
+        assert access is not None and access.subject == "user-1"
 
 
 class TestBuildMcpFeatureFlag:

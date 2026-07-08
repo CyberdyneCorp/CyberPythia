@@ -19,7 +19,7 @@ import tempfile
 from pathlib import Path
 
 import fastmcp
-from fastmcp.server.auth.auth import AccessToken, TokenVerifier
+from fastmcp.server.auth.auth import AccessToken, MultiAuth, TokenVerifier
 from fastmcp.server.auth.oauth_proxy import OAuthProxy
 
 from app.config import Settings
@@ -72,7 +72,29 @@ def caller_from_access_token(access: AccessToken | None) -> CallerIdentity | Non
     return caller if isinstance(caller, CallerIdentity) else None
 
 
-def build_oauth_proxy(auth_port: AuthPort, settings: Settings) -> OAuthProxy:
+def build_mcp_auth(auth_port: AuthPort, settings: Settings) -> MultiAuth:
+    """Auth provider for the MCP server when OAuth is enabled.
+
+    ``MultiAuth`` composes the OAuthProxy (for interactive OAuth clients like
+    claude.ai / ChatGPT, which present tokens the proxy itself issued) with a
+    standalone token verifier for **directly presented** credentials — Mnemosyne
+    API keys (``mnem_…``) and CyberdyneAuth bearers. Verification tries the proxy
+    first, then the verifier, so all credential types coexist on one server.
+    """
+    verifier = CompositeTokenVerifier(
+        auth_port,
+        required_entitlement=settings.required_entitlement,
+        service_audience=settings.service_audience,
+    )
+    proxy = build_oauth_proxy(verifier, settings)
+    return MultiAuth(
+        server=proxy,
+        verifiers=[verifier],
+        base_url=settings.mcp_oauth_public_base_url,
+    )
+
+
+def build_oauth_proxy(verifier: CompositeTokenVerifier, settings: Settings) -> OAuthProxy:
     """Construct the OAuthProxy from settings. Caller ensures OAuth is enabled."""
     if not settings.mcp_oauth_public_base_url:
         raise ValueError("mcp_oauth_public_base_url is required when MCP OAuth is enabled")
@@ -92,11 +114,6 @@ def build_oauth_proxy(auth_port: AuthPort, settings: Settings) -> OAuthProxy:
     storage_home.mkdir(parents=True, exist_ok=True)
     fastmcp.settings.home = storage_home  # OAuthProxy reads this singleton
 
-    verifier = CompositeTokenVerifier(
-        auth_port,
-        required_entitlement=settings.required_entitlement,
-        service_audience=settings.service_audience,
-    )
     return OAuthProxy(
         upstream_authorization_endpoint=settings.mcp_oauth_upstream_authorize_url,
         upstream_token_endpoint=settings.mcp_oauth_upstream_token_url,
