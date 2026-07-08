@@ -108,6 +108,17 @@ export class RepositoriesApi {
   updateSelection(id: string, enabled: boolean, mode?: IndexingMode): Promise<Repository> {
     return this.http.patch(`/api/v1/repos/${id}`, { enabled, indexing_mode: mode ?? null });
   }
+  bulkSelection(
+    ids: string[],
+    enabled: boolean,
+    mode?: IndexingMode
+  ): Promise<{ updated: number }> {
+    return this.http.post('/api/v1/repos/selection', {
+      repository_ids: ids,
+      enabled,
+      indexing_mode: mode ?? null
+    });
+  }
   sync(id: string): Promise<SyncJob> {
     return this.http.post(`/api/v1/repos/${id}/sync`);
   }

@@ -60,6 +60,33 @@ export class RepositoryListViewModel {
     this.repositories = this.repositories.map((r) => (r.id === updated.id ? updated : r));
   }
 
+  busyBulk = $state(false);
+
+  /** Enable/disable indexing for every currently-filtered repository, in one request. */
+  async bulkSetSelection(enabled: boolean, mode?: IndexingMode): Promise<void> {
+    const targets = this.filtered;
+    if (!targets.length || this.busyBulk) return;
+    this.busyBulk = true;
+    this.error = null;
+    try {
+      await this.api.bulkSelection(
+        targets.map((r) => r.id),
+        enabled,
+        mode
+      );
+      const ids = new Set(targets.map((r) => r.id));
+      this.repositories = this.repositories.map((r) =>
+        ids.has(r.id)
+          ? { ...r, enabled, indexing_mode: enabled ? (mode ?? r.indexing_mode) : r.indexing_mode }
+          : r
+      );
+    } catch (error) {
+      this.error = error instanceof ApiError ? error.message : 'bulk update failed';
+    } finally {
+      this.busyBulk = false;
+    }
+  }
+
   async triggerSync(repo: Repository): Promise<void> {
     this.error = null;
     try {

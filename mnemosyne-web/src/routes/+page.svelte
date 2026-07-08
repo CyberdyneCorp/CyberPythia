@@ -1,11 +1,14 @@
 <script lang="ts">
   import { getContext } from 'svelte';
   import type { AppContext } from '$lib/appContext';
+  import type { IndexingMode } from '$lib/models';
   import RepositoryCard from '$lib/components/RepositoryCard.svelte';
   import { RepositoryListViewModel } from '$lib/viewmodels/RepositoryListViewModel.svelte';
 
   const ctx = getContext<AppContext>('app');
   const vm = new RepositoryListViewModel(ctx.repositoriesApi);
+
+  let bulkMode = $state<IndexingMode>('project_intelligence');
 
   $effect(() => {
     void vm.load();
@@ -32,6 +35,24 @@
     </select>
   {/if}
 </div>
+{#if vm.filtered.length}
+  <div class="bulk">
+    <span class="muted small">Bulk ({vm.filtered.length} shown):</span>
+    <select bind:value={bulkMode} class="bulk-mode" title="Mode for Enable all">
+      <option value="docs_only">docs_only</option>
+      <option value="project_intelligence">project_intelligence</option>
+      <option value="code_metadata">code_metadata</option>
+      <option value="code_context">code_context</option>
+      <option value="full_context">full_context</option>
+    </select>
+    <button class="secondary" disabled={vm.busyBulk} onclick={() => vm.bulkSetSelection(true, bulkMode)}>
+      Enable all
+    </button>
+    <button class="secondary" disabled={vm.busyBulk} onclick={() => vm.bulkSetSelection(false)}>
+      Disable all
+    </button>
+  </div>
+{/if}
 {#if vm.error}<p class="error">{vm.error}</p>{/if}
 {#if vm.loading && vm.repositories.length === 0}
   <p class="muted">Loading…</p>
@@ -79,6 +100,20 @@
   }
   .org-select {
     min-width: 180px;
+  }
+  .bulk {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .bulk .small {
+    font-size: 0.78rem;
+  }
+  .bulk-mode {
+    font-size: 0.78rem;
+    padding: 0.3rem 0.5rem;
   }
   .grid {
     display: grid;

@@ -111,6 +111,24 @@ class RepositoryUseCases:
         await self._repositories.save(repository)
         return repository
 
+    async def bulk_update_selection(
+        self, repository_ids: list[UUID], *, enabled: bool, mode: IndexingMode | None = None
+    ) -> int:
+        """Set enabled (+ optional mode) for many repositories in one batched write.
+
+        Unknown ids are ignored. Returns the number of repositories updated.
+        """
+        wanted = set(repository_ids)
+        repos = [r for r in await self._repositories.list_all() if r.id in wanted]
+        for repo in repos:
+            if enabled:
+                repo.enable(mode or repo.indexing_mode)
+            else:
+                repo.disable()
+        if repos:
+            await self._repositories.save_many(repos)
+        return len(repos)
+
     async def trigger_sync(
         self, repository_id: UUID, *, triggered_by: str, defer_seconds: float = 0.0
     ) -> SyncJob:
