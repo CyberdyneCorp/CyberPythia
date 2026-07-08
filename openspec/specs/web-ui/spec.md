@@ -137,3 +137,17 @@ disable sync for that organization. Toggling SHALL persist immediately.
 - **WHEN** the admin turns off sync for one organization
 - **THEN** that organization SHALL be persisted as sync-disabled and reflected in the panel
 
+### Requirement: Organization filter on the Repositories dashboard
+The Repositories dashboard SHALL provide an organization filter that restricts the listed
+repositories to a chosen organization, combining with the existing text filter. The available
+organizations SHALL be derived from the loaded repositories.
+
+#### Scenario: Filter the dashboard by organization
+- **GIVEN** the dashboard lists repositories from several organizations
+- **WHEN** the user selects one organization in the filter
+- **THEN** only that organization's repositories SHALL be shown
+
+#### Scenario: Clearing the organization filter
+- **WHEN** the user clears the organization filter
+- **THEN** repositories from all organizations SHALL be shown again
+
