@@ -2,6 +2,7 @@
 import { authService } from '$lib/auth/cyberdyneAuthService';
 import { HttpClient } from '$lib/api/http';
 import {
+  ApiKeysApi,
   CodeApi,
   ContextApi,
   GitHubApi,
@@ -16,6 +17,7 @@ export interface AppContext {
   contextApi: ContextApi;
   codeApi: CodeApi;
   intelligenceApi: IntelligenceApi;
+  apiKeysApi: ApiKeysApi;
 }
 
 let context: AppContext | null = null;
@@ -30,7 +32,8 @@ export function appContext(): AppContext {
       repositoriesApi: new RepositoriesApi(http),
       contextApi: new ContextApi(http),
       codeApi: new CodeApi(http),
-      intelligenceApi: new IntelligenceApi(http)
+      intelligenceApi: new IntelligenceApi(http),
+      apiKeysApi: new ApiKeysApi(http)
     };
   }
   return context;

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.application.audit import AuditService
 from app.application.metrics_recompute import MetricsRecomputeService
+from app.application.use_cases.api_keys import ApiKeyUseCases
 from app.application.use_cases.code import CodeUseCases
 from app.application.use_cases.context import ContextUseCases
 from app.application.use_cases.delivery_intelligence import DeliveryIntelligenceService
@@ -23,6 +24,7 @@ from app.domain.services.code_chunker import HeuristicCodeChunker
 from app.domain.services.repository_health import RepositoryHealthService
 from app.domain.services.repository_signals import RepositorySignalsService
 from app.domain.value_objects.enums import IndexingMode
+from app.infrastructure.auth.api_key_auth import ApiKeyAuthAdapter
 from app.infrastructure.auth.cyberdyne_auth import CyberdyneAuthAdapter
 from app.infrastructure.github.app_auth import GitHubAppAuth
 from app.infrastructure.github.client import GitHubClient
@@ -35,6 +37,7 @@ from app.infrastructure.persistence.repositories.documents import (
     PostgresOpenSpecRepository,
 )
 from app.infrastructure.persistence.repositories.misc import (
+    PostgresApiKeyRepository,
     PostgresAuditRepository,
     PostgresContextPackRepository,
     PostgresFileRepository,
@@ -68,8 +71,17 @@ class Container:
     # adapters ---------------------------------------------------------------
 
     @cached_property
-    def auth_port(self) -> CyberdyneAuthAdapter:
+    def cyberdyne_auth(self) -> CyberdyneAuthAdapter:
         return CyberdyneAuthAdapter(settings=self.settings)
+
+    @cached_property
+    def auth_port(self) -> ApiKeyAuthAdapter:
+        # Mnemosyne API keys first, CyberdyneAuth tokens otherwise.
+        return ApiKeyAuthAdapter(
+            api_keys=self.api_keys,
+            fallback=self.cyberdyne_auth,
+            entitlement=self.settings.required_entitlement,
+        )
 
     @cached_property
     def github(self) -> GitHubClient:
@@ -164,11 +176,19 @@ class Container:
     def audit(self) -> PostgresAuditRepository:
         return PostgresAuditRepository(self.session_factory)
 
+    @cached_property
+    def api_keys(self) -> PostgresApiKeyRepository:
+        return PostgresApiKeyRepository(self.session_factory)
+
     # services / use cases ----------------------------------------------------
 
     @cached_property
     def audit_service(self) -> AuditService:
         return AuditService(self.audit)
+
+    @cached_property
+    def api_key_use_cases(self) -> ApiKeyUseCases:
+        return ApiKeyUseCases(self.api_keys)
 
     @cached_property
     def app_auth(self) -> GitHubAppAuth:

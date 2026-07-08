@@ -179,7 +179,7 @@ describe('ConnectionsViewModel', () => {
       },
       listConnections: async () => connections as never
     };
-    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never, {} as never);
     expect(await vm.connect('ghp_x_1234')).toBe(true);
     expect(vm.connections).toHaveLength(1);
   });
@@ -191,7 +191,7 @@ describe('ConnectionsViewModel', () => {
       },
       listConnections: async () => []
     };
-    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never, {} as never);
     expect(await vm.connect('ghp_bad')).toBe(false);
     expect(vm.error).toBe('missing: issues');
   });
@@ -295,7 +295,7 @@ describe('ConnectionsViewModel — GitHub App', () => {
       },
       listConnections: async () => conns as never
     };
-    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never, {} as never);
     expect(await vm.connectApp('1', '99', '-'.repeat(50), 'sec')).toBe(true);
     expect(vm.connections).toHaveLength(1);
   });
@@ -313,12 +313,12 @@ describe('ConnectionsViewModel — GitHub App', () => {
         }
       ]
     };
-    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never, {} as never);
     await vm.loadDeliveries();
     expect(vm.deliveries).toHaveLength(1);
 
     const failing = { webhookDeliveries: async () => { throw new Error('boom'); } };
-    const vm2 = new ConnectionsViewModel(failing as never, {} as never);
+    const vm2 = new ConnectionsViewModel(failing as never, {} as never, {} as never);
     await vm2.loadDeliveries();
     expect(vm2.deliveries).toEqual([]);
   });
@@ -478,7 +478,7 @@ describe('ConnectionsViewModel sync activity', () => {
         }
       ]
     };
-    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never, {} as never);
     await vm.loadSyncActivity();
     expect(vm.syncRuns[0].enqueued).toBe(238);
     expect(vm.syncJobs[0].status).toBe('failed');
@@ -487,7 +487,7 @@ describe('ConnectionsViewModel sync activity', () => {
       syncRuns: async () => { throw new Error('boom'); },
       syncJobs: async () => []
     };
-    const vm2 = new ConnectionsViewModel(failing as never, {} as never);
+    const vm2 = new ConnectionsViewModel(failing as never, {} as never, {} as never);
     await vm2.loadSyncActivity();
     expect(vm2.syncRuns).toEqual([]);
   });
@@ -506,7 +506,7 @@ describe('ConnectionsViewModel organizations', () => {
         return { login, sync_enabled: enabled, total_repos: 236, enabled_repos: 236 };
       }
     };
-    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never, {} as never);
     await vm.loadOrganizations();
     expect(vm.organizations).toHaveLength(2);
     await vm.toggleOrganization('aminitech', false);
@@ -595,7 +595,7 @@ describe('ConnectionsViewModel index organization', () => {
         return { updated: 94 };
       }
     };
-    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never, {} as never);
     await vm.loadOrganizations();
     await vm.indexOrganization('aminitech', false);
     expect(called).toEqual({ org: 'aminitech', enabled: false });
@@ -609,9 +609,63 @@ describe('ConnectionsViewModel index organization', () => {
       ],
       bulkSelectionByOrg: async () => ({ updated: 50 })
     };
-    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never, {} as never);
     await vm.loadOrganizations();
     await vm.indexOrganization('CyberdyneCorp', true, 'project_intelligence' as never);
     expect(vm.organizations[0].enabled_repos).toBe(50);
+  });
+});
+
+describe('ConnectionsViewModel API keys', () => {
+  it('creates a key, reveals plaintext once, and prepends it to the list', async () => {
+    let createdWith: { label: string; days: number | null } | null = null;
+    const apiKeysApi = {
+      list: async () => [],
+      create: async (label: string, days: number | null) => {
+        createdWith = { label, days };
+        return {
+          id: 'k1', label, prefix: 'mnem_ab12cd34', created_by: 'admin-1',
+          created_at: '2026-07-08T00:00:00Z', expires_at: '2026-10-06T00:00:00Z',
+          revoked: false, key: 'mnem_secretplaintext'
+        };
+      }
+    };
+    const vm = new ConnectionsViewModel({} as never, {} as never, apiKeysApi as never);
+    const ok = await vm.createApiKey('claude-agent', 90);
+    expect(ok).toBe(true);
+    expect(createdWith).toEqual({ label: 'claude-agent', days: 90 });
+    expect(vm.newKey?.key).toBe('mnem_secretplaintext');
+    expect(vm.apiKeys.map((k) => k.id)).toEqual(['k1']);
+    vm.dismissNewKey();
+    expect(vm.newKey).toBeNull();
+  });
+
+  it('surfaces the API error and keeps newKey null on failure', async () => {
+    const apiKeysApi = {
+      create: async () => {
+        throw new ApiError(422, 'invalid', 'label required');
+      }
+    };
+    const vm = new ConnectionsViewModel({} as never, {} as never, apiKeysApi as never);
+    const ok = await vm.createApiKey('', null);
+    expect(ok).toBe(false);
+    expect(vm.newKey).toBeNull();
+    expect(vm.error).toBe('label required');
+  });
+
+  it('marks a key revoked in place', async () => {
+    const apiKeysApi = {
+      list: async () => [
+        {
+          id: 'k1', label: 'a', prefix: 'mnem_x', created_by: 'admin-1',
+          created_at: '2026-07-08T00:00:00Z', expires_at: null, revoked: false
+        }
+      ],
+      revoke: async () => undefined
+    };
+    const vm = new ConnectionsViewModel({} as never, {} as never, apiKeysApi as never);
+    await vm.loadApiKeys();
+    await vm.revokeApiKey('k1');
+    expect(vm.apiKeys[0].revoked).toBe(true);
   });
 });

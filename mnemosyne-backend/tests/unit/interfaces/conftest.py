@@ -47,6 +47,27 @@ class FakeAuditPort:
         return self.records[-limit:]
 
 
+class FakeApiKeyPort:
+    def __init__(self):
+        self.keys = {}  # id -> ApiKey
+
+    async def save(self, key):
+        self.keys[key.id] = key
+
+    async def get_by_hash(self, key_hash):
+        return next((k for k in self.keys.values() if k.key_hash == key_hash), None)
+
+    async def list_all(self):
+        return sorted(self.keys.values(), key=lambda k: k.created_at, reverse=True)
+
+    async def revoke(self, key_id):
+        key = self.keys.get(key_id)
+        if key is None:
+            return False
+        key.revoked = True
+        return True
+
+
 @pytest.fixture
 def audit_port():
     return FakeAuditPort()

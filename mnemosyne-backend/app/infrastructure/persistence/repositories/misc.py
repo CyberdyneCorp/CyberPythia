@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import delete, func, select
 
+from app.domain.entities.api_key import ApiKey
 from app.domain.entities.audit_record import AuditRecord
 from app.domain.entities.context_pack import (
     ContextPack,
@@ -38,6 +39,7 @@ from app.infrastructure.persistence.mappers import (
     webhook_delivery_to_entity,
 )
 from app.infrastructure.persistence.models import (
+    ApiKeyRow,
     AuditLogRow,
     ContextPackRow,
     MilestoneRow,
@@ -606,3 +608,55 @@ class PostgresOrganizationRepository(PostgresRepositoryBase):
                 select(OrganizationRow.login).where(OrganizationRow.sync_enabled.is_(False))
             )
             return set(rows)
+
+
+def _api_key_to_entity(row: ApiKeyRow) -> ApiKey:
+    return ApiKey(
+        id=row.id,
+        label=row.label,
+        prefix=row.prefix,
+        key_hash=row.key_hash,
+        created_by=row.created_by,
+        created_at=row.created_at,
+        expires_at=row.expires_at,
+        revoked=row.revoked,
+    )
+
+
+class PostgresApiKeyRepository(PostgresRepositoryBase):
+    async def save(self, key: ApiKey) -> None:
+        async with self._session_factory() as session, session.begin():
+            session.add(
+                ApiKeyRow(
+                    id=key.id,
+                    label=key.label,
+                    prefix=key.prefix,
+                    key_hash=key.key_hash,
+                    created_by=key.created_by,
+                    created_at=key.created_at,
+                    expires_at=key.expires_at,
+                    revoked=key.revoked,
+                )
+            )
+
+    async def get_by_hash(self, key_hash: str) -> ApiKey | None:
+        async with self._session_factory() as session:
+            row = await session.scalar(
+                select(ApiKeyRow).where(ApiKeyRow.key_hash == key_hash)
+            )
+            return _api_key_to_entity(row) if row else None
+
+    async def list_all(self) -> list[ApiKey]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(ApiKeyRow).order_by(ApiKeyRow.created_at.desc())
+            )
+            return [_api_key_to_entity(r) for r in rows]
+
+    async def revoke(self, key_id: UUID) -> bool:
+        async with self._session_factory() as session, session.begin():
+            row = await session.scalar(select(ApiKeyRow).where(ApiKeyRow.id == key_id))
+            if row is None:
+                return False
+            row.revoked = True
+            return True

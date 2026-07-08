@@ -1,8 +1,12 @@
 # MCP consumer guide
 
 The MCP server (`mnemosyne-mcp`, streamable HTTP at `/mcp`) exposes the
-Mnemosyne tool suite to agents. Every call requires a CyberdyneAuth bearer
-token with the `mnemosyne` entitlement.
+Mnemosyne tool suite to agents. Every call requires a bearer token — either a
+CyberdyneAuth token with the `mnemosyne` entitlement/audience, or a
+**Mnemosyne API key** (`mnem_…`) generated in the web UI (Connections → API
+keys). An API key is the simplest option: it does not expire on the CyberdyneAuth
+schedule, you paste it straight into the `Authorization` header, and you revoke it
+in the UI when done. API keys grant read/query access only (not admin).
 
 ## Connecting
 

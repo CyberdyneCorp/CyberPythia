@@ -1,7 +1,9 @@
 /** Admin GitHub connection screen state (spec: web-ui). */
 import { ApiError } from '$lib/api/http';
-import type { GitHubApi, RepositoriesApi } from '$lib/api/mnemosyneApi';
+import type { ApiKeysApi, GitHubApi, RepositoriesApi } from '$lib/api/mnemosyneApi';
 import type {
+  ApiKey,
+  ApiKeyCreated,
   Connection,
   ConnectionTest,
   IndexingMode,
@@ -20,12 +22,16 @@ export class ConnectionsViewModel {
   syncRuns = $state<SyncRun[]>([]);
   syncJobs = $state<SyncJobSummary[]>([]);
   organizations = $state<Organization[]>([]);
+  apiKeys = $state<ApiKey[]>([]);
+  newKey = $state<ApiKeyCreated | null>(null);
+  keyBusy = $state(false);
   busy = $state(false);
   error = $state<string | null>(null);
 
   constructor(
     private githubApi: GitHubApi,
-    private repositoriesApi: RepositoriesApi
+    private repositoriesApi: RepositoriesApi,
+    private apiKeysApi: ApiKeysApi
   ) {}
 
   async load(): Promise<void> {
@@ -140,6 +146,46 @@ export class ConnectionsViewModel {
       this.error = error instanceof ApiError ? error.message : 'discovery failed';
     } finally {
       this.busy = false;
+    }
+  }
+
+  async loadApiKeys(): Promise<void> {
+    try {
+      this.apiKeys = await this.apiKeysApi.list();
+    } catch {
+      // API keys are best-effort; ignore load failures
+    }
+  }
+
+  /** Generate a key; the plaintext is surfaced once via `newKey`. */
+  async createApiKey(label: string, expiresInDays: number | null): Promise<boolean> {
+    if (this.keyBusy) return false;
+    this.keyBusy = true;
+    this.error = null;
+    try {
+      const created = await this.apiKeysApi.create(label.trim(), expiresInDays);
+      this.newKey = created;
+      this.apiKeys = [created, ...this.apiKeys];
+      return true;
+    } catch (error) {
+      this.error = error instanceof ApiError ? error.message : 'key creation failed';
+      return false;
+    } finally {
+      this.keyBusy = false;
+    }
+  }
+
+  dismissNewKey(): void {
+    this.newKey = null;
+  }
+
+  async revokeApiKey(id: string): Promise<void> {
+    this.error = null;
+    try {
+      await this.apiKeysApi.revoke(id);
+      this.apiKeys = this.apiKeys.map((k) => (k.id === id ? { ...k, revoked: true } : k));
+    } catch (error) {
+      this.error = error instanceof ApiError ? error.message : 'revoke failed';
     }
   }
 }

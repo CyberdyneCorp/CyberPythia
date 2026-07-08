@@ -4,7 +4,7 @@
   import { ConnectionsViewModel } from '$lib/viewmodels/ConnectionsViewModel.svelte';
 
   const ctx = getContext<AppContext>('app');
-  const vm = new ConnectionsViewModel(ctx.githubApi, ctx.repositoriesApi);
+  const vm = new ConnectionsViewModel(ctx.githubApi, ctx.repositoriesApi, ctx.apiKeysApi);
 
   import type { IndexingMode } from '$lib/models';
 
@@ -15,12 +15,35 @@
   let webhookSecret = $state('');
   let orgMode = $state<IndexingMode>('project_intelligence');
 
+  let keyLabel = $state('');
+  let keyExpiry = $state('90'); // days; '' = never
+  let copied = $state(false);
+
   $effect(() => {
     void vm.load();
     void vm.loadDeliveries();
     void vm.loadSyncActivity();
     void vm.loadOrganizations();
+    void vm.loadApiKeys();
   });
+
+  async function submitKey(event: SubmitEvent) {
+    event.preventDefault();
+    const days = keyExpiry === '' ? null : Number(keyExpiry);
+    if (await vm.createApiKey(keyLabel, days)) keyLabel = '';
+  }
+
+  async function copyKey(value: string) {
+    await navigator.clipboard.writeText(value);
+    copied = true;
+    setTimeout(() => (copied = false), 1500);
+  }
+
+  function keyState(k: { revoked: boolean; expires_at: string | null }): string {
+    if (k.revoked) return 'revoked';
+    if (k.expires_at && new Date(k.expires_at) < new Date()) return 'expired';
+    return 'active';
+  }
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -87,6 +110,79 @@
     </button>
   </div>
 </form>
+
+<h2>API keys</h2>
+<p class="muted small">
+  Generate a Mnemosyne API key to authenticate the <strong>MCP server</strong> or REST API from a
+  Claude / OpenAI agent — paste it as the <code>Authorization: Bearer</code> credential in your
+  connection. Keys grant read/query access (not admin), are shown <strong>once</strong>, and can be
+  revoked anytime.
+</p>
+<form class="card" onsubmit={submitKey}>
+  <div class="row">
+    <input
+      bind:value={keyLabel}
+      placeholder="Label (e.g. claude-desktop)"
+      minlength="1"
+      maxlength="200"
+      required
+    />
+    <select bind:value={keyExpiry} class="bulk-mode" aria-label="Expiry">
+      <option value="7">Expires in 7 days</option>
+      <option value="30">Expires in 30 days</option>
+      <option value="90">Expires in 90 days</option>
+      <option value="365">Expires in 365 days</option>
+      <option value="">Never expires</option>
+    </select>
+    <button disabled={vm.keyBusy || keyLabel.trim().length < 1}>Generate key</button>
+  </div>
+  {#if vm.error}<p class="error">{vm.error}</p>{/if}
+</form>
+
+{#if vm.newKey}
+  <div class="card key-reveal">
+    <div class="eyebrow">New key — copy it now, it won't be shown again</div>
+    <div class="row">
+      <code class="key-value">{vm.newKey.key}</code>
+      <button class="secondary" onclick={() => vm.newKey && copyKey(vm.newKey.key)}>
+        {copied ? '✓ copied' : 'Copy'}
+      </button>
+      <button class="secondary" onclick={() => vm.dismissNewKey()}>Dismiss</button>
+    </div>
+  </div>
+{/if}
+
+{#if vm.apiKeys.length}
+  <div class="card">
+    <table>
+      <thead>
+        <tr><th>Label</th><th>Prefix</th><th>Expires</th><th>State</th><th></th></tr>
+      </thead>
+      <tbody>
+        {#each vm.apiKeys as k (k.id)}
+          {@const state = keyState(k)}
+          <tr>
+            <td><strong>{k.label}</strong></td>
+            <td class="mono small">{k.prefix}…</td>
+            <td class="muted small">
+              {k.expires_at ? new Date(k.expires_at).toLocaleDateString() : 'never'}
+            </td>
+            <td>
+              <span class="badge {state === 'active' ? 'ok' : 'err'}">{state}</span>
+            </td>
+            <td>
+              {#if !k.revoked}
+                <button class="secondary org-idx" onclick={() => vm.revokeApiKey(k.id)}>
+                  Revoke
+                </button>
+              {/if}
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+{/if}
 
 {#if vm.deliveries.length}
   <h2>Webhook activity</h2>
@@ -311,5 +407,17 @@
     font-size: 0.72rem;
     padding: 0.25rem 0.55rem;
     margin-right: 0.3rem;
+  }
+  .key-reveal {
+    border-color: var(--accent);
+  }
+  .key-value {
+    flex: 1;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.82rem;
+    word-break: break-all;
+    padding: 0.4rem 0.55rem;
+    background: var(--surface-2, rgba(127, 127, 127, 0.1));
+    border-radius: 4px;
   }
 </style>

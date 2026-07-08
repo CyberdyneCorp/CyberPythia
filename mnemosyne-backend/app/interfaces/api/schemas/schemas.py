@@ -106,6 +106,29 @@ class RepositorySelectionBulkRequest(BaseModel):
         return self
 
 
+class ApiKeyCreateRequest(BaseModel):
+    label: str = Field(min_length=1, max_length=200)
+    expires_in_days: int | None = Field(default=None, ge=1, le=3650)
+
+
+class ApiKeyResponse(BaseModel):
+    """Key metadata — never includes the plaintext secret or its hash."""
+
+    id: UUID
+    label: str
+    prefix: str
+    created_by: str
+    created_at: datetime
+    expires_at: datetime | None
+    revoked: bool
+
+
+class ApiKeyCreatedResponse(ApiKeyResponse):
+    """Creation response — carries the plaintext key exactly once."""
+
+    key: str
+
+
 class SyncStepResponse(BaseModel):
     step: str
     status: str
