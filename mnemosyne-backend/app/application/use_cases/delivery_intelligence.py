@@ -75,8 +75,9 @@ class DeliveryIntelligenceService:
 
     async def _repo(self, repository_id: UUID) -> Repository:
         repo = await self._repositories.get(repository_id)
-        if repo is None:
-            raise UnknownResourceError(f"repository {repository_id} not found")
+        if repo is None or not repo.enabled:
+            # A disabled repository is no longer indexed — don't surface stale metrics.
+            raise UnknownResourceError(f"repository {repository_id} is not indexed")
         return repo
 
     async def flow(self, repository_id: UUID, now: datetime | None = None) -> FlowMetrics:

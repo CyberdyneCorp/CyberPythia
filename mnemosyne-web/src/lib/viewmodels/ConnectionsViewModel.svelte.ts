@@ -4,6 +4,7 @@ import type { GitHubApi, RepositoriesApi } from '$lib/api/mnemosyneApi';
 import type {
   Connection,
   ConnectionTest,
+  IndexingMode,
   Organization,
   Repository,
   SyncJobSummary,
@@ -96,6 +97,26 @@ export class ConnectionsViewModel {
   async toggleOrganization(login: string, syncEnabled: boolean): Promise<void> {
     const updated = await this.githubApi.setOrganizationSync(login, syncEnabled);
     this.organizations = this.organizations.map((o) => (o.login === login ? updated : o));
+  }
+
+  orgBusy = $state<string | null>(null);
+
+  /** Index (enable) or un-index (disable) every repository in an organization. */
+  async indexOrganization(login: string, enabled: boolean, mode?: IndexingMode): Promise<void> {
+    if (this.orgBusy) return;
+    this.orgBusy = login;
+    this.error = null;
+    try {
+      await this.githubApi.bulkSelectionByOrg(login, enabled, mode);
+      // reflect the new enabled count without a full reload
+      this.organizations = this.organizations.map((o) =>
+        o.login === login ? { ...o, enabled_repos: enabled ? o.total_repos : 0 } : o
+      );
+    } catch (error) {
+      this.error = error instanceof ApiError ? error.message : 'organization index update failed';
+    } finally {
+      this.orgBusy = null;
+    }
   }
 
   async test(connectionId: string): Promise<void> {

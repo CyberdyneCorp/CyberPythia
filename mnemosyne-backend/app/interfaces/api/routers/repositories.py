@@ -135,11 +135,15 @@ async def bulk_update_selection(
         body.repository_ids,
         enabled=body.enabled,
         mode=IndexingMode(body.indexing_mode) if body.indexing_mode else None,
+        organization=body.organization,
     )
     await audit.record(
         caller,
         "repos.selection_bulk",
-        target=f"enabled={body.enabled},mode={body.indexing_mode},count={updated}",
+        target=(
+            f"scope={body.organization or f'{len(body.repository_ids or [])} ids'},"
+            f"enabled={body.enabled},mode={body.indexing_mode},count={updated}"
+        ),
     )
     return {"updated": updated}
 

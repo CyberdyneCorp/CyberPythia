@@ -68,6 +68,17 @@ export class GitHubApi {
       sync_enabled: syncEnabled
     });
   }
+  bulkSelectionByOrg(
+    organization: string,
+    enabled: boolean,
+    mode?: IndexingMode
+  ): Promise<{ updated: number }> {
+    return this.http.post('/api/v1/repos/selection', {
+      organization,
+      enabled,
+      indexing_mode: mode ?? null
+    });
+  }
   syncRuns(): Promise<SyncRun[]> {
     return this.http.get('/api/v1/admin/sync-runs');
   }

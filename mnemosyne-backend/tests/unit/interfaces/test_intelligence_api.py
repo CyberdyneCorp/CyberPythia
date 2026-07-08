@@ -88,6 +88,17 @@ class TestIntelligenceRest:
             )
         assert r.status_code == 403
 
+    async def test_disabled_repo_intelligence_404(self, client, container):
+        # a repo with persisted metrics but now un-indexed must not surface its data
+        repo = await _seed_scored(container)
+        repo.enabled = False
+        await container.repositories.save(repo)
+        async with client:
+            r = await client.get(
+                f"/api/v1/intelligence/repositories/{repo.id}/health", headers=user()
+            )
+        assert r.status_code == 404
+
     async def test_compare_endpoint(self, client, container):
         repo = await _seed_scored(container)
         async with client:
@@ -140,6 +151,16 @@ class TestIntelligenceMcp:
         body = payload(result)
         # synced repo with no metrics row -> health has_data False, not an error
         assert body["has_data"] is False and body["overall"] is None
+
+    async def test_disabled_repo_not_indexed(self, mcp, container):
+        repo = await _seed_scored(container)  # cyberdyne/a with metrics
+        repo.enabled = False
+        await container.repositories.save(repo)
+        async with Client(mcp) as c:
+            result = await c.call_tool(
+                "mnemosyne_get_repository_health", {"full_name": "cyberdyne/a"}
+            )
+        assert payload(result)["error"]["code"] == "unknown_repository"
 
     async def test_unknown_repo_structured_error(self, mcp):
         async with Client(mcp) as c:

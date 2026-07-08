@@ -582,3 +582,36 @@ describe('RepositoryListViewModel bulk selection', () => {
     expect(vm.error).toBe('bulk boom');
   });
 });
+
+describe('ConnectionsViewModel index organization', () => {
+  it('un-indexes an org and zeroes its enabled count', async () => {
+    let called: { org: string; enabled: boolean } | null = null;
+    const githubApi = {
+      organizations: async () => [
+        { login: 'aminitech', sync_enabled: true, total_repos: 200, enabled_repos: 94 }
+      ],
+      bulkSelectionByOrg: async (org: string, enabled: boolean) => {
+        called = { org, enabled };
+        return { updated: 94 };
+      }
+    };
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    await vm.loadOrganizations();
+    await vm.indexOrganization('aminitech', false);
+    expect(called).toEqual({ org: 'aminitech', enabled: false });
+    expect(vm.organizations[0].enabled_repos).toBe(0);
+  });
+
+  it('index-all sets enabled_repos to total', async () => {
+    const githubApi = {
+      organizations: async () => [
+        { login: 'CyberdyneCorp', sync_enabled: true, total_repos: 50, enabled_repos: 10 }
+      ],
+      bulkSelectionByOrg: async () => ({ updated: 50 })
+    };
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    await vm.loadOrganizations();
+    await vm.indexOrganization('CyberdyneCorp', true, 'project_intelligence' as never);
+    expect(vm.organizations[0].enabled_repos).toBe(50);
+  });
+});
