@@ -1,6 +1,8 @@
 /** Typed API clients over HttpClient (MVVM: viewmodels depend on these, views never do). */
 import type { HttpClient } from '$lib/api/http';
 import type {
+  ApiKey,
+  ApiKeyCreated,
   AskResult,
   CodeChunkMatch,
   Connection,
@@ -93,6 +95,23 @@ export class GitHubApi {
   }
   deleteConnection(id: string): Promise<void> {
     return this.http.delete(`/api/v1/github/connections/${id}`);
+  }
+}
+
+export class ApiKeysApi {
+  constructor(private http: HttpClient) {}
+
+  list(): Promise<ApiKey[]> {
+    return this.http.get('/api/v1/api-keys');
+  }
+  create(label: string, expiresInDays: number | null): Promise<ApiKeyCreated> {
+    return this.http.post('/api/v1/api-keys', {
+      label,
+      expires_in_days: expiresInDays
+    });
+  }
+  revoke(id: string): Promise<void> {
+    return this.http.delete(`/api/v1/api-keys/${id}`);
   }
 }
 

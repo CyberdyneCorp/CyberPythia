@@ -3,6 +3,7 @@
 from typing import Protocol
 from uuid import UUID
 
+from app.domain.entities.api_key import ApiKey
 from app.domain.entities.audit_record import AuditRecord
 from app.domain.entities.context_pack import ContextPack
 from app.domain.entities.document import Document
@@ -143,6 +144,16 @@ class AuditPort(Protocol):
     async def record(self, entry: AuditRecord) -> None: ...
 
     async def list_recent(self, limit: int = 100) -> list[AuditRecord]: ...
+
+
+class ApiKeyPort(Protocol):
+    async def save(self, key: ApiKey) -> None: ...
+
+    async def get_by_hash(self, key_hash: str) -> ApiKey | None: ...
+
+    async def list_all(self) -> list[ApiKey]: ...
+
+    async def revoke(self, key_id: UUID) -> bool: ...
 
 
 class WebhookDeliveryPort(Protocol):

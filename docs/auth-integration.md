@@ -73,3 +73,32 @@ TOKEN=$(curl -s -X POST $ISSUER/api/v1/auth/oauth2/token \
 curl -H "Authorization: Bearer $TOKEN" https://mnemosyne.../api/v1/repos
 # MCP: pass the same token as the bearer auth of your MCP client
 ```
+
+## Mnemosyne API keys (alternative bearer)
+
+For a long-lived, paste-and-forget credential — instead of hand-minting a
+short-lived CyberdyneAuth token — an admin can generate a **Mnemosyne API key**
+in the web UI (Connections → API keys) with a configurable expiry (or none).
+
+- Format: `mnem_<secret>`. Only the SHA-256 hash is stored; the plaintext is
+  shown **once** at creation.
+- Accepted as the bearer on **both REST and MCP** — a bearer beginning with
+  `mnem_` is validated against stored keys; any other bearer falls through to
+  CyberdyneAuth unchanged.
+- Grants the `mnemosyne` entitlement (read/query access) — **not** admin. Admin
+  endpoints (connections, org toggles, key management) still require a
+  CyberdyneAuth admin token.
+- Enforced on expiry; revocable in the UI (`DELETE /api/v1/api-keys/{id}`).
+
+```bash
+# Admin creates a key (returns the plaintext once)
+KEY=$(curl -s -X POST https://mnemosyne.../api/v1/api-keys \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"label":"claude-desktop","expires_in_days":90}' | jq -r .key)
+# Agent uses it as the bearer for REST or MCP
+curl -H "Authorization: Bearer $KEY" https://mnemosyne.../api/v1/repos
+```
+
+Management endpoints (all admin-only): `POST /api/v1/api-keys`,
+`GET /api/v1/api-keys` (metadata only — never the plaintext), and
+`DELETE /api/v1/api-keys/{id}`.

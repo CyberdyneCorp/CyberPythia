@@ -25,6 +25,21 @@ export interface Organization {
   enabled_repos: number;
 }
 
+export interface ApiKey {
+  id: string;
+  label: string;
+  prefix: string;
+  created_by: string;
+  created_at: string;
+  expires_at: string | null;
+  revoked: boolean;
+}
+
+/** Creation response — carries the plaintext key exactly once. */
+export interface ApiKeyCreated extends ApiKey {
+  key: string;
+}
+
 export interface SyncRun {
   id: string;
   trigger: string;

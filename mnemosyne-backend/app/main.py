@@ -9,7 +9,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.composition import Container, build_container
 from app.config import get_settings
 from app.interfaces.api.errors import register_error_handlers
-from app.interfaces.api.routers import github, health, intelligence, repositories, webhooks
+from app.interfaces.api.routers import (
+    api_keys,
+    github,
+    health,
+    intelligence,
+    repositories,
+    webhooks,
+)
 
 
 @asynccontextmanager
@@ -49,6 +56,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     app.include_router(repositories.router)
     app.include_router(intelligence.router)
     app.include_router(webhooks.router)
+    app.include_router(api_keys.router)
     return app
 
 

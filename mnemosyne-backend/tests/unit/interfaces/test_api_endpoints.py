@@ -43,7 +43,7 @@ from tests.unit.application.fakes import (
     FakeSyncLock,
     FakeSyncRunPort,
 )
-from tests.unit.interfaces.conftest import FakeAuditPort, FakeAuthPort
+from tests.unit.interfaces.conftest import FakeApiKeyPort, FakeAuditPort, FakeAuthPort
 
 NOW = datetime(2026, 7, 7, tzinfo=UTC)
 
@@ -127,6 +127,7 @@ def build_fake_container():
     embeddings = FakeSearchEmbeddings()
     metrics_store = FakeMetricsStore()
     audit_port = FakeAuditPort()
+    api_keys_port = FakeApiKeyPort()
 
     repo_uc = RepositoryUseCases(
         repositories, connections, connection_uc, github, sync_jobs, queue, lock,
@@ -185,12 +186,16 @@ def build_fake_container():
     delivery_intelligence = DeliveryIntelligenceService(
         repositories, issues, prs, milestones_port, metrics_history, metrics_store,
     )
+    from app.application.use_cases.api_keys import ApiKeyUseCases
+
     return SimpleNamespace(
         settings=None,
         session_factory=FakeSessionFactory(),
         auth_port=FakeAuthPort(),
         audit_service=AuditService(audit_port),
         audit_port=audit_port,
+        api_keys=api_keys_port,
+        api_key_use_cases=ApiKeyUseCases(api_keys_port),
         github=github,
         queue=queue,
         sync_lock=lock,

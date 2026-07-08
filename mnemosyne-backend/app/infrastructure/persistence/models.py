@@ -295,6 +295,19 @@ class OrganizationRow(Base):
     sync_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class ApiKeyRow(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    label: Mapped[str] = mapped_column(String(200))
+    prefix: Mapped[str] = mapped_column(String(32))
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_by: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class SyncRunHistoryRow(Base):
     __tablename__ = "sync_run_history"
 
