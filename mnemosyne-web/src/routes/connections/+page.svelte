@@ -6,11 +6,14 @@
   const ctx = getContext<AppContext>('app');
   const vm = new ConnectionsViewModel(ctx.githubApi, ctx.repositoriesApi);
 
+  import type { IndexingMode } from '$lib/models';
+
   let token = $state('');
   let appId = $state('');
   let installationId = $state('');
   let privateKey = $state('');
   let webhookSecret = $state('');
+  let orgMode = $state<IndexingMode>('project_intelligence');
 
   $effect(() => {
     void vm.load();
@@ -107,12 +110,25 @@
 {#if vm.organizations.length}
   <h2>Organizations</h2>
   <p class="muted small">
-    Choose which organizations Mnemosyne syncs. Disabling one skips all its repositories on the
-    nightly discovery and sync (already-indexed repos are simply left untouched).
+    Choose which organizations Mnemosyne <strong>syncs</strong> (nightly), and index / un-index all
+    of an organization's repositories at once. Un-indexed repos are removed from all intelligence
+    (portfolio, scorecard, and per-repo metrics over REST + MCP).
   </p>
+  <div class="row org-controls">
+    <span class="muted small">Index-all mode:</span>
+    <select bind:value={orgMode} class="bulk-mode">
+      <option value="docs_only">docs_only</option>
+      <option value="project_intelligence">project_intelligence</option>
+      <option value="code_metadata">code_metadata</option>
+      <option value="code_context">code_context</option>
+      <option value="full_context">full_context</option>
+    </select>
+  </div>
   <div class="card">
     <table>
-      <thead><tr><th>Organization</th><th>Repos (enabled / total)</th><th>Sync</th></tr></thead>
+      <thead>
+        <tr><th>Organization</th><th>Indexed / total</th><th>Sync</th><th>Index</th></tr>
+      </thead>
       <tbody>
         {#each vm.organizations as org (org.login)}
           <tr>
@@ -125,6 +141,22 @@
                 onclick={() => vm.toggleOrganization(org.login, !org.sync_enabled)}
               >
                 {org.sync_enabled ? '✓ syncing' : 'disabled'}
+              </button>
+            </td>
+            <td>
+              <button
+                class="secondary org-idx"
+                disabled={vm.orgBusy === org.login}
+                onclick={() => vm.indexOrganization(org.login, true, orgMode)}
+              >
+                Index all
+              </button>
+              <button
+                class="secondary org-idx"
+                disabled={vm.orgBusy === org.login}
+                onclick={() => vm.indexOrganization(org.login, false)}
+              >
+                Un-index all
               </button>
             </td>
           </tr>
@@ -267,5 +299,17 @@
   .org-toggle.on {
     color: var(--green);
     border-color: var(--green);
+  }
+  .org-controls {
+    margin-bottom: 0.6rem;
+  }
+  .bulk-mode {
+    font-size: 0.78rem;
+    padding: 0.3rem 0.5rem;
+  }
+  .org-idx {
+    font-size: 0.72rem;
+    padding: 0.25rem 0.55rem;
+    margin-right: 0.3rem;
   }
 </style>

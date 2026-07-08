@@ -205,3 +205,14 @@ class TestBulkSelection:
         from uuid import uuid4
         use_cases, *_ = env
         assert await use_cases.bulk_update_selection([uuid4()], enabled=True) == 0
+
+    async def test_bulk_by_organization(self, env):
+        use_cases, github, connection_uc, *_ = env
+        github.repos = [repo_data(1, "cyberdyne/a"), repo_data(2, "aminitech/b"),
+                        repo_data(3, "cyberdyne/c")]
+        connection = await connect(connection_uc)
+        await use_cases.discover(connection.id)
+        n = await use_cases.bulk_update_selection(enabled=True, organization="CyberDyne")
+        assert n == 2  # case-insensitive, only cyberdyne/*
+        enabled = {str(r.full_name) for r in await use_cases.list_repositories(enabled_only=True)}
+        assert enabled == {"cyberdyne/a", "cyberdyne/c"}

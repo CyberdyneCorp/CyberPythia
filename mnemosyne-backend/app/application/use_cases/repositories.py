@@ -112,14 +112,25 @@ class RepositoryUseCases:
         return repository
 
     async def bulk_update_selection(
-        self, repository_ids: list[UUID], *, enabled: bool, mode: IndexingMode | None = None
+        self,
+        repository_ids: list[UUID] | None = None,
+        *,
+        enabled: bool,
+        mode: IndexingMode | None = None,
+        organization: str | None = None,
     ) -> int:
         """Set enabled (+ optional mode) for many repositories in one batched write.
 
+        Targets either an explicit id list or every repository in ``organization``.
         Unknown ids are ignored. Returns the number of repositories updated.
         """
-        wanted = set(repository_ids)
-        repos = [r for r in await self._repositories.list_all() if r.id in wanted]
+        all_repos = await self._repositories.list_all()
+        if organization:
+            owner = organization.lower()
+            repos = [r for r in all_repos if r.full_name.owner.lower() == owner]
+        else:
+            wanted = set(repository_ids or [])
+            repos = [r for r in all_repos if r.id in wanted]
         for repo in repos:
             if enabled:
                 repo.enable(mode or repo.indexing_mode)

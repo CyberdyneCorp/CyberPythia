@@ -168,6 +168,13 @@ async def test_unknown_repo_raises(env) -> None:
         await env.svc.flow(uuid4(), NOW)
 
 
+async def test_disabled_repo_treated_as_not_indexed(env) -> None:
+    disabled = make_repo(enabled=False)
+    await env.repos.save(disabled)
+    with pytest.raises(UnknownResourceError):
+        await env.svc.flow(disabled.id, NOW)
+
+
 async def test_throughput_and_forecast(env) -> None:
     rid = env.repo.id
     for day, closed, opened in [(1, 5, 20), (2, 10, 15), (3, 16, 9)]:

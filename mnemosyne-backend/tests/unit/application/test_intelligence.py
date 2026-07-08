@@ -99,6 +99,15 @@ async def test_health_unknown_repo_raises(env) -> None:
         await svc.health(uuid4(), NOW)
 
 
+async def test_health_disabled_repo_treated_as_not_indexed(env) -> None:
+    svc, repos, _files, metrics = env
+    repo = make_repo(enabled=False)  # un-indexed
+    await repos.save(repo)
+    metrics.rows[repo.id] = metrics_row()  # stale metrics persist
+    with pytest.raises(UnknownResourceError):
+        await svc.health(repo.id, NOW)
+
+
 async def test_delivery_absent_when_no_metrics(env) -> None:
     svc, repos, files, metrics = env
     repo = make_repo(last_synced_at=None)

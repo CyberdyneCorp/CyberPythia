@@ -110,6 +110,25 @@ class TestBulkSelection:
             )
         assert r.status_code == 200 and r.json()["updated"] == 0
 
+    async def test_bulk_by_organization(self, client, container):
+        await _seed(container)  # CyberdyneCorp x2 enabled, aminitech x1 disabled, EpicGames x1
+        async with client:
+            r = await client.post(
+                "/api/v1/repos/selection",
+                json={"organization": "CyberdyneCorp", "enabled": False}, headers=admin(),
+            )
+        assert r.status_code == 200 and r.json()["updated"] == 2
+        after = {str(x.full_name): x for x in await container.repositories.list_all()}
+        assert not after["CyberdyneCorp/auth"].enabled
+        assert after["EpicGames/ue"].enabled  # other orgs untouched
+
+    async def test_bulk_requires_ids_or_org(self, client):
+        async with client:
+            r = await client.post(
+                "/api/v1/repos/selection", json={"enabled": True}, headers=admin()
+            )
+        assert r.status_code == 422  # validator: one of ids/organization
+
     async def test_non_admin_rejected(self, client, container):
         await _seed(container)
         rid = str((await container.repositories.list_all())[0].id)

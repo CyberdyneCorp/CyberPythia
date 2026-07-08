@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-07-08
+goal: Keep intelligence scoped to currently-indexed repos, and let admins
+  index/un-index a whole organization from the org view

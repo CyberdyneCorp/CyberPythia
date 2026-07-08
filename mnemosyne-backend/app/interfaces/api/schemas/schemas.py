@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 MAX_PAGE_SIZE = 100
 
@@ -91,12 +91,19 @@ class RepositorySelectionRequest(BaseModel):
 
 
 class RepositorySelectionBulkRequest(BaseModel):
-    repository_ids: list[UUID] = Field(min_length=1, max_length=1000)
     enabled: bool
+    repository_ids: list[UUID] | None = Field(default=None, max_length=1000)
+    organization: str | None = Field(default=None, max_length=200)
     indexing_mode: str | None = Field(
         default=None,
         pattern="^(docs_only|project_intelligence|code_metadata|code_context|full_context)$",
     )
+
+    @model_validator(mode="after")
+    def _one_target(self) -> "RepositorySelectionBulkRequest":
+        if not self.repository_ids and not self.organization:
+            raise ValueError("provide either repository_ids or organization")
+        return self
 
 
 class SyncStepResponse(BaseModel):
