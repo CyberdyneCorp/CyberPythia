@@ -26,4 +26,4 @@
 ## 5. Docs, gate, deploy, verify
 
 - [x] 5.1 Docs: org scope in `docs/deploy-coolify.md` + README.
-- [ ] 5.2 Full gate (ruff, mypy --strict, unit >= 90%, integration, openspec --strict, web build + tests, docker build). Deploy migration + code. Verify: list orgs live, disable one, confirm a scheduled/dry run skips its repos; a BDD or interface assertion for the skip.
+- [x] 5.2 Full gate (ruff, mypy --strict, unit >= 90%, integration, openspec --strict, web build + tests, docker build). Deploy migration + code. Verify: list orgs live, disable one, confirm a scheduled/dry run skips its repos; a BDD or interface assertion for the skip.
