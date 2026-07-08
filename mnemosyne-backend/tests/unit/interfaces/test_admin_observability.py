@@ -88,3 +88,44 @@ class TestSyncJobs:
                 "/api/v1/admin/sync-jobs", headers={"Authorization": "Bearer user-token"}
             )
         assert r.status_code == 403
+
+
+class TestOrganizations:
+    async def test_list_with_counts(self, client, container):
+        repo = await seed_repo(container)  # cyberdyne/a, enabled=False by default
+        repo.enabled = True
+        await container.repositories.save(repo)
+        await container.organizations.upsert_many(["cyberdyne"], default_enabled=True)
+        async with client:
+            r = await client.get("/api/v1/github/organizations", headers=admin())
+        assert r.status_code == 200
+        body = r.json()
+        org = next(o for o in body if o["login"] == "cyberdyne")
+        assert org["sync_enabled"] is True
+        assert org["total_repos"] == 1 and org["enabled_repos"] == 1
+
+    async def test_toggle_disable(self, client, container):
+        await container.organizations.upsert_many(["cyberdyne"], default_enabled=True)
+        async with client:
+            r = await client.patch(
+                "/api/v1/github/organizations/cyberdyne",
+                json={"sync_enabled": False}, headers=admin(),
+            )
+        assert r.status_code == 200
+        assert r.json()["sync_enabled"] is False
+        assert await container.organizations.disabled_logins() == {"cyberdyne"}
+
+    async def test_toggle_unknown_404(self, client):
+        async with client:
+            r = await client.patch(
+                "/api/v1/github/organizations/nope",
+                json={"sync_enabled": False}, headers=admin(),
+            )
+        assert r.status_code == 404
+
+    async def test_non_admin_rejected(self, client):
+        async with client:
+            r = await client.get(
+                "/api/v1/github/organizations", headers={"Authorization": "Bearer user-token"}
+            )
+        assert r.status_code == 403

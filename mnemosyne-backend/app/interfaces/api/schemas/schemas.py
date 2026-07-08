@@ -191,6 +191,17 @@ class CompareRequest(BaseModel):
     repository_ids: list[UUID] = Field(min_length=1, max_length=20)
 
 
+class OrganizationResponse(BaseModel):
+    login: str
+    sync_enabled: bool
+    total_repos: int
+    enabled_repos: int
+
+
+class OrganizationUpdateRequest(BaseModel):
+    sync_enabled: bool
+
+
 class SyncRunResponse(BaseModel):
     id: UUID
     trigger: str

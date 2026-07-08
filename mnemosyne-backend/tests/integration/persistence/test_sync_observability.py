@@ -9,6 +9,7 @@ from app.domain.entities.sync_job import SyncJob
 from app.domain.entities.sync_run import SyncRun
 from app.domain.value_objects.enums import IndexingMode, SyncStatus, SyncStep
 from app.infrastructure.persistence.repositories.misc import (
+    PostgresOrganizationRepository,
     PostgresSyncJobRepository,
     PostgresSyncRunRepository,
 )
@@ -57,3 +58,19 @@ class TestSyncJobListRecent:
         assert len(recent) == 2
         assert recent[0].started_at >= recent[1].started_at  # newest first
         assert recent[0].status is SyncStatus.FAILED
+
+
+class TestOrganizationRepository:
+    async def test_upsert_preserves_flag_and_toggle(self, session_factory):
+        adapter = PostgresOrganizationRepository(session_factory)
+        await adapter.upsert_many(["cyberdyne", "aminitech"], default_enabled=True)
+        await adapter.set_enabled("aminitech", enabled=False)
+        # re-upsert must NOT flip the admin's disable back on
+        await adapter.upsert_many(["cyberdyne", "aminitech", "epicgames"], default_enabled=True)
+        orgs = {o.login: o.sync_enabled for o in await adapter.list_all()}
+        assert orgs == {"aminitech": False, "cyberdyne": True, "epicgames": True}
+        assert await adapter.disabled_logins() == {"aminitech"}
+
+    async def test_set_enabled_unknown_returns_none(self, session_factory):
+        adapter = PostgresOrganizationRepository(session_factory)
+        assert await adapter.set_enabled("ghost", enabled=False) is None

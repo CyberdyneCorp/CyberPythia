@@ -4,6 +4,7 @@ import type { GitHubApi, RepositoriesApi } from '$lib/api/mnemosyneApi';
 import type {
   Connection,
   ConnectionTest,
+  Organization,
   Repository,
   SyncJobSummary,
   SyncRun,
@@ -17,6 +18,7 @@ export class ConnectionsViewModel {
   deliveries = $state<WebhookDelivery[]>([]);
   syncRuns = $state<SyncRun[]>([]);
   syncJobs = $state<SyncJobSummary[]>([]);
+  organizations = $state<Organization[]>([]);
   busy = $state(false);
   error = $state<string | null>(null);
 
@@ -81,6 +83,19 @@ export class ConnectionsViewModel {
     } catch {
       // sync activity is best-effort; ignore load failures
     }
+  }
+
+  async loadOrganizations(): Promise<void> {
+    try {
+      this.organizations = await this.githubApi.organizations();
+    } catch {
+      // organizations are best-effort; ignore load failures
+    }
+  }
+
+  async toggleOrganization(login: string, syncEnabled: boolean): Promise<void> {
+    const updated = await this.githubApi.setOrganizationSync(login, syncEnabled);
+    this.organizations = this.organizations.map((o) => (o.login === login ? updated : o));
   }
 
   async test(connectionId: string): Promise<void> {

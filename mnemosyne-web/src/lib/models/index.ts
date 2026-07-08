@@ -18,6 +18,13 @@ export interface Connection {
   installation_id: string | null;
 }
 
+export interface Organization {
+  login: string;
+  sync_enabled: boolean;
+  total_repos: number;
+  enabled_repos: number;
+}
+
 export interface SyncRun {
   id: string;
   trigger: string;

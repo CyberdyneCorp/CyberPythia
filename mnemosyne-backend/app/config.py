@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     auto_enable_new_repos: bool = True
     auto_enable_mode: str = "project_intelligence"
     auto_enable_archived: bool = False
+    default_org_sync_enabled: bool = True  # a newly-discovered org syncs unless toggled off
 
     # Rate-limit resilience for the nightly fan-out
     scheduled_sync_stagger_seconds: float = 5.0  # defer between successive enqueues

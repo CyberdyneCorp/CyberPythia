@@ -492,3 +492,25 @@ describe('ConnectionsViewModel sync activity', () => {
     expect(vm2.syncRuns).toEqual([]);
   });
 });
+
+describe('ConnectionsViewModel organizations', () => {
+  it('loads and toggles organizations', async () => {
+    let stored = true;
+    const githubApi = {
+      organizations: async () => [
+        { login: 'cyberdyne', sync_enabled: true, total_repos: 2, enabled_repos: 2 },
+        { login: 'aminitech', sync_enabled: true, total_repos: 236, enabled_repos: 236 }
+      ],
+      setOrganizationSync: async (login: string, enabled: boolean) => {
+        stored = enabled;
+        return { login, sync_enabled: enabled, total_repos: 236, enabled_repos: 236 };
+      }
+    };
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never);
+    await vm.loadOrganizations();
+    expect(vm.organizations).toHaveLength(2);
+    await vm.toggleOrganization('aminitech', false);
+    expect(stored).toBe(false);
+    expect(vm.organizations.find((o) => o.login === 'aminitech')?.sync_enabled).toBe(false);
+  });
+});

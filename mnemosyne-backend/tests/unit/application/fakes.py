@@ -272,6 +272,34 @@ class FakeSyncJobPort:
         return jobs[:limit]
 
 
+class FakeOrganizationPort:
+    def __init__(self):
+        self.orgs = {}  # login -> sync_enabled
+
+    async def upsert_many(self, logins, *, default_enabled):
+        for login in logins:
+            self.orgs.setdefault(login, default_enabled)
+
+    async def list_all(self):
+        from app.domain.entities.organization import Organization
+
+        return [
+            Organization(login=k, sync_enabled=v)
+            for k, v in sorted(self.orgs.items())
+        ]
+
+    async def set_enabled(self, login, *, enabled):
+        from app.domain.entities.organization import Organization
+
+        if login not in self.orgs:
+            return None
+        self.orgs[login] = enabled
+        return Organization(login=login, sync_enabled=enabled)
+
+    async def disabled_logins(self):
+        return {k for k, v in self.orgs.items() if not v}
+
+
 class FakeSyncRunPort:
     def __init__(self):
         self.runs = []

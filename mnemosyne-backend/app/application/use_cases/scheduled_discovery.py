@@ -34,6 +34,10 @@ class _RepoUseCases(Protocol):
     ) -> Repository: ...
 
 
+class _Organizations(Protocol):
+    async def disabled_logins(self) -> set[str]: ...
+
+
 @dataclass(frozen=True, slots=True)
 class ScheduledDiscoverySummary:
     discovered: int
@@ -51,6 +55,7 @@ class ScheduledDiscoveryService:
         auto_enable: bool,
         mode: IndexingMode,
         include_archived: bool,
+        organizations: "_Organizations | None" = None,
     ) -> None:
         self._repositories = repositories
         self._connections = connections
@@ -58,6 +63,7 @@ class ScheduledDiscoveryService:
         self._auto_enable = auto_enable
         self._mode = mode
         self._include_archived = include_archived
+        self._organizations = organizations
 
     async def run(self) -> ScheduledDiscoverySummary:
         before = {r.github_id for r in await self._repositories.list_all()}
@@ -68,6 +74,9 @@ class ScheduledDiscoveryService:
                 logger.exception("scheduled discovery: failed for connection %s", connection.id)
 
         after = await self._repositories.list_all()
+        disabled = (
+            await self._organizations.disabled_logins() if self._organizations else set()
+        )
         newly_enabled = skipped_archived = 0
         if self._auto_enable:
             for repo in after:
@@ -76,6 +85,8 @@ class ScheduledDiscoveryService:
                 if repo.archived and not self._include_archived:
                     skipped_archived += 1
                     continue
+                if repo.full_name.owner in disabled:
+                    continue  # organization sync disabled -> do not auto-enable
                 await self._use_cases.update_selection(repo.id, enabled=True, mode=self._mode)
                 newly_enabled += 1
 

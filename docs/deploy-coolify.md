@@ -28,6 +28,7 @@ Coolify → New Resource → **Docker Compose** → this repository, compose fil
 | `AUTO_ENABLE_NEW_REPOS` | `true` (default) — auto-enable newly-seen non-archived repos | |
 | `AUTO_ENABLE_MODE` | indexing mode for auto-enabled repos (default `project_intelligence`) | |
 | `AUTO_ENABLE_ARCHIVED` | `false` (default) — skip archived repos when auto-enabling | |
+| `DEFAULT_ORG_SYNC_ENABLED` | `true` (default) — a newly-discovered org syncs unless toggled off | |
 | `SCHEDULED_SYNC_STAGGER_SECONDS` | defer between successive nightly enqueues (default `5.0`) | |
 | `GITHUB_RATE_LIMIT_MAX_WAIT_SECONDS` | cap on in-request rate-limit wait; beyond it, fail fast (default `60`) | |
 

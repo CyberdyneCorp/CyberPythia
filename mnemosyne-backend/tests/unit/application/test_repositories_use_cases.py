@@ -65,6 +65,25 @@ class TestDiscovery:
         assert all(not r.enabled for r in repos)  # nothing auto-indexed (spec)
         assert queue.jobs == []
 
+    async def test_discover_upserts_organizations(self):
+        from tests.unit.application.fakes import FakeOrganizationPort
+
+        github = FakeGitHub()
+        github.repos = [
+            repo_data(1, "cyberdyne/a"), repo_data(2, "aminitech/b"), repo_data(3, "cyberdyne/c")
+        ]
+        connections = FakeConnectionPort()
+        connection_uc = GitHubConnectionUseCases(connections, github, FakeCipher())
+        orgs = FakeOrganizationPort()
+        use_cases = RepositoryUseCases(
+            FakeRepositoryPort(), connections, connection_uc, github,
+            FakeSyncJobPort(), FakeQueue(), FakeSyncLock(), organizations=orgs,
+        )
+        connection = await connect(connection_uc)
+        await use_cases.discover(connection.id)
+        assert set(orgs.orgs) == {"cyberdyne", "aminitech"}  # distinct owners upserted
+        assert all(orgs.orgs.values())  # default enabled
+
     async def test_rediscovery_preserves_selection(self, env):
         use_cases, _, connection_uc, *_ = env
         connection = await connect(connection_uc)

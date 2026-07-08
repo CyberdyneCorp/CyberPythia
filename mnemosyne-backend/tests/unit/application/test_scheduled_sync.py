@@ -73,6 +73,26 @@ async def test_no_defer_when_stagger_zero() -> None:
     assert all(defer == 0.0 for _, _, defer in trigger.calls)
 
 
+async def test_skips_repos_in_disabled_organizations() -> None:
+    from tests.unit.application.fakes import FakeOrganizationPort
+
+    repos = FakeRepositoryPort()
+    # aminitech disabled, cyberdyne enabled, unknown-org repo fail-open
+    a, b, c = await _seed(
+        repos, ("aminitech/x", True), ("cyberdyne/y", True), ("epicgames/z", True)
+    )
+    orgs = FakeOrganizationPort()
+    await orgs.upsert_many(["aminitech", "cyberdyne"], default_enabled=True)
+    await orgs.set_enabled("aminitech", enabled=False)
+    trigger = RecordingTrigger()
+    summary = await ScheduledSyncService(repos, trigger, organizations=orgs).run()
+    enqueued_ids = {rid for rid, _, _ in trigger.calls}
+    assert a.id not in enqueued_ids  # aminitech disabled -> skipped
+    assert b.id in enqueued_ids  # cyberdyne enabled
+    assert c.id in enqueued_ids  # epicgames unknown -> fail-open
+    assert summary.enqueued == 2 and summary.skipped == 1
+
+
 async def test_skips_already_running() -> None:
     repos = FakeRepositoryPort()
     a, _b = await _seed(repos, ("cyberdyne/a", True), ("cyberdyne/b", True))

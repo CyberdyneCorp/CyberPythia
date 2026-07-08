@@ -41,6 +41,7 @@ from app.infrastructure.persistence.repositories.misc import (
     PostgresMetricsHistoryRepository,
     PostgresMetricsRepository,
     PostgresMilestoneRepository,
+    PostgresOrganizationRepository,
     PostgresSourceChunkRepository,
     PostgresSyncJobRepository,
     PostgresSyncRunRepository,
@@ -219,6 +220,10 @@ class Container:
         return PostgresSyncRunRepository(self.session_factory)
 
     @cached_property
+    def organizations(self) -> PostgresOrganizationRepository:
+        return PostgresOrganizationRepository(self.session_factory)
+
+    @cached_property
     def repository_use_cases(self) -> RepositoryUseCases:
         return RepositoryUseCases(
             self.repositories,
@@ -228,6 +233,8 @@ class Container:
             self.sync_jobs,
             self.queue,
             self.sync_lock,
+            organizations=self.organizations,
+            default_org_sync_enabled=self.settings.default_org_sync_enabled,
         )
 
     @cached_property
@@ -294,6 +301,7 @@ class Container:
             self.repositories,
             self.repository_use_cases,
             stagger_seconds=self.settings.scheduled_sync_stagger_seconds,
+            organizations=self.organizations,
         )
 
     @cached_property
@@ -305,6 +313,7 @@ class Container:
             auto_enable=self.settings.auto_enable_new_repos,
             mode=IndexingMode(self.settings.auto_enable_mode),
             include_archived=self.settings.auto_enable_archived,
+            organizations=self.organizations,
         )
 
     @cached_property

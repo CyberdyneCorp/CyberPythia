@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from app.domain.entities.audit_record import AuditRecord
 from app.domain.entities.context_pack import (
@@ -21,6 +21,7 @@ from app.domain.entities.context_pack import (
 )
 from app.domain.entities.metrics_snapshot import MetricsSnapshot
 from app.domain.entities.milestone import Milestone
+from app.domain.entities.organization import Organization
 from app.domain.entities.source_chunk import SourceChunk
 from app.domain.entities.source_file import SourceFile
 from app.domain.entities.sync_job import SyncJob
@@ -40,6 +41,7 @@ from app.infrastructure.persistence.models import (
     AuditLogRow,
     ContextPackRow,
     MilestoneRow,
+    OrganizationRow,
     RepositoryMetricsRow,
     RepositoryMetricsSnapshotRow,
     SourceChunkRow,
@@ -562,3 +564,45 @@ def _sync_run_to_entity(row: SyncRunHistoryRow) -> SyncRun:
         skipped=row.skipped,
         failed=row.failed,
     )
+
+
+class PostgresOrganizationRepository(PostgresRepositoryBase):
+    async def upsert_many(self, logins: list[str], *, default_enabled: bool) -> None:
+        async with self._session_factory() as session, session.begin():
+            existing = {
+                r.login
+                for r in await session.scalars(
+                    select(OrganizationRow).where(OrganizationRow.login.in_(logins))
+                )
+            }
+            for login in set(logins):
+                if login not in existing:
+                    session.add(
+                        OrganizationRow(
+                            id=uuid4(), login=login, sync_enabled=default_enabled
+                        )
+                    )
+
+    async def list_all(self) -> list[Organization]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(OrganizationRow).order_by(func.lower(OrganizationRow.login))
+            )
+            return [Organization(login=r.login, sync_enabled=r.sync_enabled) for r in rows]
+
+    async def set_enabled(self, login: str, *, enabled: bool) -> Organization | None:
+        async with self._session_factory() as session, session.begin():
+            row = await session.scalar(
+                select(OrganizationRow).where(OrganizationRow.login == login)
+            )
+            if row is None:
+                return None
+            row.sync_enabled = enabled
+            return Organization(login=row.login, sync_enabled=enabled)
+
+    async def disabled_logins(self) -> set[str]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(OrganizationRow.login).where(OrganizationRow.sync_enabled.is_(False))
+            )
+            return set(rows)

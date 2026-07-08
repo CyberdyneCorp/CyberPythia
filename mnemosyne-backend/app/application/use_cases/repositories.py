@@ -8,7 +8,12 @@ from app.domain.entities.repository import Repository
 from app.domain.entities.sync_job import SyncJob
 from app.domain.ports.github_port import GitHubPort
 from app.domain.ports.infra_ports import QueuePort, SyncLockPort
-from app.domain.ports.persistence_ports import ConnectionPort, RepositoryPort, SyncJobPort
+from app.domain.ports.persistence_ports import (
+    ConnectionPort,
+    OrganizationPort,
+    RepositoryPort,
+    SyncJobPort,
+)
 from app.domain.value_objects.enums import (
     IndexingMode,
     RepositoryVisibility,
@@ -27,6 +32,8 @@ class RepositoryUseCases:
         sync_jobs: SyncJobPort,
         queue: QueuePort,
         sync_lock: SyncLockPort,
+        organizations: OrganizationPort | None = None,
+        default_org_sync_enabled: bool = True,
     ) -> None:
         self._repositories = repositories
         self._connections = connections
@@ -35,6 +42,8 @@ class RepositoryUseCases:
         self._sync_jobs = sync_jobs
         self._queue = queue
         self._sync_lock = sync_lock
+        self._organizations = organizations
+        self._default_org_sync_enabled = default_org_sync_enabled
 
     async def discover(self, connection_id: UUID) -> list[Repository]:
         """Fetch accessible repositories; persist metadata without content (spec)."""
@@ -66,6 +75,11 @@ class RepositoryUseCases:
                 repo.indexing_mode = prior.indexing_mode
                 repo.last_synced_at = prior.last_synced_at
         await self._repositories.save_many(repositories)
+        if self._organizations is not None:
+            owners = sorted({repo.full_name.owner for repo in repositories})
+            await self._organizations.upsert_many(
+                owners, default_enabled=self._default_org_sync_enabled
+            )
         return await self._repositories.list_all()
 
     async def list_repositories(self, *, enabled_only: bool = False) -> list[Repository]:

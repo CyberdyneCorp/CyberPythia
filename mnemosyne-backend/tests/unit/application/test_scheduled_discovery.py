@@ -105,6 +105,28 @@ async def test_auto_enable_off_no_ops() -> None:
     assert uc.enabled_calls == []
 
 
+async def test_disabled_org_new_repo_not_enabled() -> None:
+    from tests.unit.application.fakes import FakeOrganizationPort
+
+    repos = FakeRepositoryPort()
+    cid = uuid4()
+    # two new repos: one in a disabled org, one in an enabled org
+    uc = FakeRepoUseCases(
+        repos, {cid: [repo(2, "aminitech/new"), repo(3, "cyberdyne/new")]}
+    )
+    orgs = FakeOrganizationPort()
+    await orgs.upsert_many(["aminitech", "cyberdyne"], default_enabled=True)
+    await orgs.set_enabled("aminitech", enabled=False)
+    svc = ScheduledDiscoveryService(
+        repos, FakeConnections([cid]), uc, auto_enable=True, mode=PI,
+        include_archived=False, organizations=orgs,
+    )
+    summary = await svc.run()
+    assert summary.newly_enabled == 1  # only cyberdyne/new
+    assert (await repos.get_by_full_name("aminitech/new")).enabled is False
+    assert (await repos.get_by_full_name("cyberdyne/new")).enabled is True
+
+
 async def test_connection_error_does_not_abort() -> None:
     repos = FakeRepositoryPort()
     good = uuid4()

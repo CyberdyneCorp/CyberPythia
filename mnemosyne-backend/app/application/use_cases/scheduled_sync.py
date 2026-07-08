@@ -27,6 +27,10 @@ class _Trigger(Protocol):
     ) -> object: ...
 
 
+class _Organizations(Protocol):
+    async def disabled_logins(self) -> set[str]: ...
+
+
 @dataclass(frozen=True, slots=True)
 class ScheduledSyncSummary:
     enqueued: int
@@ -41,20 +45,28 @@ class ScheduledSyncService:
         repository_use_cases: _Trigger,
         *,
         stagger_seconds: float = 0.0,
+        organizations: "_Organizations | None" = None,
     ) -> None:
         self._repositories = repositories
         self._use_cases = repository_use_cases
         self._stagger_seconds = stagger_seconds
+        self._organizations = organizations
 
     async def run(self) -> ScheduledSyncSummary:
         repositories = await self._repositories.list_all(enabled_only=True)
+        disabled = (
+            await self._organizations.disabled_logins() if self._organizations else set()
+        )
         enqueued = skipped = failed = 0
-        for index, repo in enumerate(repositories):
+        for repo in repositories:
+            if repo.full_name.owner in disabled:
+                skipped += 1  # organization sync is disabled by the admin
+                continue
             try:
                 await self._use_cases.trigger_sync(
                     repo.id,
                     triggered_by="scheduler",
-                    defer_seconds=index * self._stagger_seconds,
+                    defer_seconds=enqueued * self._stagger_seconds,
                 )
                 enqueued += 1
             except SyncAlreadyRunningError:

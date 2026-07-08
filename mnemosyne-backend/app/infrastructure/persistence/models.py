@@ -287,6 +287,14 @@ class RepositoryMetricsSnapshotRow(Base):
     health_overall: Mapped[float | None] = mapped_column(Float)
 
 
+class OrganizationRow(Base):
+    __tablename__ = "organizations"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    login: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    sync_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class SyncRunHistoryRow(Base):
     __tablename__ = "sync_run_history"
 

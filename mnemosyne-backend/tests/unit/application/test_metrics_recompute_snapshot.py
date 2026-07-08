@@ -48,7 +48,8 @@ async def test_recompute_writes_metrics_and_appends_snapshot() -> None:
     # AND a snapshot appended for today
     snaps = history.rows[repo.id]
     assert len(snaps) == 1
-    assert snaps[0].captured_on == NOW.date()
+    # recompute stamps the real current date (not the fixture NOW) — assert against today
+    assert snaps[0].captured_on == datetime.now(UTC).date()
     assert snaps[0].health_overall is not None  # scored portfolio-style
 
 

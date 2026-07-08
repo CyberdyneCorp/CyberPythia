@@ -11,6 +11,7 @@ from app.domain.entities.issue import Issue
 from app.domain.entities.metrics_snapshot import MetricsSnapshot
 from app.domain.entities.milestone import Milestone
 from app.domain.entities.openspec_change import OpenSpecChange
+from app.domain.entities.organization import Organization
 from app.domain.entities.pull_request import PullRequest
 from app.domain.entities.repository import Repository
 from app.domain.entities.source_chunk import SourceChunk
@@ -118,6 +119,16 @@ class SyncRunPort(Protocol):
     async def record(self, run: SyncRun) -> None: ...
 
     async def list_recent(self, limit: int = 50) -> list[SyncRun]: ...
+
+
+class OrganizationPort(Protocol):
+    async def upsert_many(self, logins: list[str], *, default_enabled: bool) -> None: ...
+
+    async def list_all(self) -> list[Organization]: ...
+
+    async def set_enabled(self, login: str, *, enabled: bool) -> Organization | None: ...
+
+    async def disabled_logins(self) -> set[str]: ...
 
 
 class ContextPackPort(Protocol):

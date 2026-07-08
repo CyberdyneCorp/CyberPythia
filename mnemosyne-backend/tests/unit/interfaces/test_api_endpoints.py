@@ -33,6 +33,7 @@ from tests.unit.application.fakes import (
     FakeGitHub,
     FakeIssuePort,
     FakeOpenSpecPort,
+    FakeOrganizationPort,
     FakePullRequestPort,
     FakeQueue,
     FakeRepositoryPort,
@@ -120,6 +121,7 @@ def build_fake_container():
     files = FakeFilePort()
     sync_jobs = FakeSyncJobPort()
     sync_runs = FakeSyncRunPort()
+    organizations = FakeOrganizationPort()
     queue = FakeQueue()
     lock = FakeSyncLock()
     embeddings = FakeSearchEmbeddings()
@@ -127,7 +129,8 @@ def build_fake_container():
     audit_port = FakeAuditPort()
 
     repo_uc = RepositoryUseCases(
-        repositories, connections, connection_uc, github, sync_jobs, queue, lock
+        repositories, connections, connection_uc, github, sync_jobs, queue, lock,
+        organizations=organizations,
     )
     context_uc = ContextUseCases(
         repositories=repositories,
@@ -210,6 +213,7 @@ def build_fake_container():
         webhook_deliveries=webhook_deliveries,
         process_webhook=process_webhook,
         sync_runs=sync_runs,
+        organizations=organizations,
         intelligence=intelligence,
         delivery_intelligence=delivery_intelligence,
         metrics_history=metrics_history,

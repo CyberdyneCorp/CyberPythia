@@ -18,6 +18,7 @@ import type {
   Metrics,
   MilestoneProgress,
   OpenSpecChange,
+  Organization,
   Page,
   PortfolioOverview,
   PullRequest,
@@ -58,6 +59,14 @@ export class GitHubApi {
   }
   webhookDeliveries(): Promise<WebhookDelivery[]> {
     return this.http.get('/api/v1/admin/webhook-deliveries');
+  }
+  organizations(): Promise<Organization[]> {
+    return this.http.get('/api/v1/github/organizations');
+  }
+  setOrganizationSync(login: string, syncEnabled: boolean): Promise<Organization> {
+    return this.http.patch(`/api/v1/github/organizations/${encodeURIComponent(login)}`, {
+      sync_enabled: syncEnabled
+    });
   }
   syncRuns(): Promise<SyncRun[]> {
     return this.http.get('/api/v1/admin/sync-runs');

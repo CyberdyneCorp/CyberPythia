@@ -8,12 +8,15 @@ from fastapi import APIRouter, Depends, Request
 from app.application.audit import AuditService
 from app.application.errors import ApplicationError
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
+from app.interfaces.api.errors import NotFoundError
 from app.interfaces.api.mapping import translate_error
 from app.interfaces.api.schemas.schemas import (
     AppConnectRequest,
     ConnectionResponse,
     ConnectionTestResponse,
     ConnectRequest,
+    OrganizationResponse,
+    OrganizationUpdateRequest,
     SyncJobSummaryResponse,
     SyncRunResponse,
     WebhookDeliveryResponse,
@@ -76,6 +79,50 @@ async def discover_app_repositories(
 @router.get("/connections", response_model=list[ConnectionResponse])
 async def list_connections(caller: AdminCaller, use_cases: UseCases) -> Any:
     return await use_cases.list_connections()
+
+
+@router.get("/organizations", response_model=list[OrganizationResponse])
+async def list_organizations(caller: AdminCaller, request: Request) -> Any:
+    container = request.app.state.container
+    orgs = await container.organizations.list_all()
+    repos = await container.repositories.list_all()
+    total: dict[str, int] = {}
+    enabled: dict[str, int] = {}
+    for repo in repos:
+        owner = repo.full_name.owner
+        total[owner] = total.get(owner, 0) + 1
+        if repo.enabled:
+            enabled[owner] = enabled.get(owner, 0) + 1
+    return [
+        OrganizationResponse(
+            login=o.login,
+            sync_enabled=o.sync_enabled,
+            total_repos=total.get(o.login, 0),
+            enabled_repos=enabled.get(o.login, 0),
+        )
+        for o in orgs
+    ]
+
+
+@router.patch("/organizations/{login}", response_model=OrganizationResponse)
+async def set_organization_sync(
+    login: str, body: OrganizationUpdateRequest, caller: AdminCaller, request: Request, audit: Audit
+) -> Any:
+    container = request.app.state.container
+    org = await container.organizations.set_enabled(login, enabled=body.sync_enabled)
+    if org is None:
+        raise NotFoundError(f"organization '{login}' not found")
+    await audit.record(
+        caller, "github.org_sync", target=f"{login}:sync_enabled={body.sync_enabled}"
+    )
+    repos = await container.repositories.list_all()
+    same = [r for r in repos if r.full_name.owner == login]
+    return OrganizationResponse(
+        login=org.login,
+        sync_enabled=org.sync_enabled,
+        total_repos=len(same),
+        enabled_repos=sum(1 for r in same if r.enabled),
+    )
 
 
 @admin_router.get("/webhook-deliveries", response_model=list[WebhookDeliveryResponse])

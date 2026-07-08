@@ -16,6 +16,7 @@
     void vm.load();
     void vm.loadDeliveries();
     void vm.loadSyncActivity();
+    void vm.loadOrganizations();
   });
 
   async function submit(event: SubmitEvent) {
@@ -88,6 +89,36 @@
             <td>{d.repository_full_name ?? '—'}</td>
             <td><span class="badge {d.outcome === 'processed' ? 'ok' : ''}">{d.outcome}</span></td>
             <td class="muted">{new Date(d.received_at).toLocaleString()}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+{/if}
+
+{#if vm.organizations.length}
+  <h2>Organizations</h2>
+  <p class="muted small">
+    Choose which organizations Mnemosyne syncs. Disabling one skips all its repositories on the
+    nightly discovery and sync (already-indexed repos are simply left untouched).
+  </p>
+  <div class="card">
+    <table>
+      <thead><tr><th>Organization</th><th>Repos (enabled / total)</th><th>Sync</th></tr></thead>
+      <tbody>
+        {#each vm.organizations as org (org.login)}
+          <tr>
+            <td><strong>{org.login}</strong></td>
+            <td class="mono num">{org.enabled_repos} / {org.total_repos}</td>
+            <td>
+              <button
+                class="secondary org-toggle"
+                class:on={org.sync_enabled}
+                onclick={() => vm.toggleOrganization(org.login, !org.sync_enabled)}
+              >
+                {org.sync_enabled ? '✓ syncing' : 'disabled'}
+              </button>
+            </td>
           </tr>
         {/each}
       </tbody>
@@ -211,5 +242,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .org-toggle {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.72rem;
+    padding: 0.25rem 0.6rem;
+  }
+  .org-toggle.on {
+    color: var(--green);
+    border-color: var(--green);
   }
 </style>
