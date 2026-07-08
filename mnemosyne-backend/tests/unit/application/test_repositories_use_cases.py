@@ -65,6 +65,16 @@ class TestDiscovery:
         assert all(not r.enabled for r in repos)  # nothing auto-indexed (spec)
         assert queue.jobs == []
 
+    async def test_list_repositories_filters_by_organization(self, env):
+        use_cases, github, connection_uc, *_ = env
+        github.repos = [repo_data(1, "cyberdyne/a"), repo_data(2, "aminitech/b")]
+        connection = await connect(connection_uc)
+        await use_cases.discover(connection.id)
+        cyber = await use_cases.list_repositories(organization="CyberDyne")  # case-insensitive
+        assert [str(r.full_name) for r in cyber] == ["cyberdyne/a"]
+        allrepos = await use_cases.list_repositories()
+        assert len(allrepos) == 2
+
     async def test_discover_upserts_organizations(self):
         from tests.unit.application.fakes import FakeOrganizationPort
 

@@ -15,10 +15,23 @@
 <div class="page-head">
   <h1>Repositories</h1>
   {#if vm.repositories.length}
-    <span class="mono count">{vm.repositories.length} indexed</span>
+    <span class="mono count">
+      {vm.filtered.length}
+      {#if vm.filtered.length !== vm.repositories.length}of {vm.repositories.length}{/if}
+    </span>
   {/if}
 </div>
-<input class="filter" placeholder="Filter repositories… (name, language, mode)" bind:value={vm.filter} />
+<div class="filters">
+  <input class="filter" placeholder="Filter repositories… (name, language, mode)" bind:value={vm.filter} />
+  {#if vm.organizations.length > 1}
+    <select bind:value={vm.organizationFilter} class="org-select">
+      <option value="">All organizations</option>
+      {#each vm.organizations as org (org)}
+        <option value={org}>{org}</option>
+      {/each}
+    </select>
+  {/if}
+</div>
 {#if vm.error}<p class="error">{vm.error}</p>{/if}
 {#if vm.loading && vm.repositories.length === 0}
   <p class="muted">Loading…</p>
@@ -53,10 +66,19 @@
     font-size: 0.75rem;
     color: var(--tx3);
   }
-  .filter {
-    width: 100%;
-    max-width: 460px;
+  .filters {
+    display: flex;
+    gap: 0.6rem;
     margin: 0.9rem 0 1rem;
+    flex-wrap: wrap;
+  }
+  .filter {
+    flex: 1;
+    min-width: 240px;
+    max-width: 460px;
+  }
+  .org-select {
+    min-width: 180px;
   }
   .grid {
     display: grid;

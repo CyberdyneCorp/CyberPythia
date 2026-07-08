@@ -514,3 +514,28 @@ describe('ConnectionsViewModel organizations', () => {
     expect(vm.organizations.find((o) => o.login === 'aminitech')?.sync_enabled).toBe(false);
   });
 });
+
+describe('RepositoryListViewModel organization filter', () => {
+  it('derives organizations and filters by org + text together', async () => {
+    const api = {
+      listAll: async () => [
+        repo({ id: 'r1', full_name: 'CyberdyneCorp/auth', enabled: true }),
+        repo({ id: 'r2', full_name: 'CyberdyneCorp/pythia', enabled: true }),
+        repo({ id: 'r3', full_name: 'aminitech/x', enabled: false })
+      ]
+    };
+    const vm = new RepositoryListViewModel(api as never, 1);
+    await vm.load();
+    expect(vm.organizations).toEqual(['aminitech', 'CyberdyneCorp']);
+
+    vm.organizationFilter = 'CyberdyneCorp';
+    expect(vm.filtered.map((r) => r.id)).toEqual(['r1', 'r2']);
+
+    vm.filter = 'auth';
+    expect(vm.filtered.map((r) => r.id)).toEqual(['r1']);
+
+    vm.organizationFilter = '';
+    vm.filter = '';
+    expect(vm.filtered).toHaveLength(3);
+  });
+});

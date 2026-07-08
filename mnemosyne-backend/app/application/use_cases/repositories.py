@@ -82,8 +82,14 @@ class RepositoryUseCases:
             )
         return await self._repositories.list_all()
 
-    async def list_repositories(self, *, enabled_only: bool = False) -> list[Repository]:
-        return await self._repositories.list_all(enabled_only=enabled_only)
+    async def list_repositories(
+        self, *, enabled_only: bool = False, organization: str | None = None
+    ) -> list[Repository]:
+        repos = await self._repositories.list_all(enabled_only=enabled_only)
+        if organization:
+            owner = organization.lower()
+            repos = [r for r in repos if r.full_name.owner.lower() == owner]
+        return repos
 
     async def get(self, repository_id: UUID) -> Repository:
         repository = await self._repositories.get(repository_id)
