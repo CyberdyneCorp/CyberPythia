@@ -57,6 +57,8 @@ Repositories are addressed by full name (`owner/name`).
 | `mnemosyne_get_milestone_progress` | per-milestone burn-up + projected completion |
 | `mnemosyne_get_team_load` | load per assignee, reviewer load, bus-factor risk |
 | `mnemosyne_get_delivery_scorecard` | portfolio delivery roll-up |
+| `mnemosyne_list_organizations` | organizations discovered, with total/indexed repo counts |
+| `mnemosyne_list_organization_repositories` | all repositories in an org the credential can read |
 
 ## Error contract
 

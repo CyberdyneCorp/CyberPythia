@@ -11,6 +11,7 @@ export class RepositoryListViewModel {
   loading = $state(false);
   error = $state<string | null>(null);
   filter = $state('');
+  organizationFilter = $state('');
 
   constructor(
     private api: RepositoriesApi,
@@ -38,10 +39,20 @@ export class RepositoryListViewModel {
     }
   }
 
+  /** Distinct organization logins (owners) present in the loaded repositories, sorted. */
+  get organizations(): string[] {
+    const owners = new Set(this.repositories.map((r) => r.full_name.split('/')[0]));
+    return [...owners].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  }
+
   get filtered(): Repository[] {
     const needle = this.filter.trim().toLowerCase();
-    if (!needle) return this.repositories;
-    return this.repositories.filter((r) => r.full_name.toLowerCase().includes(needle));
+    const org = this.organizationFilter;
+    return this.repositories.filter((r) => {
+      if (org && r.full_name.split('/')[0] !== org) return false;
+      if (needle && !r.full_name.toLowerCase().includes(needle)) return false;
+      return true;
+    });
   }
 
   async setSelection(repo: Repository, enabled: boolean, mode?: IndexingMode): Promise<void> {

@@ -79,8 +79,11 @@ async def list_repositories(
     page: PageParam = 1,
     page_size: PageSizeParam = 50,
     enabled_only: bool = False,
+    organization: str | None = Query(default=None, max_length=200),
 ) -> Any:
-    repos = await use_cases.list_repositories(enabled_only=enabled_only)
+    repos = await use_cases.list_repositories(
+        enabled_only=enabled_only, organization=organization
+    )
     return paginate([repository_response(r) for r in repos], page, page_size)
 
 

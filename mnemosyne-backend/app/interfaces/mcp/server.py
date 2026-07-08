@@ -110,6 +110,46 @@ def build_mcp(
         ]
 
     @mcp.tool
+    async def mnemosyne_list_organizations() -> list[dict[str, Any]]:
+        """List the organizations Mnemosyne has discovered, with repository counts."""
+        await auth()
+        repos = await container.repositories.list_all()
+        stats: dict[str, dict[str, int]] = {}
+        for r in repos:
+            s = stats.setdefault(r.full_name.owner, {"total": 0, "indexed": 0})
+            s["total"] += 1
+            if r.enabled:
+                s["indexed"] += 1
+        return [
+            {"login": login, "total_repos": s["total"], "indexed_repos": s["indexed"]}
+            for login, s in sorted(stats.items(), key=lambda kv: kv[0].lower())
+        ]
+
+    @mcp.tool
+    async def mnemosyne_list_organization_repositories(
+        organization: str,
+    ) -> list[dict[str, Any]]:
+        """List every repository discovered in an organization (readable by the credential)."""
+        await auth()
+        owner = organization.lower()
+        repos = [
+            r
+            for r in await container.repositories.list_all()
+            if r.full_name.owner.lower() == owner
+        ]
+        return [
+            {
+                "full_name": str(r.full_name),
+                "description": r.description,
+                "primary_language": r.primary_language,
+                "indexed": r.enabled,
+                "indexing_mode": r.indexing_mode.value,
+                "last_synced_at": r.last_synced_at.isoformat() if r.last_synced_at else None,
+            }
+            for r in repos
+        ]
+
+    @mcp.tool
     async def mnemosyne_get_repository_summary(full_name: str) -> dict[str, Any]:
         """Get the indexed summary of a repository: metadata, docs presence, headline metrics."""
         await auth()
