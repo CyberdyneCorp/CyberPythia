@@ -90,6 +90,15 @@ class RepositorySelectionRequest(BaseModel):
     )
 
 
+class RepositorySelectionBulkRequest(BaseModel):
+    repository_ids: list[UUID] = Field(min_length=1, max_length=1000)
+    enabled: bool
+    indexing_mode: str | None = Field(
+        default=None,
+        pattern="^(docs_only|project_intelligence|code_metadata|code_context|full_context)$",
+    )
+
+
 class SyncStepResponse(BaseModel):
     step: str
     status: str

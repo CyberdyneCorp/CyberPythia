@@ -180,3 +180,28 @@ class TestTriggerSync:
         repo = await self.make_enabled_repo(env)
         job = await use_cases.trigger_sync(repo.id, triggered_by="admin-1")
         assert (await use_cases.sync_status(repo.id)).id == job.id
+
+
+class TestBulkSelection:
+    async def test_bulk_enable_and_disable(self, env):
+        use_cases, github, connection_uc, *_ = env
+        github.repos = [repo_data(1, "cyberdyne/a"), repo_data(2, "cyberdyne/b")]
+        connection = await connect(connection_uc)
+        repos = await use_cases.discover(connection.id)
+        ids = [r.id for r in repos]
+        from app.domain.value_objects.enums import IndexingMode
+        n = await use_cases.bulk_update_selection(
+            ids, enabled=True, mode=IndexingMode.CODE_METADATA
+        )
+        assert n == 2
+        after = await use_cases.list_repositories(enabled_only=True)
+        assert {str(r.full_name) for r in after} == {"cyberdyne/a", "cyberdyne/b"}
+        assert all(r.indexing_mode is IndexingMode.CODE_METADATA for r in after)
+        # disable all
+        assert await use_cases.bulk_update_selection(ids, enabled=False) == 2
+        assert await use_cases.list_repositories(enabled_only=True) == []
+
+    async def test_bulk_ignores_unknown_ids(self, env):
+        from uuid import uuid4
+        use_cases, *_ = env
+        assert await use_cases.bulk_update_selection([uuid4()], enabled=True) == 0

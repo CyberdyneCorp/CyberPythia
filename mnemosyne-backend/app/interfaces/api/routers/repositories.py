@@ -35,6 +35,7 @@ from app.interfaces.api.schemas.schemas import (
     FileContentResponse,
     Page,
     RepositoryResponse,
+    RepositorySelectionBulkRequest,
     RepositorySelectionRequest,
     SearchMatchResponse,
     SearchRequest,
@@ -121,6 +122,26 @@ async def update_selection(
         target=f"{repo.full_name}:enabled={body.enabled},mode={repo.indexing_mode.value}",
     )
     return repository_response(repo)
+
+
+@router.post("/selection")
+async def bulk_update_selection(
+    body: RepositorySelectionBulkRequest,
+    caller: AdminCaller,
+    use_cases: RepoUseCases,
+    audit: Audit,
+) -> Any:
+    updated = await use_cases.bulk_update_selection(
+        body.repository_ids,
+        enabled=body.enabled,
+        mode=IndexingMode(body.indexing_mode) if body.indexing_mode else None,
+    )
+    await audit.record(
+        caller,
+        "repos.selection_bulk",
+        target=f"enabled={body.enabled},mode={body.indexing_mode},count={updated}",
+    )
+    return {"updated": updated}
 
 
 @router.post("/{repo_id}/sync", response_model=SyncJobResponse, status_code=202)

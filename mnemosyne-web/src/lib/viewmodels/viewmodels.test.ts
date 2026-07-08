@@ -539,3 +539,46 @@ describe('RepositoryListViewModel organization filter', () => {
     expect(vm.filtered).toHaveLength(3);
   });
 });
+
+describe('RepositoryListViewModel bulk selection', () => {
+  it('enables all filtered repos in one call and updates state', async () => {
+    let capturedIds: string[] = [];
+    let capturedEnabled = false;
+    let calls = 0;
+    const api = {
+      listAll: async () => [
+        repo({ id: 'r1', full_name: 'CyberdyneCorp/a', enabled: false }),
+        repo({ id: 'r2', full_name: 'CyberdyneCorp/b', enabled: false }),
+        repo({ id: 'r3', full_name: 'aminitech/x', enabled: false })
+      ],
+      bulkSelection: async (ids: string[], enabled: boolean) => {
+        calls += 1;
+        capturedIds = ids;
+        capturedEnabled = enabled;
+        return { updated: ids.length };
+      }
+    };
+    const vm = new RepositoryListViewModel(api as never, 1);
+    await vm.load();
+    vm.organizationFilter = 'CyberdyneCorp';
+    await vm.bulkSetSelection(true, 'code_metadata' as never);
+    expect(calls).toBe(1); // one request, not per-repo
+    expect([...capturedIds].sort()).toEqual(['r1', 'r2']); // only the filtered org
+    expect(capturedEnabled).toBe(true);
+    expect(vm.repositories.find((r) => r.id === 'r1')?.enabled).toBe(true);
+    expect(vm.repositories.find((r) => r.id === 'r3')?.enabled).toBe(false); // untouched
+  });
+
+  it('surfaces bulk errors', async () => {
+    const api = {
+      listAll: async () => [repo({ id: 'r1', full_name: 'o/a', enabled: true })],
+      bulkSelection: async () => {
+        throw new ApiError(500, 'server', 'bulk boom');
+      }
+    };
+    const vm = new RepositoryListViewModel(api as never, 1);
+    await vm.load();
+    await vm.bulkSetSelection(false);
+    expect(vm.error).toBe('bulk boom');
+  });
+});

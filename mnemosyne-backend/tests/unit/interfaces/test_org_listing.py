@@ -10,7 +10,7 @@ from app.domain.entities.repository import Repository
 from app.domain.value_objects.enums import IndexingMode, RepositoryVisibility
 from app.domain.value_objects.full_name import RepositoryFullName
 from app.interfaces.mcp.server import build_mcp
-from tests.unit.interfaces.test_api_endpoints import build_fake_container, user
+from tests.unit.interfaces.test_api_endpoints import admin, build_fake_container, user
 from tests.unit.interfaces.test_mcp_server import entitled_caller, payload, rejecting_caller
 
 NOW = datetime(2026, 7, 8, tzinfo=UTC)
@@ -68,6 +68,57 @@ class TestRestFilter:
             r = await client.get("/api/v1/repos?page_size=50", headers=user())
         owners = {i["full_name"].split("/")[0] for i in r.json()["items"]}
         assert owners == {"CyberdyneCorp", "aminitech", "EpicGames"}
+
+
+class TestBulkSelection:
+    async def test_bulk_enable_filtered_set(self, client, container):
+        await _seed(container)
+        repos = await container.repositories.list_all()
+        cyber = [str(r.id) for r in repos if r.full_name.owner == "CyberdyneCorp"]
+        async with client:
+            r = await client.post(
+                "/api/v1/repos/selection",
+                json={"repository_ids": cyber, "enabled": True,
+                      "indexing_mode": "code_metadata"},
+                headers=admin(),
+            )
+        assert r.status_code == 200
+        assert r.json()["updated"] == 2
+        after = {str(x.id): x for x in await container.repositories.list_all()}
+        for rid in cyber:
+            assert after[rid].enabled is True
+            assert after[rid].indexing_mode.value == "code_metadata"
+
+    async def test_bulk_disable(self, client, container):
+        await _seed(container)
+        repos = await container.repositories.list_all()
+        ids = [str(r.id) for r in repos if r.enabled]
+        async with client:
+            r = await client.post(
+                "/api/v1/repos/selection",
+                json={"repository_ids": ids, "enabled": False}, headers=admin(),
+            )
+        assert r.json()["updated"] == len(ids)
+        assert not any(x.enabled for x in await container.repositories.list_all())
+
+    async def test_unknown_ids_ignored(self, client, container):
+        await _seed(container)
+        async with client:
+            r = await client.post(
+                "/api/v1/repos/selection",
+                json={"repository_ids": [str(uuid4())], "enabled": True}, headers=admin(),
+            )
+        assert r.status_code == 200 and r.json()["updated"] == 0
+
+    async def test_non_admin_rejected(self, client, container):
+        await _seed(container)
+        rid = str((await container.repositories.list_all())[0].id)
+        async with client:
+            r = await client.post(
+                "/api/v1/repos/selection",
+                json={"repository_ids": [rid], "enabled": True}, headers=user(),
+            )
+        assert r.status_code == 403
 
 
 class TestMcpTools:

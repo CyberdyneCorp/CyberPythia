@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-07-08
+goal: Let an admin enable or disable indexing for many repositories at once
+  (e.g. all of one organization) without per-repo clicks
