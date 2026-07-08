@@ -15,7 +15,10 @@ without a second round-trip.
 from __future__ import annotations
 
 import logging
+import tempfile
+from pathlib import Path
 
+import fastmcp
 from fastmcp.server.auth.auth import AccessToken, TokenVerifier
 from fastmcp.server.auth.oauth_proxy import OAuthProxy
 
@@ -75,6 +78,19 @@ def build_oauth_proxy(auth_port: AuthPort, settings: Settings) -> OAuthProxy:
         raise ValueError("mcp_oauth_public_base_url is required when MCP OAuth is enabled")
     if not settings.mcp_oauth_client_id or not settings.mcp_oauth_client_secret:
         raise ValueError("mcp_oauth_client_id/secret are required when MCP OAuth is enabled")
+
+    # OAuthProxy persists DCR client registrations under FastMCP's home dir,
+    # which defaults to ~/.local/share/fastmcp. The container runs as a non-root
+    # user with no writable $HOME, so that mkdir fails and the server crashes on
+    # boot. Point FastMCP's home at a writable, guaranteed-existing directory
+    # before construction. Ephemeral across restarts (clients re-register after a
+    # redeploy) unless MCP_OAUTH_STORAGE_DIR points at a persistent volume.
+    storage_home = Path(
+        settings.mcp_oauth_storage_dir
+        or Path(tempfile.gettempdir()) / "mnemosyne-fastmcp"
+    )
+    storage_home.mkdir(parents=True, exist_ok=True)
+    fastmcp.settings.home = storage_home  # OAuthProxy reads this singleton
 
     verifier = CompositeTokenVerifier(
         auth_port,
