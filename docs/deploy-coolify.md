@@ -80,6 +80,24 @@ DNS-rebinding protection returns 421 for Host headers not on the allowlist.
 
 The API container runs `alembic upgrade head` on boot.
 
+### One-click MCP OAuth (optional, off by default)
+
+To let `claude.ai` / Claude Desktop connect with no hand-pasted token, enable the
+`mnemosyne-mcp` OAuth proxy (bridges to CyberdyneAuth, which lacks DCR):
+
+1. Provision a CyberdyneAuth confidential client `mnemosyne-mcp` —
+   `grant_types: [authorization_code, refresh_token]`,
+   `allowed_audiences: ["mnemosyne"]`, redirect URI
+   `https://mnemosyne.mcp.<domain>/auth/callback`.
+2. Set on `mnemosyne-mcp`: `MCP_OAUTH_ENABLED=true`,
+   `MCP_OAUTH_PUBLIC_BASE_URL=https://mnemosyne.mcp.<domain>`,
+   `MCP_OAUTH_CLIENT_ID`, `MCP_OAUTH_CLIENT_SECRET` (🔒).
+
+When enabled the server serves `/.well-known/oauth-authorization-server`,
+`/.well-known/oauth-protected-resource/mcp`, `/register` (DCR), `/authorize`,
+`/token`, and `/auth/callback`. API-key (`mnem_…`) and direct-bearer auth keep
+working unchanged. The logged-in user must hold the `mnemosyne` entitlement.
+
 ## 4. Rollout order (design: Migration Plan)
 
 1. Deploy; wait until `GET /api/v1/health` returns `"status": "ok"`.

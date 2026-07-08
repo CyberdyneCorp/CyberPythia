@@ -15,7 +15,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
-from fastmcp.server.dependencies import get_http_headers
+from fastmcp.server.dependencies import get_access_token, get_http_headers
 
 from app.application.errors import ApplicationError, RepositoryNotSyncedError
 from app.composition import Container, build_container
@@ -25,6 +25,7 @@ from app.domain.ports.auth_port import AuthUnavailableError, TokenInvalidError
 from app.domain.services.issue_metrics import IssueMetricsService
 from app.domain.services.pr_metrics import PullRequestMetricsService
 from app.domain.value_objects.identity import CallerIdentity
+from app.interfaces.mcp.oauth import build_oauth_proxy, caller_from_access_token
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,11 @@ def build_mcp(
     settings = get_settings()
 
     async def default_authenticate() -> CallerIdentity:
+        # When OAuth is on, the transport already verified the bearer via the
+        # CompositeTokenVerifier and stashed the caller — reuse it (no re-verify).
+        cached = caller_from_access_token(get_access_token())
+        if cached is not None:
+            return cached
         # include_all: FastMCP strips `authorization` from the default header view
         headers = get_http_headers(include_all=True)
         authorization = headers.get("authorization", "")
@@ -65,14 +71,22 @@ def build_mcp(
 
     auth = authenticate or default_authenticate
 
+    # Attach the OAuthProxy so DCR-only clients (claude.ai) can obtain a token.
+    # Additive: its verifier delegates to auth_port, so API keys + bearers still
+    # authenticate. Disabled by default → today's behavior is unchanged.
+    oauth_provider = None
+    if settings.mcp_oauth_enabled:
+        oauth_provider = build_oauth_proxy(container.auth_port, settings)
+
     mcp: FastMCP = FastMCP(
         name="Mnemosyne",
+        auth=oauth_provider,
         instructions=(
             "GitHub context & memory layer. Tools answer questions about indexed "
             "repositories: documentation, OpenSpec changes, issues, pull requests, "
             "engineering metrics, and task-specific context packs. Repositories are "
             "addressed by full name (owner/name). All tools require a CyberdyneAuth "
-            "bearer token with the 'mnemosyne' entitlement."
+            "bearer token with the 'mnemosyne' entitlement, or a Mnemosyne API key."
         ),
     )
 
