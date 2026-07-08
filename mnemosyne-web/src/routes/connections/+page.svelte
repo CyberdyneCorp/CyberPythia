@@ -34,10 +34,17 @@
 
 <h1>GitHub Connection</h1>
 <p class="muted">
-  Register a read-only fine-grained personal access token (Contents, Issues, Pull requests,
-  Metadata). The token is encrypted at rest and never shown again. Admin only.
+  Connect GitHub with one of two credential options. Both are read-only, encrypted at rest, and
+  admin only. The credential's <strong>hourly rate limit</strong> governs how many repositories the
+  nightly sync can cover — check it with <em>Test connection</em> below.
 </p>
 
+<h2>Fine-grained PAT</h2>
+<p class="muted small">
+  A read-only fine-grained token (Contents, Issues, Pull requests, Metadata). A <strong>personal</strong>
+  token is ~5,000 requests/hour; an <strong>organization</strong> fine-grained PAT gets a higher org
+  quota — prefer an org PAT when syncing many repos.
+</p>
 <form class="card" onsubmit={submit}>
   <label for="token">Fine-grained PAT</label>
   <div class="row">
@@ -55,9 +62,10 @@
 </form>
 
 <h2>GitHub App (recommended)</h2>
-<p class="muted">
-  Register a GitHub App installation for short-lived scoped tokens and near-real-time
-  webhook updates. Point the App webhook at <code>/api/v1/webhooks/github</code>.
+<p class="muted small">
+  A GitHub App installation gives short-lived scoped tokens, a higher installation rate limit, and
+  near-real-time <strong>webhook</strong> updates. Point the App webhook at
+  <code>/api/v1/webhooks/github</code>. Best option for large orgs.
 </p>
 <form class="card" onsubmit={submitApp}>
   <div class="row">
@@ -186,6 +194,9 @@
     <div class="row">
       <strong>{connection.owner}</strong>
       <span class="badge">{connection.owner_type}</span>
+      <span class="badge {connection.kind === 'github_app' ? 'ok' : ''}">
+        {connection.kind === 'github_app' ? 'GitHub App' : 'PAT'}
+      </span>
       <span class="badge {connection.status === 'active' ? 'ok' : 'err'}">{connection.status}</span>
       <span class="muted">…{connection.token_hint}</span>
     </div>
@@ -195,7 +206,12 @@
       <p class={test.ok ? '' : 'error'}>
         test: {test.ok ? 'ok' : 'failed'}
         {#if test.rate_limit}
-          — rate limit {test.rate_limit.remaining}/{test.rate_limit.limit}{/if}
+          — rate limit <strong>{test.rate_limit.remaining.toLocaleString()}</strong> /
+          {test.rate_limit.limit.toLocaleString()} per hour
+          {#if test.rate_limit.limit <= 5000}
+            <span class="badge warn">low — consider an org PAT or GitHub App</span>
+          {/if}
+        {/if}
       </p>
     {/if}
     <div class="row">
