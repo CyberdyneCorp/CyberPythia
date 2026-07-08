@@ -25,7 +25,7 @@ from app.domain.ports.auth_port import AuthUnavailableError, TokenInvalidError
 from app.domain.services.issue_metrics import IssueMetricsService
 from app.domain.services.pr_metrics import PullRequestMetricsService
 from app.domain.value_objects.identity import CallerIdentity
-from app.interfaces.mcp.oauth import build_oauth_proxy, caller_from_access_token
+from app.interfaces.mcp.oauth import build_mcp_auth, caller_from_access_token
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ def build_mcp(
     # authenticate. Disabled by default → today's behavior is unchanged.
     oauth_provider = None
     if settings.mcp_oauth_enabled:
-        oauth_provider = build_oauth_proxy(container.auth_port, settings)
+        oauth_provider = build_mcp_auth(container.auth_port, settings)
 
     mcp: FastMCP = FastMCP(
         name="Mnemosyne",
