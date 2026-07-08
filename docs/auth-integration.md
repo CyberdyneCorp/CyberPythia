@@ -102,3 +102,14 @@ curl -H "Authorization: Bearer $KEY" https://mnemosyne.../api/v1/repos
 Management endpoints (all admin-only): `POST /api/v1/api-keys`,
 `GET /api/v1/api-keys` (metadata only — never the plaintext), and
 `DELETE /api/v1/api-keys/{id}`.
+
+## One-click MCP OAuth (optional)
+
+When enabled (`MCP_OAUTH_ENABLED`, off by default), the MCP server runs a FastMCP
+`OAuthProxy` so DCR-capable clients (claude.ai, Claude Desktop) connect with no
+hand-pasted token: the client self-registers, the user logs in against
+CyberdyneAuth, and the resulting **user** token authorizes via the `mnemosyne`
+entitlement (no audience needed — same as the web app). It bridges to CyberdyneAuth
+because CyberdyneAuth supports auth-code + PKCE but not DCR. API-key (`mnem_…`) and
+direct-bearer auth remain available on the same server — all three coexist. See
+`docs/deploy-coolify.md` for setup.

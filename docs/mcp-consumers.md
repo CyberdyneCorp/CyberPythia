@@ -21,6 +21,16 @@ async with Client(transport) as client:
 
 Claude Code: `claude mcp add --transport http mnemosyne https://mnemosyne-mcp.<domain>/mcp --header "Authorization: Bearer <token>"`.
 
+### One-click OAuth (claude.ai / Claude Desktop)
+
+When the server has OAuth enabled (see deploy doc), DCR-capable clients connect
+by pasting just the URL `https://mnemosyne-mcp.<domain>/mcp` — the client
+registers itself, runs a browser login against CyberdyneAuth, and stores the
+resulting token. No `--header` and no API key needed. The signed-in user must
+hold the `mnemosyne` entitlement. Header-based clients (Claude Code, OpenAI,
+`mcp-remote`) can keep using an API key or bearer against the same server — both
+auth paths are live simultaneously.
+
 ## Tools
 
 Repositories are addressed by full name (`owner/name`).

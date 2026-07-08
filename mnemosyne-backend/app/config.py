@@ -51,6 +51,17 @@ class Settings(BaseSettings):
     # MCP server bind port
     mcp_port: int = 8100
 
+    # MCP one-click OAuth (FastMCP OAuthProxy bridging to CyberdyneAuth).
+    # Off by default — ships dark; additive to API-key + bearer auth.
+    mcp_oauth_enabled: bool = False
+    mcp_oauth_public_base_url: str = ""  # public MCP origin, e.g. https://mnemosyne.mcp.<domain>
+    mcp_oauth_client_id: str = ""  # CyberdyneAuth confidential client `mnemosyne-mcp`
+    mcp_oauth_client_secret: str = ""
+    mcp_oauth_redirect_path: str = "/auth/callback"
+    # Upstream endpoints — derived from the issuer when empty (see properties below)
+    mcp_oauth_authorize_url: str = ""
+    mcp_oauth_token_url: str = ""
+
     # Embeddings (design D7)
     openai_api_key: str = ""
     embedding_model: str = "text-embedding-3-small"
@@ -93,6 +104,17 @@ class Settings(BaseSettings):
     @property
     def token_url(self) -> str:
         return f"{self.cyberdyneauth_issuer}/api/v1/auth/oauth2/token"
+
+    @property
+    def mcp_oauth_upstream_authorize_url(self) -> str:
+        return (
+            self.mcp_oauth_authorize_url
+            or f"{self.cyberdyneauth_issuer}/api/v1/auth/oauth2/authorize"
+        )
+
+    @property
+    def mcp_oauth_upstream_token_url(self) -> str:
+        return self.mcp_oauth_token_url or self.token_url
 
 
 @lru_cache
