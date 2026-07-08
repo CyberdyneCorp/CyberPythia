@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     # Where OAuthProxy persists DCR client registrations. Empty → a writable temp
     # dir (the container user has no usable $HOME). Point at a volume to persist.
     mcp_oauth_storage_dir: str = ""
+    # Scopes advertised to clients + defaulted onto the upstream authorize request.
+    # CyberdyneAuth requires a scope (min `openid`); `offline_access` yields refresh.
+    mcp_oauth_scopes: str = "openid profile email offline_access"
     # Upstream endpoints — derived from the issuer when empty (see properties below)
     mcp_oauth_authorize_url: str = ""
     mcp_oauth_token_url: str = ""

@@ -122,6 +122,10 @@ def build_oauth_proxy(verifier: CompositeTokenVerifier, settings: Settings) -> O
         token_verifier=verifier,
         base_url=settings.mcp_oauth_public_base_url,
         redirect_path=settings.mcp_oauth_redirect_path,
+        # Advertise + default these scopes so the upstream authorize always carries
+        # one (CyberdyneAuth rejects a scope-less request) and clients can obtain a
+        # refresh token via `offline_access`.
+        valid_scopes=settings.mcp_oauth_scopes.split(),
         # User tokens authorize via the `mnemosyne` entitlement (introspection),
         # not an audience — so no resource/audience is forwarded upstream.
         forward_resource=False,
