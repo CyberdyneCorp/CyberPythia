@@ -94,6 +94,19 @@ class TestBuildOAuthProxy:
         with pytest.raises(ValueError, match="client_id/secret"):
             build_oauth_proxy(FakeAuthPort(), _oauth_settings(mcp_oauth_client_secret=""))
 
+    def test_points_fastmcp_home_at_a_writable_created_dir(self, tmp_path):
+        # Regression: OAuthProxy persists DCR clients under FastMCP's home dir,
+        # which defaults to ~/.local/share/fastmcp — unwritable for the container's
+        # no-$HOME user, crashing boot. build_oauth_proxy must create + use a
+        # writable storage dir instead.
+        import fastmcp
+
+        storage = tmp_path / "does" / "not" / "exist" / "yet"
+        assert not storage.exists()
+        build_oauth_proxy(FakeAuthPort(), _oauth_settings(mcp_oauth_storage_dir=str(storage)))
+        assert storage.is_dir()  # created, parents and all
+        assert fastmcp.settings.home == storage  # the singleton OAuthProxy reads
+
 
 class TestBuildMcpFeatureFlag:
     def test_oauth_disabled_by_default(self, monkeypatch):

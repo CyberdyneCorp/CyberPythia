@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     mcp_oauth_client_id: str = ""  # CyberdyneAuth confidential client `mnemosyne-mcp`
     mcp_oauth_client_secret: str = ""
     mcp_oauth_redirect_path: str = "/auth/callback"
+    # Where OAuthProxy persists DCR client registrations. Empty → a writable temp
+    # dir (the container user has no usable $HOME). Point at a volume to persist.
+    mcp_oauth_storage_dir: str = ""
     # Upstream endpoints — derived from the issuer when empty (see properties below)
     mcp_oauth_authorize_url: str = ""
     mcp_oauth_token_url: str = ""
