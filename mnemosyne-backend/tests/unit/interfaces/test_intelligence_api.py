@@ -359,3 +359,25 @@ class TestCapabilitiesRest:
             )
         assert r.status_code == 200
         assert "document" in r.json()
+
+
+class TestOpenSpecCoverageRest:
+    async def test_coverage_endpoint(self, client, container):
+        from app.domain.entities.openspec_change import OpenSpecChange
+        from app.domain.value_objects.enums import OpenSpecStatus
+
+        repo = await seed_repo(container)  # cyberdyne/a — no openspec
+        await container.openspec.save(OpenSpecChange(
+            id=uuid4(), repository_id=repo.id, change_id="c1", path="p",
+            status=OpenSpecStatus.ACTIVE, affected_specs=["auth"],
+        ))
+        owner = repo.full_name.owner
+        async with client:
+            r = await client.get(
+                f"/api/v1/intelligence/organizations/{owner}/openspec-coverage", headers=user()
+            )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["total"] == 1
+        assert {x["full_name"] for x in body["with_openspec"]} == {str(repo.full_name)}
+        assert body["coverage"] == 1.0

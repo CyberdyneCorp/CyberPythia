@@ -244,3 +244,12 @@ async def organization_capabilities(
     """What the org can do right now: union of capabilities + per-project briefs."""
     service = request.app.state.container.capabilities
     return await service.organization_capabilities(organization)
+
+
+@router.get("/organizations/{organization}/openspec-coverage")
+async def organization_openspec_coverage(
+    organization: str, caller: EntitledCaller, request: Request
+) -> Any:
+    """Repositories in the org partitioned into with / without OpenSpec + coverage ratio."""
+    service = request.app.state.container.capabilities
+    return await service.organization_openspec_coverage(organization)
