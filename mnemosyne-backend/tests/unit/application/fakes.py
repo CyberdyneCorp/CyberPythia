@@ -37,6 +37,20 @@ class FakeGitHubAppAuth:
             raise GitHubAppError("bad app credentials")
         return f"ghs_inst_{installation_id}"
 
+    async def convert_manifest_code(self, code):
+        from app.domain.ports.github_app_port import (
+            AppManifestCredentials,
+            GitHubAppError,
+        )
+
+        if self.fails:
+            raise GitHubAppError("manifest conversion failed")
+        return AppManifestCredentials(
+            app_id="424242", private_key_pem="-----BEGIN PRIVATE KEY-----\nk\n-----END",
+            webhook_secret="whsec", owner_login="cyberdyne",
+            html_url="https://github.com/apps/mnemosyne-cyberdyne", slug="mnemosyne-cyberdyne",
+        )
+
 
 class FakeConnectionPort:
     def __init__(self):

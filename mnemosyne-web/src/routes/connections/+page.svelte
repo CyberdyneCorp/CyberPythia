@@ -19,6 +19,26 @@
   let keyExpiry = $state('90'); // days; '' = never
   let copied = $state(false);
 
+  import { page } from '$app/state';
+  const appConnected = $derived(page.url.searchParams.get('app_connected') === '1');
+  const appError = $derived(page.url.searchParams.get('app_error'));
+
+  // Fetch the manifest, then hand the browser off to GitHub via a POST form.
+  async function createApp(org: string) {
+    const boot = await vm.fetchAppManifest(org);
+    if (!boot) return;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = boot.post_url;
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'manifest';
+    input.value = JSON.stringify(boot.manifest);
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+  }
+
   $effect(() => {
     void vm.load();
     void vm.loadDeliveries();
@@ -59,6 +79,12 @@
 </script>
 
 <h1>GitHub Connection</h1>
+{#if appConnected}
+  <p class="banner ok">✓ GitHub App connected. Run discovery to index its repositories.</p>
+{/if}
+{#if appError}
+  <p class="banner err">GitHub App setup failed: {appError}</p>
+{/if}
 <p class="muted">
   Connect GitHub with one of two credential options. Both are read-only, encrypted at rest, and
   admin only. The credential's <strong>hourly rate limit</strong> governs how many repositories the
@@ -90,8 +116,10 @@
 <h2>GitHub App (recommended)</h2>
 <p class="muted small">
   A GitHub App installation gives short-lived scoped tokens, a higher installation rate limit, and
-  near-real-time <strong>webhook</strong> updates. Point the App webhook at
-  <code>/api/v1/webhooks/github</code>. Best option for large orgs.
+  near-real-time <strong>webhook</strong> updates — the best option for large orgs. Easiest path:
+  use <strong>Create App</strong> next to an organization below (one-click — Mnemosyne pre-fills
+  permissions/webhook and captures the credentials automatically). Or register an existing App
+  manually here:
 </p>
 <form class="card" onsubmit={submitApp}>
   <div class="row">
@@ -256,6 +284,9 @@
                 onclick={() => vm.indexOrganization(org.login, false)}
               >
                 Un-index all
+              </button>
+              <button class="secondary org-idx" onclick={() => createApp(org.login)}>
+                Create App
               </button>
             </td>
           </tr>
@@ -431,5 +462,19 @@
   .org-idx.danger {
     color: var(--red);
     border-color: var(--red);
+  }
+  .banner {
+    padding: 0.5rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    margin: 0.4rem 0 0.8rem;
+  }
+  .banner.ok {
+    color: var(--green);
+    border: 1px solid var(--green);
+  }
+  .banner.err {
+    color: var(--red);
+    border: 1px solid var(--red);
   }
 </style>

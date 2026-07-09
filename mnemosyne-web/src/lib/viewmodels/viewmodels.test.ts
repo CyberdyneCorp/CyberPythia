@@ -816,3 +816,29 @@ describe('IntelligenceViewModel server-scoped portfolio', () => {
     expect(vm.overview?.total_repositories).toBe(1);
   });
 });
+
+describe('ConnectionsViewModel GitHub App manifest', () => {
+  it('fetches the manifest bootstrap for an org', async () => {
+    const githubApi = {
+      appManifest: async (org: string) => ({
+        manifest: { name: `Mnemosyne-${org}` },
+        post_url: `https://github.com/organizations/${org}/settings/apps/new?state=s`,
+        state: 's'
+      })
+    };
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never, {} as never);
+    const boot = await vm.fetchAppManifest('CyberdyneCorp');
+    expect(boot?.post_url).toContain('CyberdyneCorp/settings/apps/new');
+  });
+
+  it('surfaces an error and returns null on failure', async () => {
+    const githubApi = {
+      appManifest: async () => {
+        throw new ApiError(403, 'admin_required', 'admin only');
+      }
+    };
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never, {} as never);
+    expect(await vm.fetchAppManifest('x')).toBeNull();
+    expect(vm.error).toBe('admin only');
+  });
+});

@@ -5,7 +5,17 @@ installation tokens (1 hour) instead of a broad personal PAT, plus webhooks
 that keep the index fresh within seconds of a change. PAT connections keep
 working; the App is additive.
 
-## 1. Create the GitHub App (once)
+## 0. One-click create + install (recommended)
+
+Dashboard → **GitHub Connection** → next to an organization, click **Create App**.
+Mnemosyne hands you off to GitHub with a pre-filled manifest (read-only Contents/
+Issues/Pull-requests/Metadata, the webhook event set, and the webhook URL); you
+click **Create GitHub App**, GitHub returns to Mnemosyne which **captures the App ID,
+private key, and webhook secret automatically**, then sends you to **Install** the App
+(pick repositories). On return the connection is active — no copy/paste. Requires org
+owner rights (GitHub enforces). The manual steps below remain as a fallback.
+
+## 1. Create the GitHub App (once, manual fallback)
 
 GitHub → org **Settings → Developer settings → GitHub Apps → New GitHub App**:
 

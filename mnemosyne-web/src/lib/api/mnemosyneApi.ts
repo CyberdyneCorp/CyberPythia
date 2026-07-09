@@ -3,6 +3,7 @@ import type { HttpClient } from '$lib/api/http';
 import type {
   ApiKey,
   ApiKeyCreated,
+  AppManifestBootstrap,
   AskResult,
   CodeChunkMatch,
   Connection,
@@ -76,6 +77,11 @@ export class GitHubApi {
     return this.http.patch(`/api/v1/github/organizations/${encodeURIComponent(login)}`, {
       sync_enabled: syncEnabled
     });
+  }
+  appManifest(organization: string): Promise<AppManifestBootstrap> {
+    return this.http.get(
+      `/api/v1/github/app/manifest?organization=${encodeURIComponent(organization)}`
+    );
   }
   bulkSelectionByOrg(
     organization: string,

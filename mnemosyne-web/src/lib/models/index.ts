@@ -25,6 +25,12 @@ export interface Organization {
   enabled_repos: number;
 }
 
+export interface AppManifestBootstrap {
+  manifest: Record<string, unknown>;
+  post_url: string;
+  state: string;
+}
+
 export interface ApiKey {
   id: string;
   label: string;
