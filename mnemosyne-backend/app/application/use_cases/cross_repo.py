@@ -48,8 +48,9 @@ class CrossRepoService:
                 query, repository_ids=repo_ids, limit=limit
             )
             return [
-                {"full_name": _name(names, m.repository_id), "path": m.path,
-                 "title": m.title, "excerpt": m.excerpt, "score": round(m.score, 3)}
+                {"repository_id": str(m.repository_id), "full_name": _name(names, m.repository_id),
+                 "path": m.path, "title": m.title, "excerpt": m.excerpt,
+                 "score": round(m.score, 3)}
                 for m in matches
             ]
         if kind == "code":
@@ -57,8 +58,8 @@ class CrossRepoService:
                 query, repository_ids=repo_ids, limit=limit
             )
             return [
-                {"full_name": _name(names, m.repository_id), "path": m.path,
-                 "symbol": m.symbol_name, "start_line": m.start_line,
+                {"repository_id": str(m.repository_id), "full_name": _name(names, m.repository_id),
+                 "path": m.path, "symbol": m.symbol_name, "start_line": m.start_line,
                  "excerpt": m.excerpt, "score": round(m.score, 3)}
                 for m in code
             ]
@@ -77,6 +78,7 @@ class CrossRepoService:
                 score = sum(hay.count(t) for t in terms)
                 if score:
                     hits.append((score, {
+                        "repository_id": str(repo.id),
                         "full_name": str(repo.full_name), "number": issue.number,
                         "title": issue.title, "state": issue.state.value,
                         "labels": issue.labels, "score": score,
@@ -127,6 +129,7 @@ class CrossRepoService:
                 ts = issue.updated_at or issue.created_at
                 if ts is not None and ts < cutoff:
                     out.append({
+                        "repository_id": str(repo.id),
                         "full_name": str(repo.full_name), "number": issue.number,
                         "title": issue.title, "labels": issue.labels,
                         "updated_at": ts.isoformat(),
@@ -147,6 +150,7 @@ class CrossRepoService:
                 ts = pr.updated_at or pr.created_at
                 if ts is not None and ts < cutoff:
                     out.append({
+                        "repository_id": str(repo.id),
                         "full_name": str(repo.full_name), "number": pr.number,
                         "title": pr.title, "author": pr.author,
                         "updated_at": ts.isoformat(), "stale_days": (now - ts).days,
@@ -170,6 +174,7 @@ class CrossRepoService:
             for issue in await self.issues.list_by_repository(repo.id):
                 if issue.updated_at is not None:
                     issues.append({
+                        "repository_id": str(repo.id),
                         "full_name": str(repo.full_name), "number": issue.number,
                         "title": issue.title, "state": issue.state.value,
                         "updated_at": issue.updated_at.isoformat(),
@@ -177,6 +182,7 @@ class CrossRepoService:
             for pr in await self.pull_requests.list_by_repository(repo.id):
                 if pr.updated_at is not None:
                     prs.append({
+                        "repository_id": str(repo.id),
                         "full_name": str(repo.full_name), "number": pr.number,
                         "title": pr.title, "state": pr.state.value, "merged": pr.merged,
                         "updated_at": pr.updated_at.isoformat(),
@@ -185,7 +191,7 @@ class CrossRepoService:
         prs.sort(key=lambda p: p["updated_at"], reverse=True)
         return {
             "recently_synced": [
-                {"full_name": str(r.full_name),
+                {"repository_id": str(r.id), "full_name": str(r.full_name),
                  "last_synced_at": r.last_synced_at.isoformat()}  # type: ignore[union-attr]
                 for r in synced[:limit]
             ],
@@ -201,6 +207,7 @@ def _name(names: dict[Any, str], repository_id: Any) -> str:
 
 def _repo_brief(r: Repository) -> dict[str, Any]:
     return {
+        "repository_id": str(r.id),
         "full_name": str(r.full_name),
         "description": r.description,
         "primary_language": r.primary_language,
