@@ -341,6 +341,18 @@ async def capabilities(repo_id: UUID, caller: EntitledCaller, container: Contain
         raise translate_error(exc) from exc
 
 
+@router.get("/{repo_id}/readiness")
+async def readiness(
+    repo_id: UUID, caller: EntitledCaller, use_cases: RepoUseCases, container: Container
+) -> Any:
+    """Classify the repository as MVP / READY / DONE with a per-check breakdown."""
+    try:
+        repo = await use_cases.get(repo_id)
+        return await cast(Any, container).readiness.repository_readiness(str(repo.full_name))
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
 @router.post("/{repo_id}/feature-document")
 async def feature_document(
     repo_id: UUID, caller: EntitledCaller, use_cases: CtxUseCases, audit: Audit

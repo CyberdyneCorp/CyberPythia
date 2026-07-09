@@ -46,6 +46,19 @@ def _has_manifest(paths: list[str]) -> bool:
     )
 
 
+def _has_dependabot(paths: list[str]) -> bool:
+    return any(p in (".github/dependabot.yml", ".github/dependabot.yaml") for p in paths)
+
+
+def _has_security_scanning(paths: list[str]) -> bool:
+    # CodeQL / Semgrep / Trivy / Snyk workflows under .github/workflows
+    return any(
+        p.startswith(".github/workflows/")
+        and any(t in p for t in ("codeql", "semgrep", "trivy", "snyk", "security"))
+        for p in paths
+    )
+
+
 def _basename_startswith(paths: list[str], prefix: str) -> bool:
     return any(p.rsplit("/", 1)[-1].startswith(prefix) for p in paths)
 
@@ -63,4 +76,6 @@ class RepositorySignalsService:
             has_dependency_manifest=_has_manifest(lowered),
             has_contributing=_basename_startswith(lowered, "contributing"),
             has_license=_basename_startswith(lowered, "license"),
+            has_dependabot=_has_dependabot(lowered),
+            has_security_scanning=_has_security_scanning(lowered),
         )

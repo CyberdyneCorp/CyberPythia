@@ -85,6 +85,8 @@ Repositories are addressed by full name (`owner/name`).
 | `mnemosyne_generate_feature_document` | grounded Markdown write-up of a project's features/capabilities |
 | `mnemosyne_list_repositories_with_openspec` | org repositories that have OpenSpec (per latest sync) |
 | `mnemosyne_list_repositories_missing_openspec` | org repositories missing OpenSpec (adoption targets) |
+| `mnemosyne_get_repository_readiness` | observable readiness gate (MVP/READY/DONE) + per-check met/missing/unknown breakdown |
+| `mnemosyne_get_organization_readiness` | org gate distribution + per-repo gate and missing-for-READY checks |
 
 ## Error contract
 

@@ -195,6 +195,8 @@ def build_fake_container():
     from app.application.use_cases.api_keys import ApiKeyUseCases
     from app.application.use_cases.capabilities import CapabilitiesService
     from app.application.use_cases.cross_repo import CrossRepoService
+    from app.application.use_cases.readiness import ReadinessService
+    from app.domain.services.repository_signals import RepositorySignalsService
 
     return SimpleNamespace(
         settings=None,
@@ -231,6 +233,10 @@ def build_fake_container():
         delivery_intelligence=delivery_intelligence,
         cross_repo=CrossRepoService(repositories, issues, prs, embeddings),
         capabilities=CapabilitiesService(repositories, documents, openspec, metrics_store),
+        readiness=ReadinessService(
+            repositories, files, documents, openspec, metrics_store,
+            RepositorySignalsService(),
+        ),
         metrics_history=metrics_history,
         milestones=milestones_port,
     )

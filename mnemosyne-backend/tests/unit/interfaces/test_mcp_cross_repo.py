@@ -268,3 +268,67 @@ class TestCapabilities:
             )
         body = payload(res)
         assert "document" in body and isinstance(body["document"], str)
+
+
+class TestReadiness:
+    async def _seed_ready(self, container, *, ci=True, tests=True):
+        from app.domain.entities.document import Document
+        from app.domain.entities.openspec_change import OpenSpecChange
+        from app.domain.entities.source_file import SourceFile
+        from app.domain.value_objects.enums import DocumentType, OpenSpecStatus
+
+        repo = Repository(
+            id=uuid4(), connection_id=uuid4(), github_id=7,
+            full_name=RepositoryFullName("CyberdyneCorp/ready"), description="d",
+            visibility=RepositoryVisibility.PRIVATE, default_branch="main",
+            primary_language="Python", archived=False, github_updated_at=NOW,
+            enabled=True, indexing_mode=IndexingMode.CODE_METADATA, last_synced_at=NOW,
+        )
+        await container.repositories.save(repo)
+        paths = []
+        if ci:
+            paths.append(".github/workflows/ci.yml")
+        if tests:
+            paths.append("tests/test_app.py")
+        files = [
+            SourceFile(id=uuid4(), repository_id=repo.id, path=p, extension="x",
+                       language="Python", size_bytes=1, sha="s")
+            for p in paths
+        ]
+        await container.files.replace_tree(repo.id, files)
+        await container.openspec.save(OpenSpecChange(
+            id=uuid4(), repository_id=repo.id, change_id="c", path="p",
+            status=OpenSpecStatus.ACTIVE, affected_specs=["core"]))
+        for t, title in [(DocumentType.README, "R"), (DocumentType.DOCS, "Guide")]:
+            await container.documents.save(Document(
+                id=uuid4(), repository_id=repo.id, path=f"{title}.md", type=t,
+                title=title, content="c", content_hash="h", last_commit_sha=None))
+        await container.metrics_store.save(
+            repo.id, computed_at=NOW.isoformat(),
+            issue_metrics={"open_count": 2, "closed_count": 4, "by_label": {}},
+            pr_metrics={"open_count": 0, "merged_count": 6}, summary={})
+        return repo
+
+    async def test_repository_readiness_ready(self, mcp, container):
+        await self._seed_ready(container)
+        async with Client(mcp) as c:
+            res = payload(await c.call_tool(
+                "mnemosyne_get_repository_readiness", {"full_name": "CyberdyneCorp/ready"}))
+        assert res["gate"] == "READY"
+        assert res["ready_checks"]["ci"] == "met"
+
+    async def test_readiness_mvp_without_ci(self, mcp, container):
+        await self._seed_ready(container, ci=False)
+        async with Client(mcp) as c:
+            res = payload(await c.call_tool(
+                "mnemosyne_get_repository_readiness", {"full_name": "CyberdyneCorp/ready"}))
+        assert res["gate"] == "MVP"
+        assert "ci" in res["missing_for_ready"]
+
+    async def test_organization_readiness_distribution(self, mcp, container):
+        await self._seed_ready(container)
+        async with Client(mcp) as c:
+            res = payload(await c.call_tool(
+                "mnemosyne_get_organization_readiness", {"organization": "CyberdyneCorp"}))
+        assert res["distribution"]["READY"] == 1
+        assert res["total"] == 1

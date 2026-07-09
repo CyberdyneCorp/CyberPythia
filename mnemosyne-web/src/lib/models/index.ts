@@ -374,6 +374,22 @@ export interface OrganizationIntelligence {
   bug_heavy: string[];
 }
 
+export type ReadinessGate = 'MVP' | 'READY' | 'DONE';
+
+export interface ReadinessRepo {
+  repository_id: string;
+  full_name: string;
+  gate: ReadinessGate;
+  missing_for_ready: string[];
+}
+
+export interface OrganizationReadiness {
+  organization: string;
+  total: number;
+  distribution: Record<ReadinessGate, number>;
+  repositories: ReadinessRepo[];
+}
+
 export interface OpenSpecCoverageRepo {
   repository_id: string;
   full_name: string;

@@ -253,3 +253,11 @@ async def organization_openspec_coverage(
     """Repositories in the org partitioned into with / without OpenSpec + coverage ratio."""
     service = request.app.state.container.capabilities
     return await service.organization_openspec_coverage(organization)
+
+
+@router.get("/organizations/{organization}/readiness")
+async def organization_readiness(
+    organization: str, caller: EntitledCaller, request: Request
+) -> Any:
+    """MVP/READY/DONE distribution for the org + each repo's gate and gaps."""
+    return await request.app.state.container.readiness.organization_readiness(organization)
