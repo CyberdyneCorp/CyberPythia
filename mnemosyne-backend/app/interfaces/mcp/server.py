@@ -844,6 +844,26 @@ def build_mcp(
         return await container.capabilities.organization_capabilities(organization)
 
     @mcp.tool
+    async def mnemosyne_list_repositories_with_openspec(
+        organization: str,
+    ) -> list[dict[str, Any]]:
+        """Indexed repositories in an organization that have OpenSpec (per the latest sync)."""
+        await auth()
+        coverage = await container.capabilities.organization_openspec_coverage(organization)
+        rows: list[dict[str, Any]] = coverage["with_openspec"]
+        return rows
+
+    @mcp.tool
+    async def mnemosyne_list_repositories_missing_openspec(
+        organization: str,
+    ) -> list[dict[str, Any]]:
+        """Indexed repositories in an organization with no OpenSpec detected (adoption targets)."""
+        await auth()
+        coverage = await container.capabilities.organization_openspec_coverage(organization)
+        rows: list[dict[str, Any]] = coverage["without_openspec"]
+        return rows
+
+    @mcp.tool
     async def mnemosyne_generate_feature_document(full_name: str) -> dict[str, Any]:
         """Generate a Markdown document of the project's features/capabilities, grounded
         in indexed docs/OpenSpec/code (with citations). For "write up everything this

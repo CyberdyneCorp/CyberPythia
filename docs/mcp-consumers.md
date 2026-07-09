@@ -83,6 +83,8 @@ Repositories are addressed by full name (`owner/name`).
 | `mnemosyne_get_repository_capabilities` | one-call project overview: capabilities (OpenSpec areas), doc topics, **bug count**, issue/PR counts |
 | `mnemosyne_get_organization_capabilities` | what an org can do right now: union of capabilities + per-project briefs + total open bugs |
 | `mnemosyne_generate_feature_document` | grounded Markdown write-up of a project's features/capabilities |
+| `mnemosyne_list_repositories_with_openspec` | org repositories that have OpenSpec (per latest sync) |
+| `mnemosyne_list_repositories_missing_openspec` | org repositories missing OpenSpec (adoption targets) |
 
 ## Error contract
 

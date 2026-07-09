@@ -227,6 +227,27 @@ class TestCapabilities:
         assert body["issues"]["bugs"] == 3
         assert "Auth Service" in body["documentation_topics"]
 
+    async def test_openspec_coverage_partitions_repos(self, mcp, container):
+        # auth has openspec (seeded change); add a second repo without any openspec.
+        auth = await self._seed_caps(container)
+        _ = auth
+        plain = _repo("CyberdyneCorp", "plain")
+        await container.repositories.save(plain)
+        await container.metrics_store.save(
+            plain.id, computed_at=NOW.isoformat(),
+            issue_metrics={}, pr_metrics={},
+            summary={"has_openspec": False, "openspec_changes": 0},
+        )
+        async with Client(mcp) as c:
+            with_os = payload(await c.call_tool(
+                "mnemosyne_list_repositories_with_openspec", {"organization": "CyberdyneCorp"}
+            ))
+            missing = payload(await c.call_tool(
+                "mnemosyne_list_repositories_missing_openspec", {"organization": "CyberdyneCorp"}
+            ))
+        assert {r["full_name"] for r in with_os} == {"CyberdyneCorp/auth"}
+        assert "CyberdyneCorp/plain" in {r["full_name"] for r in missing}
+
     async def test_organization_capabilities(self, mcp, container):
         await self._seed_caps(container)
         async with Client(mcp) as c:

@@ -14,6 +14,7 @@ from app.application.use_cases.intelligence import MetricsReader
 from app.domain.entities.repository import Repository
 from app.domain.ports.persistence_ports import DocumentPort, OpenSpecPort, RepositoryPort
 from app.domain.services.intelligence_rules import bug_label_count
+from app.domain.value_objects.enums import DocumentType
 
 _MAX_TOPICS = 20
 
@@ -66,6 +67,42 @@ class CapabilitiesService:
         if repo is None or not repo.enabled:
             raise UnknownResourceError(f"repository {repository_id} is not indexed")
         return await self._capabilities_of(repo)
+
+    async def organization_openspec_coverage(self, organization: str) -> dict[str, Any]:
+        """Partition an org's indexed repositories into those with / missing OpenSpec.
+
+        Uses the canonical `has_openspec` signal from the latest sync (indexed OpenSpec
+        changes or an OpenSpec-type document). Never-synced repos have no signal and are
+        reported under `without_openspec` with a null `last_synced_at`.
+        """
+        owner = organization.lower()
+        repos = [
+            r
+            for r in await self.repositories.list_all(enabled_only=True)
+            if r.full_name.owner.lower() == owner
+        ]
+        with_os: list[dict[str, Any]] = []
+        without_os: list[dict[str, Any]] = []
+        for r in repos:
+            changes = await self.openspec.list_by_repository(r.id)
+            docs = await self.documents.list_by_repository(r.id)
+            # canonical signal: indexed OpenSpec changes OR an OpenSpec-type document
+            has = bool(changes) or any(d.type is DocumentType.OPENSPEC for d in docs)
+            brief = {
+                "repository_id": str(r.id),
+                "full_name": str(r.full_name),
+                "primary_language": r.primary_language,
+                "openspec_changes": len(changes),
+                "last_synced_at": r.last_synced_at.isoformat() if r.last_synced_at else None,
+            }
+            (with_os if has else without_os).append(brief)
+        return {
+            "organization": organization,
+            "total": len(repos),
+            "with_openspec": with_os,
+            "without_openspec": without_os,
+            "coverage": round(len(with_os) / len(repos), 3) if repos else 0.0,
+        }
 
     async def organization_capabilities(self, organization: str) -> dict[str, Any]:
         owner = organization.lower()
