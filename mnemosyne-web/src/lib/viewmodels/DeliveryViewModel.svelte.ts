@@ -17,11 +17,11 @@ export class DeliveryViewModel {
 
   constructor(private api: IntelligenceApi) {}
 
-  async loadScorecard(): Promise<void> {
+  async loadScorecard(organization?: string): Promise<void> {
     this.busy = true;
     this.error = null;
     try {
-      this.scorecard = (await this.api.deliveryScorecard()).scorecard;
+      this.scorecard = (await this.api.deliveryScorecard(organization)).scorecard;
     } catch (error) {
       this.error = error instanceof ApiError ? error.message : 'failed to load delivery scorecard';
     } finally {

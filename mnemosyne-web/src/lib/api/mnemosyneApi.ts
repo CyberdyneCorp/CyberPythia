@@ -232,8 +232,9 @@ export class CodeApi {
 export class IntelligenceApi {
   constructor(private http: HttpClient) {}
 
-  portfolio(): Promise<PortfolioOverview> {
-    return this.http.get('/api/v1/intelligence/portfolio');
+  portfolio(organization?: string): Promise<PortfolioOverview> {
+    const q = organization ? `?organization=${encodeURIComponent(organization)}` : '';
+    return this.http.get(`/api/v1/intelligence/portfolio${q}`);
   }
   health(repoId: string): Promise<RepositoryHealth> {
     return this.http.get(`/api/v1/intelligence/repositories/${repoId}/health`);
@@ -241,8 +242,9 @@ export class IntelligenceApi {
   maintenanceRisk(repoId: string): Promise<MaintenanceRisk> {
     return this.http.get(`/api/v1/intelligence/repositories/${repoId}/maintenance-risk`);
   }
-  deliveryScorecard(): Promise<{ scorecard: DeliveryScorecardEntry[] }> {
-    return this.http.get('/api/v1/intelligence/delivery-scorecard');
+  deliveryScorecard(organization?: string): Promise<{ scorecard: DeliveryScorecardEntry[] }> {
+    const q = organization ? `?organization=${encodeURIComponent(organization)}` : '';
+    return this.http.get(`/api/v1/intelligence/delivery-scorecard${q}`);
   }
   flow(repoId: string): Promise<FlowMetrics> {
     return this.http.get(`/api/v1/intelligence/repositories/${repoId}/flow`);

@@ -16,33 +16,14 @@
   let cardAll = $state(false);
   let org = $state(''); // '' = all organizations
 
+  // Everything is scoped server-side by the org filter: reloading portfolio,
+  // scorecard, the org rollup, and the activity/stale panels whenever it changes.
   $effect(() => {
-    void vm.loadPortfolio();
-    void deliveryVm.loadScorecard();
-  });
-
-  // Reload the org rollup + activity/stale panels whenever the org filter changes.
-  $effect(() => {
+    const scope = org || undefined;
+    void vm.loadPortfolio(scope);
+    void deliveryVm.loadScorecard(scope);
     void vm.loadOrgDetail(org);
   });
-
-  function owner(fullName: string): string {
-    return fullName.split('/')[0];
-  }
-
-  // Organizations present in the indexed intelligence data (the synced ones).
-  const organizations = $derived(
-    Array.from(
-      new Set([
-        ...(vm.overview?.leaderboard ?? []).map((e) => owner(e.full_name)),
-        ...deliveryVm.scorecard.map((e) => owner(e.full_name))
-      ])
-    ).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
-  );
-
-  function byOrg<T extends { full_name: string }>(list: T[]): T[] {
-    return org ? list.filter((e) => owner(e.full_name) === org) : list;
-  }
 
   function gradeColor(grade: string | null): string {
     if (grade === 'A' || grade === 'B') return 'var(--green)';
@@ -64,9 +45,9 @@
   }
 
   const board = $derived(
-    vm.overview ? matches(byOrg(vm.overview.leaderboard), boardFilter, boardAll) : []
+    vm.overview ? matches(vm.overview.leaderboard, boardFilter, boardAll) : []
   );
-  const cards = $derived(matches(byOrg(deliveryVm.scorecard), cardFilter, cardAll));
+  const cards = $derived(matches(deliveryVm.scorecard, cardFilter, cardAll));
 
   function arrow(d: string | null): string {
     if (d === 'down') return '↓ improving';
@@ -84,10 +65,10 @@
   {#if vm.overview}
     <span class="mono sub">{vm.overview.scored} of {vm.overview.total_repositories} scored</span>
   {/if}
-  {#if organizations.length > 1}
+  {#if vm.organizations.length > 1}
     <select class="org-select" bind:value={org} aria-label="Filter by organization">
       <option value="">All organizations</option>
-      {#each organizations as o (o)}<option value={o}>{o}</option>{/each}
+      {#each vm.organizations as o (o)}<option value={o}>{o}</option>{/each}
     </select>
   {/if}
 </div>
@@ -122,9 +103,9 @@
         {/if}
       </a>
     {/each}
-    {#if !boardFilter && byOrg(o.leaderboard).length > CAP}
+    {#if !boardFilter && o.leaderboard.length > CAP}
       <button class="showall secondary" onclick={() => (boardAll = !boardAll)}>
-        {boardAll ? 'Show top 25' : `Show all ${byOrg(o.leaderboard).length}`}
+        {boardAll ? 'Show top 25' : `Show all ${o.leaderboard.length}`}
       </button>
     {/if}
   </section>
@@ -183,9 +164,9 @@
         </tbody>
       </table>
     </div>
-    {#if !cardFilter && byOrg(deliveryVm.scorecard).length > CAP}
+    {#if !cardFilter && deliveryVm.scorecard.length > CAP}
       <button class="showall secondary" onclick={() => (cardAll = !cardAll)}>
-        {cardAll ? 'Show top 25' : `Show all ${byOrg(deliveryVm.scorecard).length}`}
+        {cardAll ? 'Show top 25' : `Show all ${deliveryVm.scorecard.length}`}
       </button>
     {/if}
   {:else if !deliveryVm.busy}

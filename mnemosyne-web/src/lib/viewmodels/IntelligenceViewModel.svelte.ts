@@ -11,6 +11,7 @@ import type {
 
 export class IntelligenceViewModel {
   overview = $state<PortfolioOverview | null>(null);
+  organizations = $state<string[]>([]); // stable full list (from the unscoped load)
   orgIntel = $state<OrganizationIntelligence | null>(null);
   activity = $state<RecentActivity | null>(null);
   staleIssues = $state<StaleItem[]>([]);
@@ -20,11 +21,18 @@ export class IntelligenceViewModel {
 
   constructor(private api: IntelligenceApi) {}
 
-  async loadPortfolio(): Promise<void> {
+  /** Load the (optionally org-scoped) portfolio. The org list is captured once from
+   *  the first unscoped load so the dropdown stays complete when scoped. */
+  async loadPortfolio(organization?: string): Promise<void> {
     this.busy = true;
     this.error = null;
     try {
-      this.overview = await this.api.portfolio();
+      this.overview = await this.api.portfolio(organization);
+      if (!organization && this.overview) {
+        this.organizations = Array.from(
+          new Set(this.overview.leaderboard.map((e) => e.full_name.split('/')[0]))
+        ).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+      }
     } catch (error) {
       this.error = error instanceof ApiError ? error.message : 'failed to load portfolio';
     } finally {
