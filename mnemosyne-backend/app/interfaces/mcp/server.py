@@ -18,6 +18,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.dependencies import get_access_token, get_http_headers
 
 from app.application.errors import ApplicationError, RepositoryNotSyncedError
+from app.application.use_cases.org_intelligence import build_org_intelligence
 from app.composition import Container, build_container
 from app.config import get_settings
 from app.domain.entities.repository import Repository
@@ -627,10 +628,16 @@ def build_mcp(
         return {"full_name": full_name, **asdict(result)}
 
     @mcp.tool
-    async def mnemosyne_get_portfolio_overview() -> dict[str, Any]:
-        """Cross-repo overview: health leaderboard, most-active, abandoned, bug-heavy repos."""
+    async def mnemosyne_get_portfolio_overview(
+        organization: str | None = None,
+    ) -> dict[str, Any]:
+        """Cross-repo overview: health leaderboard, most-active, abandoned, bug-heavy repos.
+
+        Pass `organization` (owner login) to scope the overview to one org; omit for
+        all indexed repositories.
+        """
         await auth()
-        return asdict(await container.intelligence.portfolio())
+        return asdict(await container.intelligence.portfolio(organization=organization))
 
     @mcp.tool
     async def mnemosyne_compare_repositories(full_names: list[str]) -> dict[str, Any]:
@@ -704,11 +711,34 @@ def build_mcp(
         return {"full_name": full_name, "milestones": [asdict(m) for m in result]}
 
     @mcp.tool
-    async def mnemosyne_get_delivery_scorecard() -> dict[str, Any]:
-        """Portfolio delivery scorecard: predictability, throughput direction, backlog, risk."""
+    async def mnemosyne_get_delivery_scorecard(
+        organization: str | None = None,
+    ) -> dict[str, Any]:
+        """Portfolio delivery scorecard: predictability, throughput direction, backlog, risk.
+
+        Pass `organization` (owner login) to scope to one org; omit for all repos.
+        """
         await auth()
-        board = await container.delivery_intelligence.delivery_scorecard()
+        board = await container.delivery_intelligence.delivery_scorecard(
+            organization=organization
+        )
         return {"scorecard": [asdict(e) for e in board]}
+
+    @mcp.tool
+    async def mnemosyne_get_organization_intelligence(organization: str) -> dict[str, Any]:
+        """One-call health + delivery rollup for an organization.
+
+        Aggregates the org's repositories: count, scored count, average/median health,
+        grade distribution, at-risk milestone total, throughput directions, and the
+        most-active / abandoned / bug-heavy lists — so an agent can answer "how is this
+        org doing overall?" without looping every repository.
+        """
+        await auth()
+        portfolio = await container.intelligence.portfolio(organization=organization)
+        scorecard = await container.delivery_intelligence.delivery_scorecard(
+            organization=organization
+        )
+        return build_org_intelligence(organization, portfolio, scorecard)
 
     return mcp
 

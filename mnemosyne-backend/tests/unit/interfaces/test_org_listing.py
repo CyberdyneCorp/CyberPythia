@@ -172,3 +172,24 @@ class TestMcpTools:
         with pytest.raises(ToolError):
             async with Client(mcp) as c:
                 await c.call_tool("mnemosyne_list_organizations", {})
+
+    async def test_portfolio_overview_org_scoped(self, mcp, container):
+        await _seed(container)
+        async with Client(mcp) as c:
+            result = await c.call_tool(
+                "mnemosyne_get_portfolio_overview", {"organization": "cyberdynecorp"}
+            )
+        body = payload(result)
+        names = {e["full_name"] for e in body["leaderboard"]}
+        assert names == {"CyberdyneCorp/auth", "CyberdyneCorp/pythia"}  # only that org, enabled
+
+    async def test_get_organization_intelligence(self, mcp, container):
+        await _seed(container)
+        async with Client(mcp) as c:
+            result = await c.call_tool(
+                "mnemosyne_get_organization_intelligence", {"organization": "cyberdynecorp"}
+            )
+        body = payload(result)
+        assert body["organization"] == "cyberdynecorp"
+        assert body["total_repositories"] == 2  # enabled CyberdyneCorp repos only
+        assert "average_health" in body and "grade_distribution" in body

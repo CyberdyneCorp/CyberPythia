@@ -68,6 +68,32 @@ class TestIntelligenceRest:
         assert body["scored"] == 1
         assert len(body["leaderboard"]) == 1
 
+    async def test_portfolio_org_scoped(self, client, container):
+        repo = await _seed_scored(container)  # owner from seed_repo
+        owner = str(repo.full_name).split("/")[0]
+        async with client:
+            match = await client.get(
+                f"/api/v1/intelligence/portfolio?organization={owner}", headers=user()
+            )
+            miss = await client.get(
+                "/api/v1/intelligence/portfolio?organization=nonexistent", headers=user()
+            )
+        assert match.json()["total_repositories"] == 1
+        assert miss.json()["total_repositories"] == 0
+
+    async def test_organization_intelligence_endpoint(self, client, container):
+        repo = await _seed_scored(container)
+        owner = str(repo.full_name).split("/")[0]
+        async with client:
+            r = await client.get(
+                f"/api/v1/intelligence/organizations/{owner}/intelligence", headers=user()
+            )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["organization"] == owner
+        assert body["total_repositories"] == 1
+        assert "grade_distribution" in body and "average_health" in body
+
     @pytest.mark.parametrize(
         "path", ["health", "delivery", "backlog", "review-bottlenecks",
                  "maintenance-risk", "onboarding"]
