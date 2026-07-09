@@ -18,6 +18,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.dependencies import get_access_token, get_http_headers
 
 from app.application.errors import ApplicationError, RepositoryNotSyncedError
+from app.application.use_cases.context import FEATURE_DOCUMENT_PROMPT
 from app.application.use_cases.org_intelligence import build_org_intelligence
 from app.composition import Container, build_container
 from app.config import get_settings
@@ -818,6 +819,44 @@ def build_mcp(
             )
         except ValueError as exc:
             return _error("invalid_kind", str(exc))
+
+    # -- capability / feature composites (PM/PO one-call answers) --------------
+
+    @mcp.tool
+    async def mnemosyne_get_repository_capabilities(full_name: str) -> dict[str, Any]:
+        """What a project does, in one call: capabilities (OpenSpec spec areas),
+        documentation topics, open/closed issue counts, **bug count**, and PR counts.
+
+        Answers PM/PO questions like "which capabilities does this project have?" and
+        "how many bugs does it have?" without several tool calls.
+        """
+        await auth()
+        try:
+            return await container.capabilities.repository_capabilities(full_name)
+        except ApplicationError as exc:
+            return _error("unknown_repository", str(exc))
+
+    @mcp.tool
+    async def mnemosyne_get_organization_capabilities(organization: str) -> dict[str, Any]:
+        """What an organization can do right now: the union of capabilities across its
+        indexed repositories, total open bugs, and a per-project capability brief."""
+        await auth()
+        return await container.capabilities.organization_capabilities(organization)
+
+    @mcp.tool
+    async def mnemosyne_generate_feature_document(full_name: str) -> dict[str, Any]:
+        """Generate a Markdown document of the project's features/capabilities, grounded
+        in indexed docs/OpenSpec/code (with citations). For "write up everything this
+        project does"."""
+        await auth()
+        repository = await _resolve_repo(full_name)
+        if isinstance(repository, dict):
+            return repository
+        result = await container.context_use_cases.ask(
+            repository.id, FEATURE_DOCUMENT_PROMPT
+        )
+        return {"full_name": str(repository.full_name), "document": result["answer"],
+                "sources": result["sources"], "grounded": result["grounded"]}
 
     return mcp
 

@@ -35,6 +35,14 @@ INSUFFICIENT_CONTEXT_MESSAGE = (
     "Indexed content types for this repository: {types}."
 )
 
+FEATURE_DOCUMENT_PROMPT = (
+    "Write a Markdown document titled '# Features' that catalogs this project's "
+    "capabilities and features, grouped into logical sections, each with a one-line "
+    "description. Base it strictly on the provided context (documentation, OpenSpec "
+    "specs, code); do not invent features. If the context is thin, list only what is "
+    "supported and say so."
+)
+
 
 class ContextUseCases:
     def __init__(

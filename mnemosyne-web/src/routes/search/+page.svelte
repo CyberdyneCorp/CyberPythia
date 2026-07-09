@@ -60,6 +60,20 @@
   {:else if vm.searched && !vm.busy}
     <p class="muted">No repositories match.</p>
   {/if}
+{:else if vm.kind === 'code' && vm.results.length}
+  <div class="results">
+    {#each vm.results as r, i (i)}
+      <div class="code-hit">
+        <a class="code-loc" href={`/repos/${r.repository_id}?tab=files`}>
+          <span class="name">{r.full_name}</span>
+          <span class="mono path">{r.path}{r.start_line ? `:${r.start_line}` : ''}</span>
+          {#if r.symbol}<span class="mono sym">{r.symbol}</span>{/if}
+          <span class="mono score">{r.score.toFixed(2)}</span>
+        </a>
+        {#if r.excerpt}<pre class="snippet">{r.excerpt}</pre>{/if}
+      </div>
+    {/each}
+  </div>
 {:else if vm.results.length}
   <div class="results">
     {#each vm.results as r, i (i)}
@@ -134,5 +148,34 @@
   .score {
     color: var(--tx3);
     font-size: 0.75rem;
+  }
+  .code-hit {
+    border-bottom: 1px solid var(--bd, rgba(127, 127, 127, 0.12));
+    padding: 0.5rem 0.8rem;
+  }
+  .code-loc {
+    display: flex;
+    gap: 0.6rem;
+    align-items: baseline;
+    text-decoration: none;
+    color: inherit;
+    flex-wrap: wrap;
+  }
+  .code-loc .path {
+    color: var(--accent, #e8a33d);
+    font-size: 0.78rem;
+  }
+  .code-loc .sym {
+    font-size: 0.75rem;
+    color: var(--tx2);
+  }
+  .snippet {
+    margin: 0.4rem 0 0;
+    padding: 0.5rem 0.7rem;
+    background: var(--panel2, rgba(127, 127, 127, 0.08));
+    border-radius: 5px;
+    font-size: 0.76rem;
+    overflow-x: auto;
+    white-space: pre-wrap;
   }
 </style>

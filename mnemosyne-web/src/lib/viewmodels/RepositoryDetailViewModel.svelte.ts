@@ -4,16 +4,19 @@ import type { RepositoriesApi } from '$lib/api/mnemosyneApi';
 import type {
   Document,
   DocumentSummary,
+  FeatureDocument,
   Issue,
   Metrics,
   OpenSpecChange,
   PullRequest,
+  RepositoryCapabilities,
   RepositorySummary,
   SourceFile
 } from '$lib/models';
 
 export type Tab =
   | 'overview'
+  | 'capabilities'
   | 'documentation'
   | 'openspec'
   | 'issues'
@@ -26,6 +29,9 @@ export type Tab =
 export class RepositoryDetailViewModel {
   tab = $state<Tab>('overview');
   summary = $state<RepositorySummary | null>(null);
+  capabilities = $state<RepositoryCapabilities | null>(null);
+  featureDoc = $state<FeatureDocument | null>(null);
+  featureDocBusy = $state(false);
   docs = $state<DocumentSummary[]>([]);
   selectedDoc = $state<Document | null>(null);
   openspec = $state<OpenSpecChange[]>([]);
@@ -49,6 +55,9 @@ export class RepositoryDetailViewModel {
       switch (tab) {
         case 'overview':
           this.summary = await this.api.summary(this.repoId);
+          break;
+        case 'capabilities':
+          this.capabilities = await this.api.capabilities(this.repoId);
           break;
         case 'documentation':
           this.docs = (await this.api.docs(this.repoId)).items;
@@ -76,6 +85,19 @@ export class RepositoryDetailViewModel {
       this.error = error instanceof ApiError ? error.message : `failed to load ${tab}`;
     } finally {
       this.loading = false;
+    }
+  }
+
+  async generateFeatureDoc(): Promise<void> {
+    if (this.featureDocBusy) return;
+    this.featureDocBusy = true;
+    this.error = null;
+    try {
+      this.featureDoc = await this.api.featureDocument(this.repoId);
+    } catch (error) {
+      this.error = error instanceof ApiError ? error.message : 'failed to generate document';
+    } finally {
+      this.featureDocBusy = false;
     }
   }
 

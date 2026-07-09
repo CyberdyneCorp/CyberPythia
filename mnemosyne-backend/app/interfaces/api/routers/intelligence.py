@@ -235,3 +235,12 @@ async def recent_activity(
     organization: str | None = None, limit: int = 15,
 ) -> Any:
     return await cross_repo.recent_activity(organization=organization, limit=limit)
+
+
+@router.get("/organizations/{organization}/capabilities")
+async def organization_capabilities(
+    organization: str, caller: EntitledCaller, request: Request
+) -> Any:
+    """What the org can do right now: union of capabilities + per-project briefs."""
+    service = request.app.state.container.capabilities
+    return await service.organization_capabilities(organization)

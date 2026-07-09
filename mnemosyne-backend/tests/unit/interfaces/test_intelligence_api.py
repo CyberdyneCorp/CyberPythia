@@ -304,3 +304,58 @@ class TestCrossRepoRest:
             )
         assert r.status_code == 200
         assert any(x["full_name"] == str(repo.full_name) for x in r.json()["repositories"])
+
+
+class TestCapabilitiesRest:
+    async def _seed_caps(self, container):
+        from app.domain.entities.document import Document
+        from app.domain.entities.openspec_change import OpenSpecChange
+        from app.domain.value_objects.enums import DocumentType, OpenSpecStatus
+
+        repo = await seed_repo(container)  # cyberdyne/a
+        await container.openspec.save(OpenSpecChange(
+            id=uuid4(), repository_id=repo.id, change_id="c1", path="p",
+            status=OpenSpecStatus.ACTIVE, affected_specs=["search", "auth"],
+        ))
+        await container.documents.save(Document(
+            id=uuid4(), repository_id=repo.id, path="README.md", type=DocumentType.README,
+            title="Overview", content="c", content_hash="h", last_commit_sha=None,
+        ))
+        await container.metrics_store.save(
+            repo.id, computed_at=NOW.isoformat(),
+            issue_metrics={"open_count": 2, "closed_count": 5, "by_label": {"bug": 1}},
+            pr_metrics={"open_count": 0, "merged_count": 3}, summary={},
+        )
+        return repo
+
+    async def test_repo_capabilities_endpoint(self, client, container):
+        repo = await self._seed_caps(container)
+        async with client:
+            r = await client.get(
+                f"/api/v1/repos/{repo.id}/capabilities", headers=user()
+            )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["capabilities"] == ["auth", "search"]
+        assert body["issues"]["bugs"] == 1
+
+    async def test_org_capabilities_endpoint(self, client, container):
+        await self._seed_caps(container)
+        owner = "cyberdyne"
+        async with client:
+            r = await client.get(
+                f"/api/v1/intelligence/organizations/{owner}/capabilities", headers=user()
+            )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["repositories"] == 1
+        assert "auth" in body["capabilities"] and body["total_open_bugs"] == 1
+
+    async def test_feature_document_endpoint(self, client, container):
+        repo = await self._seed_caps(container)
+        async with client:
+            r = await client.post(
+                f"/api/v1/repos/{repo.id}/feature-document", headers=user()
+            )
+        assert r.status_code == 200
+        assert "document" in r.json()

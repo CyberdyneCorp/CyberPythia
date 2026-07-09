@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from app.application.audit import AuditService
 from app.application.errors import ApplicationError
 from app.application.use_cases.code import CodeUseCases
-from app.application.use_cases.context import ContextUseCases
+from app.application.use_cases.context import FEATURE_DOCUMENT_PROMPT, ContextUseCases
 from app.application.use_cases.repositories import RepositoryUseCases
 from app.domain.value_objects.enums import IndexingMode
 from app.interfaces.api.errors import NotFoundError
@@ -330,6 +330,29 @@ async def ask(
         raise translate_error(exc) from exc
     await audit.record(caller, "repos.ask", target=str(repo_id))
     return result
+
+
+@router.get("/{repo_id}/capabilities")
+async def capabilities(repo_id: UUID, caller: EntitledCaller, container: Container) -> Any:
+    """One-call project overview: capabilities, doc topics, bug count, issue/PR counts."""
+    try:
+        return await cast(Any, container).capabilities.repository_capabilities_by_id(repo_id)
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
+@router.post("/{repo_id}/feature-document")
+async def feature_document(
+    repo_id: UUID, caller: EntitledCaller, use_cases: CtxUseCases, audit: Audit
+) -> Any:
+    """Generate a grounded Markdown features document for the repository."""
+    try:
+        result = await use_cases.ask(repo_id, FEATURE_DOCUMENT_PROMPT)
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+    await audit.record(caller, "repos.feature_document", target=str(repo_id))
+    return {"document": result["answer"], "sources": result["sources"],
+            "grounded": result["grounded"]}
 
 
 @router.post("/{repo_id}/context-pack", response_model=ContextPackResponse)

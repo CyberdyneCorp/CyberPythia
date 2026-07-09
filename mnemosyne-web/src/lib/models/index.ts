@@ -415,6 +415,24 @@ export interface RecentActivity {
   }[];
 }
 
+export interface RepositoryCapabilities {
+  full_name: string;
+  description: string | null;
+  primary_language: string | null;
+  capabilities: string[];
+  openspec_changes: number;
+  documentation_topics: string[];
+  documents: number;
+  issues: { open: number; closed: number; bugs: number };
+  pull_requests: { open: number; merged: number };
+}
+
+export interface FeatureDocument {
+  document: string;
+  sources: { path: string }[];
+  grounded: boolean;
+}
+
 export interface RepositoryBrief {
   repository_id: string;
   full_name: string;

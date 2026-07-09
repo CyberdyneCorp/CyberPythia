@@ -764,3 +764,30 @@ describe('IntelligenceViewModel org detail', () => {
     expect(vm.orgIntel).toBeNull();
   });
 });
+
+describe('RepositoryDetailViewModel capabilities', () => {
+  it('loads capabilities on the capabilities tab', async () => {
+    const api = {
+      capabilities: async () => ({
+        full_name: 'org/a', description: 'd', primary_language: 'Go',
+        capabilities: ['auth'], openspec_changes: 1, documentation_topics: ['Readme'],
+        documents: 1, issues: { open: 2, closed: 3, bugs: 1 }, pull_requests: { open: 0, merged: 4 }
+      })
+    };
+    const { RepositoryDetailViewModel } = await import('./RepositoryDetailViewModel.svelte');
+    const vm = new RepositoryDetailViewModel(api as never, 'r1');
+    await vm.open('capabilities');
+    expect(vm.capabilities?.capabilities).toEqual(['auth']);
+    expect(vm.capabilities?.issues.bugs).toBe(1);
+  });
+
+  it('generates a feature document', async () => {
+    const api = {
+      featureDocument: async () => ({ document: '# Features\n- x', sources: [], grounded: true })
+    };
+    const { RepositoryDetailViewModel } = await import('./RepositoryDetailViewModel.svelte');
+    const vm = new RepositoryDetailViewModel(api as never, 'r1');
+    await vm.generateFeatureDoc();
+    expect(vm.featureDoc?.document).toContain('# Features');
+  });
+});
