@@ -101,6 +101,32 @@ class PgVectorEmbeddingStore:
             for chunk, doc, dist in rows
         ]
 
+    async def search_global(
+        self, query: str, *, repository_ids: list[UUID] | None = None, limit: int = 8
+    ) -> list[ChunkMatch]:
+        (query_vector,) = await self._embed_texts([query])
+        async with self._session_factory() as session:
+            distance = DocumentChunkRow.embedding.cosine_distance(query_vector)
+            stmt = (
+                select(DocumentChunkRow, DocumentRow, distance.label("distance"))
+                .join(DocumentRow, DocumentRow.id == DocumentChunkRow.document_id)
+            )
+            if repository_ids is not None:
+                stmt = stmt.where(DocumentChunkRow.repository_id.in_(repository_ids))
+            rows = (await session.execute(stmt.order_by(distance).limit(limit))).all()
+        return [
+            ChunkMatch(
+                document_id=chunk.document_id,
+                path=doc.path,
+                title=doc.title,
+                doc_type=doc.type,
+                excerpt=chunk.content[:EXCERPT_CHARS],
+                score=max(0.0, 1.0 - float(dist)),
+                repository_id=chunk.repository_id,
+            )
+            for chunk, doc, dist in rows
+        ]
+
     async def embed_source_chunks(
         self, repository_id: UUID, chunks: list[EmbeddableChunk]
     ) -> int:
@@ -143,6 +169,36 @@ class PgVectorEmbeddingStore:
                 end_line=chunk.end_line,
                 excerpt=chunk.content[:EXCERPT_CHARS],
                 score=max(0.0, 1.0 - float(dist)),
+            )
+            for chunk, file, dist in rows
+        ]
+
+    async def search_code_global(
+        self, query: str, *, repository_ids: list[UUID] | None = None, limit: int = 8
+    ) -> list[CodeChunkMatch]:
+        (query_vector,) = await self._embed_texts([query])
+        async with self._session_factory() as session:
+            distance = SourceChunkRow.embedding.cosine_distance(query_vector)
+            stmt = (
+                select(SourceChunkRow, SourceFileRow, distance.label("distance"))
+                .join(SourceFileRow, SourceFileRow.id == SourceChunkRow.file_id)
+                .where(SourceChunkRow.embedding.is_not(None))
+            )
+            if repository_ids is not None:
+                stmt = stmt.where(SourceChunkRow.repository_id.in_(repository_ids))
+            rows = (await session.execute(stmt.order_by(distance).limit(limit))).all()
+        return [
+            CodeChunkMatch(
+                chunk_id=chunk.id,
+                file_id=chunk.file_id,
+                path=file.path,
+                symbol_name=chunk.symbol_name,
+                chunk_type=chunk.chunk_type,
+                start_line=chunk.start_line,
+                end_line=chunk.end_line,
+                excerpt=chunk.content[:EXCERPT_CHARS],
+                score=max(0.0, 1.0 - float(dist)),
+                repository_id=chunk.repository_id,
             )
             for chunk, file, dist in rows
         ]

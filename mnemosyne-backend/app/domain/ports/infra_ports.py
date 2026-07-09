@@ -33,6 +33,7 @@ class ChunkMatch:
     doc_type: str
     excerpt: str
     score: float
+    repository_id: UUID | None = None  # set by global search; None for per-repo
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +47,7 @@ class CodeChunkMatch:
     end_line: int
     excerpt: str
     score: float
+    repository_id: UUID | None = None  # set by global search; None for per-repo
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,12 +69,20 @@ class EmbeddingPort(Protocol):
         self, repository_id: UUID, query: str, *, limit: int = 8
     ) -> list[ChunkMatch]: ...
 
+    async def search_global(
+        self, query: str, *, repository_ids: list[UUID] | None = None, limit: int = 8
+    ) -> list[ChunkMatch]: ...
+
     async def embed_source_chunks(
         self, repository_id: UUID, chunks: list[EmbeddableChunk]
     ) -> int: ...
 
     async def search_code(
         self, repository_id: UUID, query: str, *, limit: int = 8
+    ) -> list[CodeChunkMatch]: ...
+
+    async def search_code_global(
+        self, query: str, *, repository_ids: list[UUID] | None = None, limit: int = 8
     ) -> list[CodeChunkMatch]: ...
 
 

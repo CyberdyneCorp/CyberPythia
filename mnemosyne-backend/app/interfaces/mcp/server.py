@@ -740,6 +740,85 @@ def build_mcp(
         )
         return build_org_intelligence(organization, portfolio, scorecard)
 
+    # -- cross-repo tools ------------------------------------------------------
+
+    @mcp.tool
+    async def mnemosyne_find_repositories(
+        query: str, limit: int = 10
+    ) -> list[dict[str, Any]]:
+        """Fuzzy-find indexed repositories by name/description/language.
+
+        Use this to resolve a vague reference (e.g. "the auth repo") into the exact
+        `owner/name` other tools expect, when you don't already know it.
+        """
+        await auth()
+        return await container.cross_repo.find_repositories(query, limit=limit)
+
+    @mcp.tool
+    async def mnemosyne_get_repository_metrics(full_name: str) -> dict[str, Any]:
+        """Raw computed metrics snapshot for a repository (issue/PR/doc counts, cycle
+        times, label breakdowns) — the unscored inputs behind the health/delivery tools."""
+        await auth()
+        repository = await _resolve_repo(full_name)
+        if isinstance(repository, dict):
+            return repository
+        metrics = await container.metrics_store.get(repository.id)
+        if metrics is None:
+            return _error(
+                "no_metrics", f"repository '{full_name}' has no computed metrics yet"
+            )
+        return {"full_name": str(repository.full_name), "metrics": metrics}
+
+    @mcp.tool
+    async def mnemosyne_find_stale_issues_across_repos(
+        organization: str | None = None, threshold_days: int = 30, limit: int = 50
+    ) -> list[dict[str, Any]]:
+        """Open issues with no activity beyond the threshold, across all indexed repos
+        (or one `organization`), oldest first — portfolio-wide triage in one call."""
+        await auth()
+        return await container.cross_repo.find_stale_issues(
+            organization=organization, threshold_days=threshold_days, limit=limit
+        )
+
+    @mcp.tool
+    async def mnemosyne_find_stale_prs_across_repos(
+        organization: str | None = None, threshold_days: int = 30, limit: int = 50
+    ) -> list[dict[str, Any]]:
+        """Open pull requests with no activity beyond the threshold, across all indexed
+        repos (or one `organization`), oldest first."""
+        await auth()
+        return await container.cross_repo.find_stale_prs(
+            organization=organization, threshold_days=threshold_days, limit=limit
+        )
+
+    @mcp.tool
+    async def mnemosyne_get_recent_activity(
+        organization: str | None = None, limit: int = 15
+    ) -> dict[str, Any]:
+        """Recent cross-repo activity: most recently synced repositories plus the latest
+        updated issues and pull requests (all indexed repos, or one `organization`)."""
+        await auth()
+        return await container.cross_repo.recent_activity(
+            organization=organization, limit=limit
+        )
+
+    @mcp.tool
+    async def mnemosyne_search_all(
+        query: str, kind: str = "docs", organization: str | None = None, limit: int = 8
+    ) -> list[dict[str, Any]] | dict[str, Any]:
+        """Search across many repositories at once (not one repo). kind: docs | code | issues.
+
+        docs/code are semantic; issues are keyword-ranked. Scope to one `organization`
+        or omit for all indexed repos. Each result carries its repository `full_name`.
+        """
+        await auth()
+        try:
+            return await container.cross_repo.search(
+                query, kind=kind, organization=organization, limit=limit
+            )
+        except ValueError as exc:
+            return _error("invalid_kind", str(exc))
+
     return mcp
 
 

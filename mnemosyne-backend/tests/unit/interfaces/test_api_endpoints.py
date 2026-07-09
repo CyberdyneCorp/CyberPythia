@@ -61,11 +61,17 @@ class FakeSearchEmbeddings:
     async def search(self, repository_id, query, *, limit=8):
         return self.matches[:limit]
 
+    async def search_global(self, query, *, repository_ids=None, limit=8):
+        return getattr(self, "global_matches", [])[:limit]
+
     async def embed_source_chunks(self, repository_id, chunks):
         return len(chunks)
 
     async def search_code(self, repository_id, query, *, limit=8):
         return getattr(self, "code_matches", [])[:limit]
+
+    async def search_code_global(self, query, *, repository_ids=None, limit=8):
+        return getattr(self, "global_code_matches", [])[:limit]
 
 
 class FakeContextPackPort:
@@ -187,6 +193,7 @@ def build_fake_container():
         repositories, issues, prs, milestones_port, metrics_history, metrics_store,
     )
     from app.application.use_cases.api_keys import ApiKeyUseCases
+    from app.application.use_cases.cross_repo import CrossRepoService
 
     return SimpleNamespace(
         settings=None,
@@ -221,6 +228,7 @@ def build_fake_container():
         organizations=organizations,
         intelligence=intelligence,
         delivery_intelligence=delivery_intelligence,
+        cross_repo=CrossRepoService(repositories, issues, prs, embeddings),
         metrics_history=metrics_history,
         milestones=milestones_port,
     )
