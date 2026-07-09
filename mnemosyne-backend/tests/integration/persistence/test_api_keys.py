@@ -56,3 +56,15 @@ class TestApiKeyRoundTrip:
     async def test_revoke_unknown_returns_false(self, session_factory):
         adapter = PostgresApiKeyRepository(session_factory)
         assert await adapter.revoke(uuid4()) is False
+
+    async def test_delete_removes_row(self, session_factory):
+        adapter = PostgresApiKeyRepository(session_factory)
+        plaintext = generate_api_key()
+        key = _key(plaintext)
+        await adapter.save(key)
+        assert await adapter.delete(key.id) is True
+        assert await adapter.get_by_hash(hash_api_key(plaintext)) is None
+
+    async def test_delete_unknown_returns_false(self, session_factory):
+        adapter = PostgresApiKeyRepository(session_factory)
+        assert await adapter.delete(uuid4()) is False

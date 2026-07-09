@@ -58,10 +58,21 @@ async def list_api_keys(caller: AdminCaller, use_cases: UseCases) -> Any:
     return [ApiKeyResponse(**_metadata(k)) for k in keys]
 
 
-@router.delete("/{key_id}", status_code=204)
+@router.post("/{key_id}/revoke", status_code=204)
 async def revoke_api_key(
     key_id: UUID, caller: AdminCaller, use_cases: UseCases, audit: Audit
 ) -> None:
+    """Invalidate a key while keeping its record (audit trail)."""
     if not await use_cases.revoke(key_id):
         raise NotFoundError(f"api key '{key_id}' not found")
     await audit.record(caller, "apikey.revoke", target=str(key_id))
+
+
+@router.delete("/{key_id}", status_code=204)
+async def delete_api_key(
+    key_id: UUID, caller: AdminCaller, use_cases: UseCases, audit: Audit
+) -> None:
+    """Permanently remove a key from the store."""
+    if not await use_cases.delete(key_id):
+        raise NotFoundError(f"api key '{key_id}' not found")
+    await audit.record(caller, "apikey.delete", target=str(key_id))

@@ -668,4 +668,28 @@ describe('ConnectionsViewModel API keys', () => {
     await vm.revokeApiKey('k1');
     expect(vm.apiKeys[0].revoked).toBe(true);
   });
+
+  it('removes a key from the list on delete', async () => {
+    let removed: string | null = null;
+    const apiKeysApi = {
+      list: async () => [
+        {
+          id: 'k1', label: 'a', prefix: 'mnem_x', created_by: 'admin-1',
+          created_at: '2026-07-08T00:00:00Z', expires_at: null, revoked: true
+        },
+        {
+          id: 'k2', label: 'b', prefix: 'mnem_y', created_by: 'admin-1',
+          created_at: '2026-07-08T00:00:00Z', expires_at: null, revoked: false
+        }
+      ],
+      remove: async (id: string) => {
+        removed = id;
+      }
+    };
+    const vm = new ConnectionsViewModel({} as never, {} as never, apiKeysApi as never);
+    await vm.loadApiKeys();
+    await vm.deleteApiKey('k1');
+    expect(removed).toBe('k1');
+    expect(vm.apiKeys.map((k) => k.id)).toEqual(['k2']);
+  });
 });

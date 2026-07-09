@@ -660,3 +660,11 @@ class PostgresApiKeyRepository(PostgresRepositoryBase):
                 return False
             row.revoked = True
             return True
+
+    async def delete(self, key_id: UUID) -> bool:
+        async with self._session_factory() as session, session.begin():
+            row = await session.scalar(select(ApiKeyRow).where(ApiKeyRow.id == key_id))
+            if row is None:
+                return False
+            await session.delete(row)
+            return True
