@@ -4,6 +4,7 @@ import type { IntelligenceApi } from '$lib/api/mnemosyneApi';
 import type {
   OpenSpecCoverage,
   OrganizationIntelligence,
+  OrganizationReadiness,
   PortfolioOverview,
   RecentActivity,
   RepositoryHealth,
@@ -14,6 +15,7 @@ export class IntelligenceViewModel {
   overview = $state<PortfolioOverview | null>(null);
   organizations = $state<string[]>([]); // stable full list (from the unscoped load)
   orgIntel = $state<OrganizationIntelligence | null>(null);
+  readiness = $state<OrganizationReadiness | null>(null);
   openspec = $state<OpenSpecCoverage | null>(null);
   activity = $state<RecentActivity | null>(null);
   staleIssues = $state<StaleItem[]>([]);
@@ -55,6 +57,7 @@ export class IntelligenceViewModel {
       this.staleIssues = issues.stale;
       this.stalePrs = prs.stale;
       this.orgIntel = org ? await this.api.organizationIntelligence(org) : null;
+      this.readiness = org ? await this.api.organizationReadiness(org) : null;
       this.openspec = org ? await this.api.openspecCoverage(org) : null;
     } catch {
       // supplementary panels are best-effort; ignore load failures

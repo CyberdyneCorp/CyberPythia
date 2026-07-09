@@ -107,8 +107,11 @@ on a forward-only metrics time-series; see
 The dashboard also filters intelligence **by organization** (server-scoped
 leaderboard/scorecard plus an org overview, recent-activity, and stale-triage panels),
 surfaces per-repository **Capabilities** with a grounded **feature-document**
-generator, and offers a portfolio-wide **Search** page (documentation / code / issues
-across all repositories, or fuzzy repo lookup). The same organization rollups,
+generator, classifies each repository into an observable **readiness** gate
+(**MVP → READY → DONE**, decided purely from GitHub-observable signals — CI, tests,
+documented design, closed issues, merged PRs, dependency manifest, monitoring, and a
+low open-bug ratio), and offers a portfolio-wide **Search** page (documentation / code
+/ issues across all repositories, or fuzzy repo lookup). The same organization rollups,
 cross-repo search/stale finders, and capability / feature-document composites are
 available to agents over MCP and to services over REST — so PM/PO questions like
 "which capabilities does this project have?", "how many bugs?", or "what can my

@@ -864,6 +864,25 @@ def build_mcp(
         return rows
 
     @mcp.tool
+    async def mnemosyne_get_repository_readiness(full_name: str) -> dict[str, Any]:
+        """Classify a repository as MVP / READY / DONE from observable signals (CI, tests,
+        OpenSpec/ADRs, issues/PRs, docs, dependency hygiene, security scanning), with a
+        per-check met/missing/unknown breakdown. 'unknown' means the signal needs a
+        code-indexing mode (file tree) to detect."""
+        await auth()
+        try:
+            return await container.readiness.repository_readiness(full_name)
+        except ApplicationError as exc:
+            return _error("unknown_repository", str(exc))
+
+    @mcp.tool
+    async def mnemosyne_get_organization_readiness(organization: str) -> dict[str, Any]:
+        """Readiness distribution (MVP/READY/DONE counts) for an organization plus each
+        repository's gate and what it's missing to reach READY."""
+        await auth()
+        return await container.readiness.organization_readiness(organization)
+
+    @mcp.tool
     async def mnemosyne_generate_feature_document(full_name: str) -> dict[str, Any]:
         """Generate a Markdown document of the project's features/capabilities, grounded
         in indexed docs/OpenSpec/code (with citations). For "write up everything this

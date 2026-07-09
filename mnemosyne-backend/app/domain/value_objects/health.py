@@ -23,6 +23,8 @@ class RepositorySignals:
     has_dependency_manifest: bool | None = None
     has_contributing: bool | None = None
     has_license: bool | None = None
+    has_dependabot: bool | None = None  # .github/dependabot.yml
+    has_security_scanning: bool | None = None  # CodeQL / Semgrep workflow
 
 
 class Severity(StrEnum):

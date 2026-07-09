@@ -17,6 +17,7 @@ from app.application.use_cases.github_connections import GitHubConnectionUseCase
 from app.application.use_cases.incremental_sync import IncrementalSyncUseCases
 from app.application.use_cases.intelligence import IntelligenceService
 from app.application.use_cases.process_webhook import ProcessWebhookDelivery
+from app.application.use_cases.readiness import ReadinessService
 from app.application.use_cases.repositories import RepositoryUseCases
 from app.application.use_cases.scheduled_discovery import ScheduledDiscoveryService
 from app.application.use_cases.scheduled_sync import ScheduledSyncService
@@ -202,6 +203,13 @@ class Container:
     def capabilities(self) -> CapabilitiesService:
         return CapabilitiesService(
             self.repositories, self.documents, self.openspec, self.metrics_store
+        )
+
+    @cached_property
+    def readiness(self) -> ReadinessService:
+        return ReadinessService(
+            self.repositories, self.files, self.documents, self.openspec,
+            self.metrics_store, RepositorySignalsService(),
         )
 
     @cached_property

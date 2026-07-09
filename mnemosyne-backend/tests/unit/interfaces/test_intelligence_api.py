@@ -381,3 +381,24 @@ class TestOpenSpecCoverageRest:
         assert body["total"] == 1
         assert {x["full_name"] for x in body["with_openspec"]} == {str(repo.full_name)}
         assert body["coverage"] == 1.0
+
+
+class TestReadinessRest:
+    async def test_org_readiness_endpoint(self, client, container):
+        await seed_repo(container)  # cyberdyne/a
+        owner = "cyberdyne"
+        async with client:
+            r = await client.get(
+                f"/api/v1/intelligence/organizations/{owner}/readiness", headers=user()
+            )
+        assert r.status_code == 200
+        body = r.json()
+        assert set(body["distribution"]) == {"MVP", "READY", "DONE"}
+        assert body["total"] == 1
+
+    async def test_repo_readiness_endpoint(self, client, container):
+        repo = await seed_repo(container)
+        async with client:
+            r = await client.get(f"/api/v1/repos/{repo.id}/readiness", headers=user())
+        assert r.status_code == 200
+        assert r.json()["gate"] in {"MVP", "READY", "DONE"}

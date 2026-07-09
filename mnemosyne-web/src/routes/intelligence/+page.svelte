@@ -197,6 +197,33 @@
   </section>
 {/if}
 
+<!-- Readiness (when an org is selected) -->
+{#if vm.readiness}
+  {@const rd = vm.readiness}
+  <section class="panel">
+    <div class="panel-head">
+      <h2 class="title">Readiness</h2>
+      <span class="mono eyebrow-inline">observable gate · MVP → READY → DONE</span>
+    </div>
+    <div class="orgstats">
+      <div class="stat"><strong class="gate DONE">{rd.distribution.DONE}</strong><span>done</span></div>
+      <div class="stat"><strong class="gate READY">{rd.distribution.READY}</strong><span>ready</span></div>
+      <div class="stat"><strong class="gate MVP">{rd.distribution.MVP}</strong><span>mvp</span></div>
+      <div class="stat"><strong>{rd.total}</strong><span>total</span></div>
+    </div>
+    {#each rd.repositories as r (r.repository_id)}
+      <a class="rdrow" href={`/repos/${r.repository_id}`}>
+        <span class="gatechip {r.gate}">{r.gate}</span>
+        <span class="fn">{r.full_name}</span>
+        {#if r.gate !== 'DONE' && r.missing_for_ready.length}
+          <span class="miss">missing: {r.missing_for_ready.join(', ')}</span>
+        {/if}
+      </a>
+    {/each}
+    {#if !rd.repositories.length}<p class="muted pad">No repositories.</p>{/if}
+  </section>
+{/if}
+
 <!-- OpenSpec coverage (when an org is selected) -->
 {#if vm.openspec}
   {@const cov = vm.openspec}
@@ -312,6 +339,56 @@
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.9rem;
     margin-right: 0.4rem;
+  }
+  .gate.DONE {
+    color: var(--green);
+  }
+  .gate.READY {
+    color: var(--ac);
+  }
+  .gate.MVP {
+    color: var(--tx3);
+  }
+  .rdrow {
+    display: grid;
+    grid-template-columns: auto minmax(140px, 1fr) 3fr;
+    gap: 0.6rem;
+    align-items: baseline;
+    padding: 0.35rem 1.1rem;
+    border-bottom: 1px solid var(--line);
+    text-decoration: none;
+    color: inherit;
+  }
+  .rdrow:hover {
+    background: var(--panel2);
+  }
+  .gatechip {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-align: center;
+    padding: 0.12rem 0.5rem;
+    border-radius: 4px;
+    width: 58px;
+  }
+  .gatechip.DONE {
+    color: var(--green);
+    background: var(--greenb);
+  }
+  .gatechip.READY {
+    color: var(--ac);
+    background: var(--acb);
+  }
+  .gatechip.MVP {
+    color: var(--tx3);
+    background: var(--panel2);
+  }
+  .miss {
+    font-size: 0.7rem;
+    color: var(--tx3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .frow {
     display: grid;
