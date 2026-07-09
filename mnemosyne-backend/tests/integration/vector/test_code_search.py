@@ -61,7 +61,7 @@ async def seeded(session_factory):
 
 
 async def test_embed_and_code_search_ranks_by_similarity(session_factory, seeded):
-    repo, f, dispatch, parse = seeded
+    repo, _f, dispatch, parse = seeded
     store = PgVectorEmbeddingStore(session_factory, openai_client=FakeOpenAI())
 
     await store.embed_source_chunks(
@@ -79,7 +79,7 @@ async def test_embed_and_code_search_ranks_by_similarity(session_factory, seeded
 
 
 async def test_unembedded_chunks_excluded_from_code_search(session_factory, seeded):
-    repo, f, dispatch, parse = seeded
+    repo, _f, dispatch, _parse = seeded
     store = PgVectorEmbeddingStore(session_factory, openai_client=FakeOpenAI())
     # embed only one chunk
     await store.embed_source_chunks(

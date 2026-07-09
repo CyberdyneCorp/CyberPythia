@@ -28,7 +28,7 @@ jobs:
         image: redis:7-alpine
         ports: ["6379:6379"]
       minio:
-        image: bitnami/minio:latest
+        image: bitnamilegacy/minio:2025.7.23-debian-12-r5
         env:
           MINIO_ROOT_USER: mnemosyne
           MINIO_ROOT_PASSWORD: mnemosyne-secret
