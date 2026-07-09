@@ -744,12 +744,19 @@ describe('IntelligenceViewModel org detail', () => {
         organization: org, total_repositories: 3, scored: 2, average_health: 80,
         median_health: 82, grade_distribution: { A: 2 }, at_risk_milestones: 1,
         throughput_directions: {}, backlog_shrinking_repos: 0, most_active: [], abandoned: [], bug_heavy: []
+      }),
+      openspecCoverage: async (org: string) => ({
+        organization: org, total: 3, coverage: 0.67,
+        with_openspec: [{ repository_id: 'r1', full_name: 'org/a', primary_language: 'Go', openspec_changes: 2, last_synced_at: 'x' }],
+        without_openspec: [{ repository_id: 'r2', full_name: 'org/b', primary_language: null, openspec_changes: 0, last_synced_at: null }]
       })
     };
     const vm = new IntelligenceViewModel(api as never);
     await vm.loadOrgDetail('CyberdyneCorp');
     expect(vm.orgIntel?.organization).toBe('CyberdyneCorp');
     expect(vm.staleIssues.length).toBe(1);
+    expect(vm.openspec?.coverage).toBe(0.67);
+    expect(vm.openspec?.without_openspec[0].full_name).toBe('org/b');
   });
 
   it('clears the rollup when no org is selected (whole portfolio)', async () => {
@@ -757,11 +764,13 @@ describe('IntelligenceViewModel org detail', () => {
       recentActivity: async () => ({ recently_synced: [], recent_issues: [], recent_pull_requests: [] }),
       staleIssues: async () => ({ stale: [] }),
       stalePrs: async () => ({ stale: [] }),
-      organizationIntelligence: async () => { throw new Error('should not be called'); }
+      organizationIntelligence: async () => { throw new Error('should not be called'); },
+      openspecCoverage: async () => { throw new Error('should not be called'); }
     };
     const vm = new IntelligenceViewModel(api as never);
     await vm.loadOrgDetail('');
     expect(vm.orgIntel).toBeNull();
+    expect(vm.openspec).toBeNull();
   });
 });
 

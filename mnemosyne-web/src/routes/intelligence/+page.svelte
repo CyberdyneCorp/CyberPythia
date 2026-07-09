@@ -197,6 +197,41 @@
   </section>
 {/if}
 
+<!-- OpenSpec coverage (when an org is selected) -->
+{#if vm.openspec}
+  {@const cov = vm.openspec}
+  <section class="panel">
+    <div class="panel-head">
+      <h2 class="title">OpenSpec coverage</h2>
+      <span class="mono eyebrow-inline">
+        {Math.round(cov.coverage * 100)}% · {cov.with_openspec.length}/{cov.total} repos
+      </span>
+    </div>
+    <div class="cov-bar"><span class="cov-fill" style="width:{cov.coverage * 100}%"></span></div>
+    <div class="grid2">
+      <div>
+        <div class="eyebrow pad">Has OpenSpec ({cov.with_openspec.length})</div>
+        {#each cov.with_openspec as r (r.repository_id)}
+          <a class="covrow" href={`/repos/${r.repository_id}`}>
+            <span class="fn">{r.full_name}</span>
+            <span class="mono small">{r.openspec_changes} changes</span>
+          </a>
+        {/each}
+      </div>
+      <div>
+        <div class="eyebrow pad">Missing — adoption targets ({cov.without_openspec.length})</div>
+        {#each cov.without_openspec as r (r.repository_id)}
+          <a class="covrow" href={`/repos/${r.repository_id}`}>
+            <span class="fn">{r.full_name}</span>
+            <span class="mono small">{r.last_synced_at ? '' : 'not synced'}</span>
+          </a>
+        {/each}
+        {#if !cov.without_openspec.length}<p class="muted small pad">All covered 🎉</p>{/if}
+      </div>
+    </div>
+  </section>
+{/if}
+
 <!-- Recent activity + Needs attention (scoped by the org filter) -->
 <div class="grid2">
   <section class="panel">
@@ -306,6 +341,35 @@
   .days {
     font-size: 0.72rem;
     color: var(--tx3);
+  }
+  .cov-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--panel2, rgba(127, 127, 127, 0.15));
+    overflow: hidden;
+    margin: 0.3rem 0 0.8rem;
+  }
+  .cov-fill {
+    display: block;
+    height: 100%;
+    background: var(--green);
+  }
+  .covrow {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.3rem 0.2rem;
+    border-bottom: 1px solid var(--bd, rgba(127, 127, 127, 0.1));
+    text-decoration: none;
+    color: inherit;
+  }
+  .covrow:hover {
+    background: var(--panel2, rgba(127, 127, 127, 0.06));
+  }
+  .covrow .fn {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .page-head {
     display: flex;

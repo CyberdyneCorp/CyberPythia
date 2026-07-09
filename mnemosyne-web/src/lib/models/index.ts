@@ -374,6 +374,22 @@ export interface OrganizationIntelligence {
   bug_heavy: string[];
 }
 
+export interface OpenSpecCoverageRepo {
+  repository_id: string;
+  full_name: string;
+  primary_language: string | null;
+  openspec_changes: number;
+  last_synced_at: string | null;
+}
+
+export interface OpenSpecCoverage {
+  organization: string;
+  total: number;
+  with_openspec: OpenSpecCoverageRepo[];
+  without_openspec: OpenSpecCoverageRepo[];
+  coverage: number;
+}
+
 /** A cross-repo search hit; fields present depend on `kind`. */
 export interface SearchResult {
   repository_id: string;
