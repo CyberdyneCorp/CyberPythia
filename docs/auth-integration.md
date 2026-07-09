@@ -88,7 +88,8 @@ in the web UI (Connections → API keys) with a configurable expiry (or none).
 - Grants the `mnemosyne` entitlement (read/query access) — **not** admin. Admin
   endpoints (connections, org toggles, key management) still require a
   CyberdyneAuth admin token.
-- Enforced on expiry; revocable in the UI (`DELETE /api/v1/api-keys/{id}`).
+- Enforced on expiry; revocable (`POST /api/v1/api-keys/{id}/revoke`) or permanently
+  deletable (`DELETE /api/v1/api-keys/{id}`) in the UI.
 
 ```bash
 # Admin creates a key (returns the plaintext once)
@@ -100,8 +101,9 @@ curl -H "Authorization: Bearer $KEY" https://mnemosyne.../api/v1/repos
 ```
 
 Management endpoints (all admin-only): `POST /api/v1/api-keys`,
-`GET /api/v1/api-keys` (metadata only — never the plaintext), and
-`DELETE /api/v1/api-keys/{id}`.
+`GET /api/v1/api-keys` (metadata only — never the plaintext),
+`POST /api/v1/api-keys/{id}/revoke` (invalidate, keep the record), and
+`DELETE /api/v1/api-keys/{id}` (permanently remove).
 
 ## One-click MCP OAuth (optional)
 

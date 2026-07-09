@@ -170,12 +170,15 @@
             <td>
               <span class="badge {state === 'active' ? 'ok' : 'err'}">{state}</span>
             </td>
-            <td>
+            <td class="key-actions">
               {#if !k.revoked}
                 <button class="secondary org-idx" onclick={() => vm.revokeApiKey(k.id)}>
                   Revoke
                 </button>
               {/if}
+              <button class="secondary org-idx danger" onclick={() => vm.deleteApiKey(k.id)}>
+                Delete
+              </button>
             </td>
           </tr>
         {/each}
@@ -419,5 +422,14 @@
     padding: 0.4rem 0.55rem;
     background: var(--surface-2, rgba(127, 127, 127, 0.1));
     border-radius: 4px;
+  }
+  .key-actions {
+    display: flex;
+    gap: 0.3rem;
+    justify-content: flex-end;
+  }
+  .org-idx.danger {
+    color: var(--red);
+    border-color: var(--red);
   }
 </style>

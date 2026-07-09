@@ -55,17 +55,32 @@ class TestManagement:
         assert "key" not in row and "key_hash" not in row
         assert row["label"] == "a" and row["prefix"].startswith(API_KEY_PREFIX)
 
-    async def test_revoke(self, client):
+    async def test_revoke_keeps_record(self, client):
         async with client:
             created = (
                 await client.post("/api/v1/api-keys", json={"label": "a"}, headers=admin())
             ).json()
+            r = await client.post(f"/api/v1/api-keys/{created['id']}/revoke", headers=admin())
+            listed = (await client.get("/api/v1/api-keys", headers=admin())).json()
+        assert r.status_code == 204
+        assert listed[0]["revoked"] is True  # still listed, marked revoked
+
+    async def test_delete_removes_key(self, client):
+        async with client:
+            created = (
+                await client.post("/api/v1/api-keys", json={"label": "gone"}, headers=admin())
+            ).json()
             r = await client.delete(f"/api/v1/api-keys/{created['id']}", headers=admin())
             listed = (await client.get("/api/v1/api-keys", headers=admin())).json()
         assert r.status_code == 204
-        assert listed[0]["revoked"] is True
+        assert all(k["id"] != created["id"] for k in listed)  # removed from the list
 
     async def test_revoke_unknown_404(self, client):
+        async with client:
+            r = await client.post(f"/api/v1/api-keys/{uuid4()}/revoke", headers=admin())
+        assert r.status_code == 404
+
+    async def test_delete_unknown_404(self, client):
         async with client:
             r = await client.delete(f"/api/v1/api-keys/{uuid4()}", headers=admin())
         assert r.status_code == 404
@@ -78,6 +93,14 @@ class TestManagement:
     async def test_list_requires_admin(self, client):
         async with client:
             r = await client.get("/api/v1/api-keys", headers=user())
+        assert r.status_code == 403
+
+    async def test_delete_requires_admin(self, client):
+        async with client:
+            created = (
+                await client.post("/api/v1/api-keys", json={"label": "a"}, headers=admin())
+            ).json()
+            r = await client.delete(f"/api/v1/api-keys/{created['id']}", headers=user())
         assert r.status_code == 403
 
 

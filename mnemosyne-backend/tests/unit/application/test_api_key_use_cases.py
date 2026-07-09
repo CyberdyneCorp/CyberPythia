@@ -49,3 +49,17 @@ async def test_revoke_unknown_returns_false():
     from uuid import uuid4
 
     assert await ApiKeyUseCases(FakeApiKeyPort()).revoke(uuid4()) is False
+
+
+async def test_delete_removes_key():
+    port = FakeApiKeyPort()
+    uc = ApiKeyUseCases(port)
+    created = await uc.create(label="a", created_by="admin-1")
+    assert await uc.delete(created.key.id) is True
+    assert port.keys == {}
+
+
+async def test_delete_unknown_returns_false():
+    from uuid import uuid4
+
+    assert await ApiKeyUseCases(FakeApiKeyPort()).delete(uuid4()) is False

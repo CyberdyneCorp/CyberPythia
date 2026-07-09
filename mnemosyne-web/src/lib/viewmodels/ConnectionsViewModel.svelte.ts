@@ -188,4 +188,14 @@ export class ConnectionsViewModel {
       this.error = error instanceof ApiError ? error.message : 'revoke failed';
     }
   }
+
+  async deleteApiKey(id: string): Promise<void> {
+    this.error = null;
+    try {
+      await this.apiKeysApi.remove(id);
+      this.apiKeys = this.apiKeys.filter((k) => k.id !== id);
+    } catch (error) {
+      this.error = error instanceof ApiError ? error.message : 'delete failed';
+    }
+  }
 }

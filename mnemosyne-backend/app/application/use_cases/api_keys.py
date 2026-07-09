@@ -55,3 +55,6 @@ class ApiKeyUseCases:
 
     async def revoke(self, key_id: UUID) -> bool:
         return await self._api_keys.revoke(key_id)
+
+    async def delete(self, key_id: UUID) -> bool:
+        return await self._api_keys.delete(key_id)

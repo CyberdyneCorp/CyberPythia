@@ -67,6 +67,9 @@ class FakeApiKeyPort:
         key.revoked = True
         return True
 
+    async def delete(self, key_id):
+        return self.keys.pop(key_id, None) is not None
+
 
 @pytest.fixture
 def audit_port():

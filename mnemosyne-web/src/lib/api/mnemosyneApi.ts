@@ -111,6 +111,9 @@ export class ApiKeysApi {
     });
   }
   revoke(id: string): Promise<void> {
+    return this.http.post(`/api/v1/api-keys/${id}/revoke`);
+  }
+  remove(id: string): Promise<void> {
     return this.http.delete(`/api/v1/api-keys/${id}`);
   }
 }

@@ -14,11 +14,30 @@
   let boardAll = $state(false);
   let cardFilter = $state('');
   let cardAll = $state(false);
+  let org = $state(''); // '' = all organizations
 
   $effect(() => {
     void vm.loadPortfolio();
     void deliveryVm.loadScorecard();
   });
+
+  function owner(fullName: string): string {
+    return fullName.split('/')[0];
+  }
+
+  // Organizations present in the indexed intelligence data (the synced ones).
+  const organizations = $derived(
+    Array.from(
+      new Set([
+        ...(vm.overview?.leaderboard ?? []).map((e) => owner(e.full_name)),
+        ...deliveryVm.scorecard.map((e) => owner(e.full_name))
+      ])
+    ).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+  );
+
+  function byOrg<T extends { full_name: string }>(list: T[]): T[] {
+    return org ? list.filter((e) => owner(e.full_name) === org) : list;
+  }
 
   function gradeColor(grade: string | null): string {
     if (grade === 'A' || grade === 'B') return 'var(--green)';
@@ -39,8 +58,10 @@
     return f || all ? hit : hit.slice(0, CAP);
   }
 
-  const board = $derived(vm.overview ? matches(vm.overview.leaderboard, boardFilter, boardAll) : []);
-  const cards = $derived(matches(deliveryVm.scorecard, cardFilter, cardAll));
+  const board = $derived(
+    vm.overview ? matches(byOrg(vm.overview.leaderboard), boardFilter, boardAll) : []
+  );
+  const cards = $derived(matches(byOrg(deliveryVm.scorecard), cardFilter, cardAll));
 
   function arrow(d: string | null): string {
     if (d === 'down') return '↓ improving';
@@ -57,6 +78,12 @@
   <h1>Engineering Intelligence</h1>
   {#if vm.overview}
     <span class="mono sub">{vm.overview.scored} of {vm.overview.total_repositories} scored</span>
+  {/if}
+  {#if organizations.length > 1}
+    <select class="org-select" bind:value={org} aria-label="Filter by organization">
+      <option value="">All organizations</option>
+      {#each organizations as o (o)}<option value={o}>{o}</option>{/each}
+    </select>
   {/if}
 </div>
 <p class="muted lede">
@@ -90,9 +117,9 @@
         {/if}
       </a>
     {/each}
-    {#if !boardFilter && o.leaderboard.length > CAP}
+    {#if !boardFilter && byOrg(o.leaderboard).length > CAP}
       <button class="showall secondary" onclick={() => (boardAll = !boardAll)}>
-        {boardAll ? 'Show top 25' : `Show all ${o.leaderboard.length}`}
+        {boardAll ? 'Show top 25' : `Show all ${byOrg(o.leaderboard).length}`}
       </button>
     {/if}
   </section>
@@ -151,9 +178,9 @@
         </tbody>
       </table>
     </div>
-    {#if !cardFilter && deliveryVm.scorecard.length > CAP}
+    {#if !cardFilter && byOrg(deliveryVm.scorecard).length > CAP}
       <button class="showall secondary" onclick={() => (cardAll = !cardAll)}>
-        {cardAll ? 'Show top 25' : `Show all ${deliveryVm.scorecard.length}`}
+        {cardAll ? 'Show top 25' : `Show all ${byOrg(deliveryVm.scorecard).length}`}
       </button>
     {/if}
   {:else if !deliveryVm.busy}
@@ -170,6 +197,11 @@
   .sub {
     font-size: 0.75rem;
     color: var(--tx3);
+  }
+  .org-select {
+    margin-left: auto;
+    font-size: 0.8rem;
+    padding: 0.3rem 0.5rem;
   }
   .lede {
     font-size: 0.85rem;
