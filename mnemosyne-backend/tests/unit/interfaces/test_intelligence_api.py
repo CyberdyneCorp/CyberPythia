@@ -241,3 +241,66 @@ class TestIntelligenceMcp:
                 "mnemosyne_compare_repositories", {"full_names": ["cyberdyne/missing"]}
             )
         assert payload(result)["error"]["code"] == "unknown_repository"
+
+
+class TestCrossRepoRest:
+    async def test_search_issues(self, client, container):
+        from app.domain.entities.issue import Issue
+        from app.domain.value_objects.enums import IssueState
+
+        repo = await seed_repo(container)
+        await container.issues.save_many([
+            Issue(id=uuid4(), repository_id=repo.id, github_issue_id=1, number=7,
+                  title="server crash on boot", body="b", state=IssueState.OPEN,
+                  author="a", labels=["bug"], created_at=NOW, updated_at=NOW),
+        ])
+        async with client:
+            r = await client.get(
+                "/api/v1/intelligence/search?query=server&kind=issues", headers=user()
+            )
+        assert r.status_code == 200
+        results = r.json()["results"]
+        assert results and results[0]["number"] == 7
+
+    async def test_search_invalid_kind_422(self, client):
+        async with client:
+            r = await client.get(
+                "/api/v1/intelligence/search?query=x&kind=bogus", headers=user()
+            )
+        assert r.status_code == 422
+
+    async def test_stale_issues_endpoint(self, client, container):
+        from datetime import timedelta
+
+        from app.domain.entities.issue import Issue
+        from app.domain.value_objects.enums import IssueState
+
+        repo = await seed_repo(container)
+        old = datetime.now(UTC) - timedelta(days=90)
+        await container.issues.save_many([
+            Issue(id=uuid4(), repository_id=repo.id, github_issue_id=2, number=3,
+                  title="ancient", body="b", state=IssueState.OPEN, author="a",
+                  labels=[], created_at=old, updated_at=old),
+        ])
+        async with client:
+            r = await client.get("/api/v1/intelligence/stale-issues", headers=user())
+        assert r.status_code == 200
+        assert r.json()["stale"][0]["number"] == 3
+
+    async def test_recent_activity_endpoint(self, client, container):
+        await seed_repo(container)
+        async with client:
+            r = await client.get("/api/v1/intelligence/recent-activity", headers=user())
+        assert r.status_code == 200
+        body = r.json()
+        assert set(body) >= {"recently_synced", "recent_issues", "recent_pull_requests"}
+
+    async def test_find_repositories_endpoint(self, client, container):
+        repo = await seed_repo(container)  # cyberdyne/a
+        name = repo.full_name.name
+        async with client:
+            r = await client.get(
+                f"/api/v1/repos/find?query={name}", headers=user()
+            )
+        assert r.status_code == 200
+        assert any(x["full_name"] == str(repo.full_name) for x in r.json()["repositories"])

@@ -4,9 +4,10 @@ from dataclasses import asdict
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from app.application.errors import ApplicationError
+from app.application.use_cases.cross_repo import CrossRepoService
 from app.application.use_cases.delivery_intelligence import DeliveryIntelligenceService
 from app.application.use_cases.intelligence import IntelligenceService
 from app.application.use_cases.org_intelligence import build_org_intelligence
@@ -26,8 +27,13 @@ def get_delivery(request: Request) -> DeliveryIntelligenceService:
     return request.app.state.container.delivery_intelligence  # type: ignore[no-any-return]
 
 
+def get_cross_repo(request: Request) -> CrossRepoService:
+    return request.app.state.container.cross_repo  # type: ignore[no-any-return]
+
+
 Service = Annotated[IntelligenceService, Depends(get_intelligence)]
 Delivery = Annotated[DeliveryIntelligenceService, Depends(get_delivery)]
+CrossRepo = Annotated[CrossRepoService, Depends(get_cross_repo)]
 
 
 def _health_dict(health: RepositoryHealth) -> dict[str, Any]:
@@ -183,3 +189,49 @@ async def organization_intelligence(
     portfolio = await service.portfolio(organization=organization)
     scorecard = await delivery.delivery_scorecard(organization=organization)
     return build_org_intelligence(organization, portfolio, scorecard)
+
+
+# -- cross-repo endpoints (mirror the MCP cross-repo tools) -------------------
+
+
+@router.get("/search")
+async def search(
+    caller: EntitledCaller,
+    cross_repo: CrossRepo,
+    query: str,
+    kind: Annotated[str, Query(pattern="^(docs|code|issues)$")] = "docs",
+    organization: str | None = None,
+    limit: int = 8,
+) -> Any:
+    results = await cross_repo.search(
+        query, kind=kind, organization=organization, limit=limit
+    )
+    return {"results": results}
+
+
+@router.get("/stale-issues")
+async def stale_issues(
+    caller: EntitledCaller, cross_repo: CrossRepo,
+    organization: str | None = None, threshold_days: int = 30, limit: int = 50,
+) -> Any:
+    return {"stale": await cross_repo.find_stale_issues(
+        organization=organization, threshold_days=threshold_days, limit=limit
+    )}
+
+
+@router.get("/stale-prs")
+async def stale_prs(
+    caller: EntitledCaller, cross_repo: CrossRepo,
+    organization: str | None = None, threshold_days: int = 30, limit: int = 50,
+) -> Any:
+    return {"stale": await cross_repo.find_stale_prs(
+        organization=organization, threshold_days=threshold_days, limit=limit
+    )}
+
+
+@router.get("/recent-activity")
+async def recent_activity(
+    caller: EntitledCaller, cross_repo: CrossRepo,
+    organization: str | None = None, limit: int = 15,
+) -> Any:
+    return await cross_repo.recent_activity(organization=organization, limit=limit)

@@ -88,6 +88,15 @@ async def list_repositories(
     return paginate([repository_response(r) for r in repos], page, page_size)
 
 
+@router.get("/find")
+async def find_repositories(
+    caller: EntitledCaller, container: Container, query: str, limit: int = 10
+) -> Any:
+    """Fuzzy-resolve a vague name into matching indexed repositories."""
+    cross_repo = cast(Any, container).cross_repo
+    return {"repositories": await cross_repo.find_repositories(query, limit=limit)}
+
+
 @router.post("/discover/{connection_id}", response_model=list[RepositoryResponse])
 async def discover(
     connection_id: UUID, caller: AdminCaller, use_cases: RepoUseCases, audit: Audit
