@@ -791,3 +791,28 @@ describe('RepositoryDetailViewModel capabilities', () => {
     expect(vm.featureDoc?.document).toContain('# Features');
   });
 });
+
+describe('IntelligenceViewModel server-scoped portfolio', () => {
+  it('captures the org list on the unscoped load and passes the scope when set', async () => {
+    const calls: (string | undefined)[] = [];
+    const api = {
+      portfolio: async (org?: string) => {
+        calls.push(org);
+        const items = org
+          ? [{ repository_id: 'r1', full_name: 'org1/a', has_data: true, overall: 90, grade: 'A' }]
+          : [
+              { repository_id: 'r1', full_name: 'org1/a', has_data: true, overall: 90, grade: 'A' },
+              { repository_id: 'r2', full_name: 'org2/b', has_data: true, overall: 80, grade: 'B' }
+            ];
+        return { total_repositories: items.length, scored: items.length, leaderboard: items, most_active: [], abandoned: [], bug_heavy: [] };
+      }
+    };
+    const vm = new IntelligenceViewModel(api as never);
+    await vm.loadPortfolio(); // unscoped → derive org list
+    expect(vm.organizations).toEqual(['org1', 'org2']);
+    await vm.loadPortfolio('org1'); // scoped → org list stays complete
+    expect(calls).toEqual([undefined, 'org1']);
+    expect(vm.organizations).toEqual(['org1', 'org2']);
+    expect(vm.overview?.total_repositories).toBe(1);
+  });
+});
