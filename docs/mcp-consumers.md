@@ -74,6 +74,12 @@ Repositories are addressed by full name (`owner/name`).
 | `mnemosyne_get_organization_intelligence` | one-call org rollup: repos, scored, avg/median health, grade distribution, at-risk milestones, throughput directions |
 | `mnemosyne_list_organizations` | organizations discovered, with total/indexed repo counts |
 | `mnemosyne_list_organization_repositories` | all repositories in an org the credential can read |
+| `mnemosyne_find_repositories` | fuzzy-resolve a vague name into exact `owner/name` |
+| `mnemosyne_get_repository_metrics` | raw computed metrics snapshot (inputs behind the health/delivery tools) |
+| `mnemosyne_search_all` | search across many repos at once — `kind` = docs \| code \| issues, optional `organization` |
+| `mnemosyne_find_stale_issues_across_repos` | stale open issues across all repos (or one org), oldest first |
+| `mnemosyne_find_stale_prs_across_repos` | stale open PRs across all repos (or one org), oldest first |
+| `mnemosyne_get_recent_activity` | recently synced repos + latest updated issues/PRs (all repos or one org) |
 
 ## Error contract
 

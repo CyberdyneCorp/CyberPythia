@@ -10,6 +10,7 @@ from app.application.metrics_recompute import MetricsRecomputeService
 from app.application.use_cases.api_keys import ApiKeyUseCases
 from app.application.use_cases.code import CodeUseCases
 from app.application.use_cases.context import ContextUseCases
+from app.application.use_cases.cross_repo import CrossRepoService
 from app.application.use_cases.delivery_intelligence import DeliveryIntelligenceService
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
 from app.application.use_cases.incremental_sync import IncrementalSyncUseCases
@@ -189,6 +190,12 @@ class Container:
     @cached_property
     def api_key_use_cases(self) -> ApiKeyUseCases:
         return ApiKeyUseCases(self.api_keys)
+
+    @cached_property
+    def cross_repo(self) -> CrossRepoService:
+        return CrossRepoService(
+            self.repositories, self.issues, self.pull_requests, self.embeddings
+        )
 
     @cached_property
     def app_auth(self) -> GitHubAppAuth:

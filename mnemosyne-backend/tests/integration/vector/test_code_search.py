@@ -93,3 +93,26 @@ async def test_empty_chunks_no_api_call(session_factory, seeded):
     repo = seeded[0]
     store = PgVectorEmbeddingStore(session_factory, openai_client=FakeOpenAI())
     assert await store.embed_source_chunks(repo.id, []) == 0
+
+
+async def test_search_code_global_carries_repository_id(session_factory, seeded):
+    repo, _f, dispatch, _parse = seeded
+    store = PgVectorEmbeddingStore(session_factory, openai_client=FakeOpenAI())
+    await store.embed_source_chunks(
+        repo.id, [EmbeddableChunk(chunk_id=dispatch.id, text="dispatch gpu kernels")]
+    )
+    # global search (no repo filter) returns the match with its repository_id set
+    matches = await store.search_code_global("how are kernels dispatched", limit=5)
+    assert matches and matches[0].symbol_name == "dispatch"
+    assert matches[0].repository_id == repo.id
+
+
+async def test_search_code_global_repo_filter(session_factory, seeded):
+    repo, _f, dispatch, _parse = seeded
+    store = PgVectorEmbeddingStore(session_factory, openai_client=FakeOpenAI())
+    await store.embed_source_chunks(
+        repo.id, [EmbeddableChunk(chunk_id=dispatch.id, text="dispatch gpu kernels")]
+    )
+    # filtering to a different (empty) repo id yields nothing
+    assert await store.search_code_global("anything", repository_ids=[uuid4()]) == []
+    assert await store.search_code_global("anything", repository_ids=[repo.id])
