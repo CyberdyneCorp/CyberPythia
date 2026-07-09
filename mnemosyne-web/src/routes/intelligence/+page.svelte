@@ -21,6 +21,11 @@
     void deliveryVm.loadScorecard();
   });
 
+  // Reload the org rollup + activity/stale panels whenever the org filter changes.
+  $effect(() => {
+    void vm.loadOrgDetail(org);
+  });
+
   function owner(fullName: string): string {
     return fullName.split('/')[0];
   }
@@ -188,7 +193,139 @@
   {/if}
 </section>
 
+<!-- Organization overview (server rollup, when an org is selected) -->
+{#if vm.orgIntel}
+  {@const oi = vm.orgIntel}
+  <section class="panel">
+    <div class="panel-head">
+      <h2 class="title">{oi.organization} overview</h2>
+      <span class="mono eyebrow-inline">server rollup</span>
+    </div>
+    <div class="orgstats">
+      <div class="stat"><strong>{oi.scored}/{oi.total_repositories}</strong><span>scored</span></div>
+      <div class="stat"><strong>{oi.average_health ?? '—'}</strong><span>avg health</span></div>
+      <div class="stat"><strong>{oi.median_health ?? '—'}</strong><span>median</span></div>
+      <div class="stat"><strong>{oi.at_risk_milestones}</strong><span>at-risk milestones</span></div>
+      <div class="stat">
+        <strong>
+          {#each Object.entries(oi.grade_distribution) as [g, n] (g)}<span class="gchip">{g}:{n}</span>{/each}
+          {#if !Object.keys(oi.grade_distribution).length}—{/if}
+        </strong><span>grades</span>
+      </div>
+    </div>
+  </section>
+{/if}
+
+<!-- Recent activity + Needs attention (scoped by the org filter) -->
+<div class="grid2">
+  <section class="panel">
+    <div class="panel-head"><h2 class="title">Recent activity</h2></div>
+    {#if vm.activity && (vm.activity.recent_issues.length || vm.activity.recent_pull_requests.length)}
+      {#each vm.activity.recent_pull_requests.slice(0, 6) as p (p.repository_id + 'pr' + p.number)}
+        <a class="frow" href={`/repos/${p.repository_id}`}>
+          <span class="badge {p.merged ? 'ok' : ''}">PR</span>
+          <span class="fn">{p.full_name} #{p.number}</span>
+          <span class="ft">{p.title}</span>
+        </a>
+      {/each}
+      {#each vm.activity.recent_issues.slice(0, 6) as it (it.repository_id + 'is' + it.number)}
+        <a class="frow" href={`/repos/${it.repository_id}`}>
+          <span class="badge">issue</span>
+          <span class="fn">{it.full_name} #{it.number}</span>
+          <span class="ft">{it.title}</span>
+        </a>
+      {/each}
+    {:else}<p class="muted pad">No recent activity.</p>{/if}
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2 class="title">Needs attention</h2>
+      <span class="mono eyebrow-inline">stale &gt; 30d</span>
+    </div>
+    {#if vm.staleIssues.length || vm.stalePrs.length}
+      {#each vm.stalePrs.slice(0, 5) as p (p.repository_id + 'pr' + p.number)}
+        <a class="frow" href={`/repos/${p.repository_id}`}>
+          <span class="badge err">PR</span>
+          <span class="fn">{p.full_name} #{p.number}</span>
+          <span class="ft">{p.title}</span>
+          <span class="mono days">{p.stale_days}d</span>
+        </a>
+      {/each}
+      {#each vm.staleIssues.slice(0, 5) as it (it.repository_id + 'is' + it.number)}
+        <a class="frow" href={`/repos/${it.repository_id}`}>
+          <span class="badge err">issue</span>
+          <span class="fn">{it.full_name} #{it.number}</span>
+          <span class="ft">{it.title}</span>
+          <span class="mono days">{it.stale_days}d</span>
+        </a>
+      {/each}
+    {:else}<p class="muted pad">Nothing stale. 🎉</p>{/if}
+  </section>
+</div>
+
 <style>
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 720px) {
+    .grid2 {
+      grid-template-columns: 1fr;
+    }
+  }
+  .orgstats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.4rem;
+    padding: 0.4rem 0.2rem 0.2rem;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+  }
+  .stat strong {
+    font-size: 1.1rem;
+  }
+  .stat span {
+    font-size: 0.72rem;
+    color: var(--tx3);
+  }
+  .gchip {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.9rem;
+    margin-right: 0.4rem;
+  }
+  .frow {
+    display: grid;
+    grid-template-columns: auto minmax(120px, 1fr) 2fr auto;
+    gap: 0.5rem;
+    align-items: baseline;
+    padding: 0.35rem 0.2rem;
+    border-bottom: 1px solid var(--bd, rgba(127, 127, 127, 0.12));
+    text-decoration: none;
+    color: inherit;
+  }
+  .frow:hover {
+    background: var(--panel2, rgba(127, 127, 127, 0.06));
+  }
+  .fn {
+    font-size: 0.78rem;
+    color: var(--tx2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ft {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .days {
+    font-size: 0.72rem;
+    color: var(--tx3);
+  }
   .page-head {
     display: flex;
     align-items: baseline;

@@ -1,10 +1,20 @@
 /** Intelligence dashboard: portfolio overview + per-repo health (spec: web-ui). */
 import { ApiError } from '$lib/api/http';
 import type { IntelligenceApi } from '$lib/api/mnemosyneApi';
-import type { PortfolioOverview, RepositoryHealth } from '$lib/models';
+import type {
+  OrganizationIntelligence,
+  PortfolioOverview,
+  RecentActivity,
+  RepositoryHealth,
+  StaleItem
+} from '$lib/models';
 
 export class IntelligenceViewModel {
   overview = $state<PortfolioOverview | null>(null);
+  orgIntel = $state<OrganizationIntelligence | null>(null);
+  activity = $state<RecentActivity | null>(null);
+  staleIssues = $state<StaleItem[]>([]);
+  stalePrs = $state<StaleItem[]>([]);
   busy = $state(false);
   error = $state<string | null>(null);
 
@@ -19,6 +29,24 @@ export class IntelligenceViewModel {
       this.error = error instanceof ApiError ? error.message : 'failed to load portfolio';
     } finally {
       this.busy = false;
+    }
+  }
+
+  /** Org rollup + activity + stale, scoped to `org` ('' = whole portfolio). */
+  async loadOrgDetail(org: string): Promise<void> {
+    const scope = org || undefined;
+    try {
+      const [activity, issues, prs] = await Promise.all([
+        this.api.recentActivity(scope, 10),
+        this.api.staleIssues(scope, 30, 10),
+        this.api.stalePrs(scope, 30, 10)
+      ]);
+      this.activity = activity;
+      this.staleIssues = issues.stale;
+      this.stalePrs = prs.stale;
+      this.orgIntel = org ? await this.api.organizationIntelligence(org) : null;
+    } catch {
+      // supplementary panels are best-effort; ignore load failures
     }
   }
 }

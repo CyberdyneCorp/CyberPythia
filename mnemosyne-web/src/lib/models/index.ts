@@ -352,3 +352,74 @@ export interface DeliveryScorecardEntry {
   backlog_shrinking: boolean | null;
   at_risk_milestones: number;
 }
+
+export interface OrganizationIntelligence {
+  organization: string;
+  total_repositories: number;
+  scored: number;
+  average_health: number | null;
+  median_health: number | null;
+  grade_distribution: Record<string, number>;
+  at_risk_milestones: number;
+  throughput_directions: Record<string, number>;
+  backlog_shrinking_repos: number;
+  most_active: string[];
+  abandoned: string[];
+  bug_heavy: string[];
+}
+
+/** A cross-repo search hit; fields present depend on `kind`. */
+export interface SearchResult {
+  repository_id: string;
+  full_name: string;
+  path?: string;
+  title?: string;
+  symbol?: string | null;
+  start_line?: number;
+  excerpt?: string;
+  number?: number;
+  state?: string;
+  labels?: string[];
+  score: number;
+}
+
+export interface StaleItem {
+  repository_id: string;
+  full_name: string;
+  number: number;
+  title: string;
+  labels?: string[];
+  author?: string | null;
+  updated_at: string;
+  stale_days: number;
+}
+
+export interface RecentActivity {
+  recently_synced: { repository_id: string; full_name: string; last_synced_at: string }[];
+  recent_issues: {
+    repository_id: string;
+    full_name: string;
+    number: number;
+    title: string;
+    state: string;
+    updated_at: string;
+  }[];
+  recent_pull_requests: {
+    repository_id: string;
+    full_name: string;
+    number: number;
+    title: string;
+    state: string;
+    merged: boolean;
+    updated_at: string;
+  }[];
+}
+
+export interface RepositoryBrief {
+  repository_id: string;
+  full_name: string;
+  description: string | null;
+  primary_language: string | null;
+  indexing_mode: string;
+  last_synced_at: string | null;
+}

@@ -21,8 +21,13 @@ import type {
   MilestoneProgress,
   OpenSpecChange,
   Organization,
+  OrganizationIntelligence,
   Page,
   PortfolioOverview,
+  RecentActivity,
+  RepositoryBrief,
+  SearchResult,
+  StaleItem,
   PullRequest,
   Repository,
   RepositoryHealth,
@@ -123,6 +128,11 @@ export class RepositoriesApi {
 
   list(page = 1, pageSize = 100): Promise<Page<Repository>> {
     return this.http.get(`/api/v1/repos?page=${page}&page_size=${pageSize}`);
+  }
+  /** Fuzzy-resolve a vague query into matching repositories. */
+  find(query: string, limit = 10): Promise<{ repositories: RepositoryBrief[] }> {
+    const params = new URLSearchParams({ query, limit: String(limit) });
+    return this.http.get(`/api/v1/repos/find?${params}`);
   }
   /** All discovered repositories (follows pagination, hard-capped at 20 pages). */
   async listAll(): Promise<Repository[]> {
@@ -240,5 +250,35 @@ export class IntelligenceApi {
   }
   milestones(repoId: string): Promise<{ milestones: MilestoneProgress[] }> {
     return this.http.get(`/api/v1/intelligence/repositories/${repoId}/milestones`);
+  }
+  organizationIntelligence(org: string): Promise<OrganizationIntelligence> {
+    return this.http.get(
+      `/api/v1/intelligence/organizations/${encodeURIComponent(org)}/intelligence`
+    );
+  }
+  search(
+    query: string,
+    kind: 'docs' | 'code' | 'issues',
+    organization?: string,
+    limit = 20
+  ): Promise<{ results: SearchResult[] }> {
+    const params = new URLSearchParams({ query, kind, limit: String(limit) });
+    if (organization) params.set('organization', organization);
+    return this.http.get(`/api/v1/intelligence/search?${params}`);
+  }
+  staleIssues(organization?: string, thresholdDays = 30, limit = 50): Promise<{ stale: StaleItem[] }> {
+    const params = new URLSearchParams({ threshold_days: String(thresholdDays), limit: String(limit) });
+    if (organization) params.set('organization', organization);
+    return this.http.get(`/api/v1/intelligence/stale-issues?${params}`);
+  }
+  stalePrs(organization?: string, thresholdDays = 30, limit = 50): Promise<{ stale: StaleItem[] }> {
+    const params = new URLSearchParams({ threshold_days: String(thresholdDays), limit: String(limit) });
+    if (organization) params.set('organization', organization);
+    return this.http.get(`/api/v1/intelligence/stale-prs?${params}`);
+  }
+  recentActivity(organization?: string, limit = 15): Promise<RecentActivity> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (organization) params.set('organization', organization);
+    return this.http.get(`/api/v1/intelligence/recent-activity?${params}`);
   }
 }

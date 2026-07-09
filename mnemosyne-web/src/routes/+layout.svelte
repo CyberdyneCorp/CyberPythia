@@ -34,6 +34,7 @@
   const NAV = [
     { href: '/', label: 'Repositories', match: (p: string) => p === '/' || p.startsWith('/repos') },
     { href: '/intelligence', label: 'Intelligence', match: (p: string) => p.startsWith('/intelligence') },
+    { href: '/search', label: 'Search', match: (p: string) => p.startsWith('/search') },
     { href: '/connections', label: 'GitHub Connection', match: (p: string) => p.startsWith('/connections') }
   ];
 </script>

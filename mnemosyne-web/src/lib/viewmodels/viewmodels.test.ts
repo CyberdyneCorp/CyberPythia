@@ -693,3 +693,74 @@ describe('ConnectionsViewModel API keys', () => {
     expect(vm.apiKeys.map((k) => k.id)).toEqual(['k2']);
   });
 });
+
+describe('SearchViewModel', () => {
+  it('runs a docs search and stores results', async () => {
+    let calledWith: unknown[] | null = null;
+    const intelligenceApi = {
+      search: async (q: string, kind: string, org?: string) => {
+        calledWith = [q, kind, org];
+        return { results: [{ repository_id: 'r1', full_name: 'org/a', title: 'Doc', score: 0.9 }] };
+      }
+    };
+    const { SearchViewModel } = await import('./SearchViewModel.svelte');
+    const vm = new SearchViewModel(intelligenceApi as never, {} as never);
+    vm.query = 'auth';
+    vm.kind = 'docs';
+    await vm.run();
+    expect(calledWith).toEqual(['auth', 'docs', undefined]);
+    expect(vm.results[0].full_name).toBe('org/a');
+    expect(vm.searched).toBe(true);
+  });
+
+  it('uses the resolver for kind=repositories', async () => {
+    const repositoriesApi = {
+      find: async () => ({ repositories: [{ repository_id: 'r1', full_name: 'org/a', description: null, primary_language: 'Go', indexing_mode: 'x', last_synced_at: null }] })
+    };
+    const { SearchViewModel } = await import('./SearchViewModel.svelte');
+    const vm = new SearchViewModel({} as never, repositoriesApi as never);
+    vm.query = 'auth';
+    vm.kind = 'repositories';
+    await vm.run();
+    expect(vm.repos[0].full_name).toBe('org/a');
+  });
+
+  it('ignores queries under 2 chars', async () => {
+    const { SearchViewModel } = await import('./SearchViewModel.svelte');
+    const vm = new SearchViewModel({} as never, {} as never);
+    vm.query = 'a';
+    await vm.run();
+    expect(vm.searched).toBe(false);
+  });
+});
+
+describe('IntelligenceViewModel org detail', () => {
+  it('loads rollup + activity + stale when an org is selected', async () => {
+    const api = {
+      recentActivity: async () => ({ recently_synced: [], recent_issues: [], recent_pull_requests: [] }),
+      staleIssues: async () => ({ stale: [{ repository_id: 'r1', full_name: 'org/a', number: 1, title: 't', updated_at: 'x', stale_days: 40 }] }),
+      stalePrs: async () => ({ stale: [] }),
+      organizationIntelligence: async (org: string) => ({
+        organization: org, total_repositories: 3, scored: 2, average_health: 80,
+        median_health: 82, grade_distribution: { A: 2 }, at_risk_milestones: 1,
+        throughput_directions: {}, backlog_shrinking_repos: 0, most_active: [], abandoned: [], bug_heavy: []
+      })
+    };
+    const vm = new IntelligenceViewModel(api as never);
+    await vm.loadOrgDetail('CyberdyneCorp');
+    expect(vm.orgIntel?.organization).toBe('CyberdyneCorp');
+    expect(vm.staleIssues.length).toBe(1);
+  });
+
+  it('clears the rollup when no org is selected (whole portfolio)', async () => {
+    const api = {
+      recentActivity: async () => ({ recently_synced: [], recent_issues: [], recent_pull_requests: [] }),
+      staleIssues: async () => ({ stale: [] }),
+      stalePrs: async () => ({ stale: [] }),
+      organizationIntelligence: async () => { throw new Error('should not be called'); }
+    };
+    const vm = new IntelligenceViewModel(api as never);
+    await vm.loadOrgDetail('');
+    expect(vm.orgIntel).toBeNull();
+  });
+});
