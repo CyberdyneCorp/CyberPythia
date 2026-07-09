@@ -16,6 +16,10 @@ FROM python:3.12-slim-bookworm
 RUN groupadd -r mnemosyne && useradd -r -g mnemosyne mnemosyne
 WORKDIR /app
 COPY --from=builder --chown=mnemosyne:mnemosyne /app /app
+# Writable mount point for the MCP OAuth client-registration store. Pre-created
+# owned by mnemosyne so an empty named volume mounted here inherits that
+# ownership (the non-root user can then write DCR registrations that persist).
+RUN mkdir -p /app/oauth-state && chown mnemosyne:mnemosyne /app/oauth-state
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1
 
 USER mnemosyne

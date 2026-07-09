@@ -73,6 +73,10 @@ services:
       MCP_OAUTH_PUBLIC_BASE_URL: ${MCP_OAUTH_PUBLIC_BASE_URL:-https://mnemosyne.mcp.coolify.cyberdynecorp.ai}
       MCP_OAUTH_CLIENT_ID: ${MCP_OAUTH_CLIENT_ID:-}
       MCP_OAUTH_CLIENT_SECRET: ${MCP_OAUTH_CLIENT_SECRET:-}
+      # Persist DCR client registrations so OAuth connectors survive redeploys.
+      MCP_OAUTH_STORAGE_DIR: ${MCP_OAUTH_STORAGE_DIR:-/app/oauth-state}
+    volumes:
+      - mcp_oauth_data:/app/oauth-state
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,3 +139,4 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+  mcp_oauth_data:
