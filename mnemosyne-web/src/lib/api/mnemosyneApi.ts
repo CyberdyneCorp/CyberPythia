@@ -23,6 +23,7 @@ import type {
   Metrics,
   MilestoneProgress,
   OpenSpecChange,
+  OpenSpecCoverage,
   Organization,
   OrganizationIntelligence,
   Page,
@@ -291,6 +292,11 @@ export class IntelligenceApi {
     const params = new URLSearchParams({ threshold_days: String(thresholdDays), limit: String(limit) });
     if (organization) params.set('organization', organization);
     return this.http.get(`/api/v1/intelligence/stale-prs?${params}`);
+  }
+  openspecCoverage(org: string): Promise<OpenSpecCoverage> {
+    return this.http.get(
+      `/api/v1/intelligence/organizations/${encodeURIComponent(org)}/openspec-coverage`
+    );
   }
   recentActivity(organization?: string, limit = 15): Promise<RecentActivity> {
     const params = new URLSearchParams({ limit: String(limit) });
