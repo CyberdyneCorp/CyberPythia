@@ -19,10 +19,14 @@ from GitHub with read-only credentials and secured by
   `oidc-client-ts` ("Connect with Cyberdyne")
 - **Auth** — CyberdyneAuth is the identity plane: OIDC login for the UI,
   client-credentials service tokens for agents, JWKS validation with RFC 7662
-  introspection fallback, access gated by the `mnemosyne` entitlement.
-- **Spec** — the system is spec-driven; see
-  `openspec/changes/add-github-context-memory-core/` (proposal, design,
-  per-capability specs, tasks).
+  introspection fallback, access gated by the `mnemosyne` entitlement. Agents may
+  also authenticate with a **Mnemosyne API key** (`mnem_…`, generated in the UI)
+  or connect via **one-click MCP OAuth** (claude.ai / ChatGPT), which bridges to
+  CyberdyneAuth — all three credential types work side by side.
+- **Spec** — the system is spec-driven; the living capabilities are in
+  `openspec/specs/` (auth, mcp-interface, rest-api, web-ui, repository-sync,
+  engineering-intelligence, delivery-intelligence, …), with proposed and archived
+  changes under `openspec/changes/`.
 
 Services: `mnemosyne-api` (8000) · `mnemosyne-mcp` (8100) · `mnemosyne-worker`
 · `mnemosyne-web` (3000) · postgres (host 5433) · redis · minio.
@@ -73,8 +77,13 @@ TOKEN=$(curl -s -X POST https://auth.backend.coolify.cyberdynecorp.ai/api/v1/aut
 curl -H "Authorization: Bearer $TOKEN" https://mnemosyne.../api/v1/repos
 ```
 
-**MCP** — point an agent at `https://mnemosyne-mcp.../mcp` (streamable HTTP)
-with the same bearer token. See [docs/mcp-consumers.md](docs/mcp-consumers.md).
+**MCP** — point an agent at `https://mnemosyne-mcp.../mcp` (streamable HTTP) with a
+bearer token, a Mnemosyne **API key** (`mnem_…`), or — for DCR clients like
+claude.ai / ChatGPT — the **one-click OAuth** connector (paste the URL, log in).
+The suite spans per-repo, whole-portfolio, per-organization, and cross-repo tools —
+including global search, stale-triage finders, organization rollups, and
+capability / feature-document composites. See
+[docs/mcp-consumers.md](docs/mcp-consumers.md).
 
 **Dashboard** — sign in with "Connect with Cyberdyne". Admins register a
 GitHub credential — a read-only PAT or a **GitHub App** installation (App
@@ -94,6 +103,16 @@ analytics over MCP and REST (Phase 5). For project managers and POs, Phase 5.1 a
 **forecasting**, work-mix, quality signals, milestone burn-up, and team-load/bus-factor —
 on a forward-only metrics time-series; see
 [docs/engineering-intelligence.md](docs/engineering-intelligence.md).
+
+The dashboard also filters intelligence **by organization** (server-scoped
+leaderboard/scorecard plus an org overview, recent-activity, and stale-triage panels),
+surfaces per-repository **Capabilities** with a grounded **feature-document**
+generator, and offers a portfolio-wide **Search** page (documentation / code / issues
+across all repositories, or fuzzy repo lookup). The same organization rollups,
+cross-repo search/stale finders, and capability / feature-document composites are
+available to agents over MCP and to services over REST — so PM/PO questions like
+"which capabilities does this project have?", "how many bugs?", or "what can my
+organization do right now?" resolve in a single call.
 
 ## Docs
 

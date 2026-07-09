@@ -156,3 +156,110 @@ The MCP engineering-intelligence and delivery tools SHALL reject a repository th
 - **WHEN** `mnemosyne_get_repository_health` is called for it
 - **THEN** the tool SHALL return a not-indexed error result
 
+### Requirement: MCP OAuth connector flow
+
+The MCP server SHALL support the MCP OAuth 2.1 authorization flow so that clients
+which self-register (claude.ai, Claude Desktop) can connect with no manually
+supplied token. The server SHALL act as an OAuth authorization server **from the
+client's perspective** by serving protected-resource metadata, authorization-server
+metadata, a dynamic-client-registration endpoint, and authorization + token
+endpoints, and SHALL bridge the authorization to CyberdyneAuth using a single
+pre-registered upstream client. The authorization-code exchange SHALL use PKCE
+(S256). The resulting user token SHALL authorize tool calls through the existing
+`mnemosyne` entitlement check (no audience binding required). The flow SHALL be
+feature-flagged and disabled by default.
+
+#### Scenario: Protected-resource metadata advertised
+- **WHEN** a client requests `/.well-known/oauth-protected-resource` from the MCP server with OAuth enabled
+- **THEN** the server SHALL return metadata identifying the authorization server and the required audience
+
+#### Scenario: Dynamic client registration
+- **WHEN** a DCR-only client posts a registration request to the server's registration endpoint
+- **THEN** the server SHALL issue a client registration (client id + stored redirect URIs) without requiring the client to register with CyberdyneAuth directly
+
+#### Scenario: Authorization-code flow bridged to CyberdyneAuth
+- **WHEN** a registered client begins an authorization-code + PKCE flow
+- **THEN** the server SHALL forward the authorization to CyberdyneAuth, complete the code exchange with the upstream client credentials, and return the resulting user access (and refresh) token to the client
+
+#### Scenario: Token from the flow authorizes tool calls
+- **WHEN** a client calls a tool with a bearer token obtained through the OAuth flow
+- **THEN** the server SHALL validate it via the existing auth path and authorize the call only if the caller holds the `mnemosyne` entitlement
+
+#### Scenario: Authenticated user lacking entitlement
+- **WHEN** a user completes the OAuth login but does not hold the `mnemosyne` entitlement
+- **THEN** tool calls SHALL be rejected with a missing-entitlement error
+
+#### Scenario: Existing credentials still accepted
+- **WHEN** a client connects with a Mnemosyne API key (`mnem_…`) or a directly supplied CyberdyneAuth bearer token
+- **THEN** the server SHALL authenticate it as before, independent of the OAuth flow
+
+#### Scenario: OAuth disabled
+- **WHEN** the OAuth feature flag is off
+- **THEN** the server SHALL not serve OAuth metadata endpoints and SHALL continue to accept API-key and bearer credentials
+
+### Requirement: Organization-scoped intelligence MCP tools
+
+The MCP server SHALL expose `mnemosyne_get_organization_intelligence` returning a
+one-call rollup for an organization (repositories, scored count, average and median
+health, grade distribution, at-risk milestone total, throughput directions, and the
+most-active / abandoned / bug-heavy lists). `mnemosyne_get_portfolio_overview` and
+`mnemosyne_get_delivery_scorecard` SHALL accept an optional `organization` argument
+that scopes the result to that organization's indexed repositories.
+
+#### Scenario: Organization rollup
+- **WHEN** an entitled caller invokes `mnemosyne_get_organization_intelligence` for an organization
+- **THEN** it SHALL return the aggregated health and delivery rollup for that organization's indexed repositories
+
+#### Scenario: Scoped portfolio
+- **WHEN** an entitled caller passes `organization` to `mnemosyne_get_portfolio_overview` or `mnemosyne_get_delivery_scorecard`
+- **THEN** the response SHALL include only repositories owned by that organization
+
+### Requirement: Cross-repository MCP tools
+
+The MCP server SHALL expose tools that operate across many repositories at once:
+`mnemosyne_search_all` (search documentation, code, or issues across all indexed
+repositories or one organization), `mnemosyne_find_stale_issues_across_repos` and
+`mnemosyne_find_stale_prs_across_repos` (open items with no activity beyond a
+threshold, oldest first), `mnemosyne_find_repositories` (fuzzy resolve a name to
+indexed repositories), `mnemosyne_get_recent_activity` (recently synced repositories
+plus latest updated issues and pull requests), and `mnemosyne_get_repository_metrics`
+(raw computed metrics snapshot). Results that span repositories SHALL carry each
+item's repository identity.
+
+#### Scenario: Global search
+- **WHEN** an entitled caller calls `mnemosyne_search_all` with a query and a `kind` of docs, code, or issues
+- **THEN** it SHALL return ranked matches drawn from all indexed repositories (or the given organization), each carrying its repository full name
+
+#### Scenario: Invalid search kind
+- **WHEN** `mnemosyne_search_all` is called with a `kind` other than docs, code, or issues
+- **THEN** it SHALL return a structured error rather than results
+
+#### Scenario: Portfolio-wide stale triage
+- **WHEN** an entitled caller calls `mnemosyne_find_stale_issues_across_repos` (optionally scoped to an organization)
+- **THEN** it SHALL return open issues stale beyond the threshold across those repositories, oldest first
+
+#### Scenario: Resolve a repository by fuzzy name
+- **WHEN** an entitled caller calls `mnemosyne_find_repositories` with a partial name
+- **THEN** it SHALL return matching indexed repositories ranked by relevance
+
+### Requirement: Capability and feature MCP tools
+
+The MCP server SHALL expose `mnemosyne_get_repository_capabilities` (a project's
+capabilities — OpenSpec spec areas — documentation topics, open/closed issue counts,
+bug count, and pull-request counts), `mnemosyne_get_organization_capabilities` (the
+union of capabilities across an organization's repositories, total open bugs, and a
+per-project brief), and `mnemosyne_generate_feature_document` (a grounded Markdown
+document of the project's features synthesized from indexed context, with citations).
+
+#### Scenario: Repository capabilities in one call
+- **WHEN** an entitled caller invokes `mnemosyne_get_repository_capabilities` for a repository
+- **THEN** it SHALL return its capabilities, documentation topics, bug count, and issue/PR counts without further calls
+
+#### Scenario: Organization capabilities
+- **WHEN** an entitled caller invokes `mnemosyne_get_organization_capabilities` for an organization
+- **THEN** it SHALL return the union of capabilities across its repositories plus total open bugs and per-project briefs
+
+#### Scenario: Feature document
+- **WHEN** an entitled caller invokes `mnemosyne_generate_feature_document` for a repository
+- **THEN** it SHALL return a Markdown features document grounded in indexed documentation, OpenSpec, and code, with source citations
+
