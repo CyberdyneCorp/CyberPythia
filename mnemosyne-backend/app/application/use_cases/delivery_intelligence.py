@@ -255,7 +255,7 @@ class DeliveryIntelligenceService:
         )
 
     async def delivery_scorecard(
-        self, now: datetime | None = None
+        self, now: datetime | None = None, organization: str | None = None
     ) -> list[DeliveryScorecardEntry]:
         """Portfolio roll-up computed from batched reads (no per-repo query loop).
 
@@ -265,6 +265,9 @@ class DeliveryIntelligenceService:
         """
         now = now or datetime.now(UTC)
         repos = await self._repositories.list_all(enabled_only=True)
+        if organization:
+            owner = organization.lower()
+            repos = [r for r in repos if r.full_name.owner.lower() == owner]
         all_metrics = await self._metrics.list_all()
         all_history = await self._history.list_all_windows(days=180)
         all_milestones = await self._milestones.list_all()

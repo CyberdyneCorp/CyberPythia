@@ -193,9 +193,14 @@ class IntelligenceService:
             reasons.append("high open-issue backlog")
         return MaintenanceRisk(True, risk_level(len(reasons)).value, reasons)
 
-    async def portfolio(self, now: datetime | None = None) -> PortfolioOverview:
+    async def portfolio(
+        self, now: datetime | None = None, organization: str | None = None
+    ) -> PortfolioOverview:
         now = now or datetime.now(UTC)
         repos = await self._repositories.list_all(enabled_only=True)
+        if organization:
+            owner = organization.lower()
+            repos = [r for r in repos if r.full_name.owner.lower() == owner]
         all_metrics = await self._metrics.list_all()
         entries: list[PortfolioEntry] = []
         active: list[tuple[str, int]] = []

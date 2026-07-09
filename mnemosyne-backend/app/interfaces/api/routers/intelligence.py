@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Request
 from app.application.errors import ApplicationError
 from app.application.use_cases.delivery_intelligence import DeliveryIntelligenceService
 from app.application.use_cases.intelligence import IntelligenceService
+from app.application.use_cases.org_intelligence import build_org_intelligence
 from app.domain.value_objects.health import RepositoryHealth
 from app.interfaces.api.mapping import translate_error
 from app.interfaces.api.schemas.schemas import CompareRequest
@@ -46,8 +47,10 @@ def _health_dict(health: RepositoryHealth) -> dict[str, Any]:
 
 
 @router.get("/portfolio")
-async def portfolio(caller: EntitledCaller, service: Service) -> Any:
-    return asdict(await service.portfolio())
+async def portfolio(
+    caller: EntitledCaller, service: Service, organization: str | None = None
+) -> Any:
+    return asdict(await service.portfolio(organization=organization))
 
 
 @router.get("/repositories/{repo_id}/health")
@@ -166,5 +169,17 @@ async def team_load(repo_id: UUID, caller: EntitledCaller, delivery: Delivery) -
 
 
 @router.get("/delivery-scorecard")
-async def delivery_scorecard(caller: EntitledCaller, delivery: Delivery) -> Any:
-    return {"scorecard": [asdict(e) for e in await delivery.delivery_scorecard()]}
+async def delivery_scorecard(
+    caller: EntitledCaller, delivery: Delivery, organization: str | None = None
+) -> Any:
+    board = await delivery.delivery_scorecard(organization=organization)
+    return {"scorecard": [asdict(e) for e in board]}
+
+
+@router.get("/organizations/{organization}/intelligence")
+async def organization_intelligence(
+    organization: str, caller: EntitledCaller, service: Service, delivery: Delivery
+) -> Any:
+    portfolio = await service.portfolio(organization=organization)
+    scorecard = await delivery.delivery_scorecard(organization=organization)
+    return build_org_intelligence(organization, portfolio, scorecard)

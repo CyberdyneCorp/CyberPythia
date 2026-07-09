@@ -60,7 +60,7 @@ Repositories are addressed by full name (`owner/name`).
 | `mnemosyne_get_backlog_metrics` | open/stale backlog, ratios, oldest-open age |
 | `mnemosyne_get_review_bottlenecks` | slow/absent-review PRs, reviewer-load concentration |
 | `mnemosyne_get_maintenance_risk` | risk level (low/medium/high) with reasons |
-| `mnemosyne_get_portfolio_overview` | cross-repo leaderboard, most-active, abandoned, bug-heavy |
+| `mnemosyne_get_portfolio_overview` | cross-repo leaderboard, most-active, abandoned, bug-heavy (optional `organization` to scope) |
 | `mnemosyne_compare_repositories` | aligned health + metric comparison |
 | `mnemosyne_generate_onboarding_summary` | newcomer brief for a repository |
 | `mnemosyne_get_flow_metrics` | cycle/lead percentiles, WIP, aging, untriaged (Phase 5.1) |
@@ -70,7 +70,8 @@ Repositories are addressed by full name (`owner/name`).
 | `mnemosyne_get_quality_signals` | bug ratio, reopened-issue rate, first-response percentiles |
 | `mnemosyne_get_milestone_progress` | per-milestone burn-up + projected completion |
 | `mnemosyne_get_team_load` | load per assignee, reviewer load, bus-factor risk |
-| `mnemosyne_get_delivery_scorecard` | portfolio delivery roll-up |
+| `mnemosyne_get_delivery_scorecard` | portfolio delivery roll-up (optional `organization` to scope) |
+| `mnemosyne_get_organization_intelligence` | one-call org rollup: repos, scored, avg/median health, grade distribution, at-risk milestones, throughput directions |
 | `mnemosyne_list_organizations` | organizations discovered, with total/indexed repo counts |
 | `mnemosyne_list_organization_repositories` | all repositories in an org the credential can read |
 
