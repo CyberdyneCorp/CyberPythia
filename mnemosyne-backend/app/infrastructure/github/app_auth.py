@@ -5,7 +5,7 @@ import time
 import httpx
 import jwt
 
-from app.domain.ports.github_app_port import GitHubAppError
+from app.domain.ports.github_app_port import AppManifestCredentials, GitHubAppError
 
 API_BASE = "https://api.github.com"
 JWT_TTL_SECONDS = 540  # 9 min (GitHub max is 10)
@@ -58,6 +58,34 @@ class GitHubAppAuth:
         expires_at = _parse_epoch(payload.get("expires_at"))
         self._cache[installation_id] = (token, expires_at)
         return token
+
+    async def convert_manifest_code(self, code: str) -> AppManifestCredentials:
+        try:
+            response = await self._client.post(
+                f"{self._base_url}/app-manifests/{code}/conversions",
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+            )
+        except httpx.HTTPError as exc:
+            raise GitHubAppError(f"manifest conversion request failed: {exc}") from exc
+        if response.status_code != 201:
+            raise GitHubAppError(
+                f"GitHub rejected the manifest conversion: {response.status_code}"
+            )
+        p = response.json()
+        try:
+            return AppManifestCredentials(
+                app_id=str(p["id"]),
+                private_key_pem=p["pem"],
+                webhook_secret=p.get("webhook_secret", ""),
+                owner_login=p["owner"]["login"],
+                html_url=p["html_url"],
+                slug=p["slug"],
+            )
+        except (KeyError, TypeError) as exc:
+            raise GitHubAppError(f"unexpected manifest conversion response: {exc}") from exc
 
     async def close(self) -> None:
         await self._client.aclose()

@@ -211,7 +211,10 @@ class Container:
     @cached_property
     def connection_use_cases(self) -> GitHubConnectionUseCases:
         return GitHubConnectionUseCases(
-            self.connections, self.github, self.cipher, app_auth=self.app_auth
+            self.connections, self.github, self.cipher, app_auth=self.app_auth,
+            public_api_base_url=self.settings.public_api_base_url,
+            github_web_base_url=self.settings.github_web_base_url,
+            state_secret=self.settings.token_encryption_key,
         )
 
     @cached_property

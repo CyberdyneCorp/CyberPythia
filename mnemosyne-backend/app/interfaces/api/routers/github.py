@@ -1,13 +1,17 @@
 """GitHub connection endpoints — admin only (spec: rest-api, github-connection)."""
 
 from typing import Annotated, Any, cast
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import RedirectResponse
 
 from app.application.audit import AuditService
 from app.application.errors import ApplicationError
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
+from app.config import get_settings
+from app.domain.services.signed_state import InvalidStateError
 from app.interfaces.api.errors import NotFoundError
 from app.interfaces.api.mapping import translate_error
 from app.interfaces.api.schemas.schemas import (
@@ -25,6 +29,10 @@ from app.interfaces.api.security import AdminCaller, get_audit_service
 
 router = APIRouter(prefix="/api/v1/github", tags=["github"])
 admin_router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+
+def _q(text: str) -> str:
+    return quote(text[:200], safe="")
 
 
 def get_connection_use_cases(request: Request) -> GitHubConnectionUseCases:
@@ -74,6 +82,39 @@ async def discover_app_repositories(
         raise translate_error(exc) from exc
     await audit.record(caller, "github.app_discover", target=str(connection_id))
     return [repository_response(r).model_dump(mode="json") for r in repos]
+
+
+@router.get("/app/manifest")
+async def app_manifest(
+    organization: str, caller: AdminCaller, use_cases: UseCases
+) -> Any:
+    """Return the GitHub App manifest + POST URL + signed state to start creation."""
+    manifest, post_url, state = use_cases.build_app_manifest(organization, caller.subject)
+    return {"manifest": manifest, "post_url": post_url, "state": state}
+
+
+@router.get("/app/manifest-callback")
+async def app_manifest_callback(code: str, state: str, use_cases: UseCases) -> Any:
+    """GitHub redirect after App creation: convert code → creds, then send to install."""
+    web = get_settings().public_web_base_url.rstrip("/")
+    try:
+        _view, install_url = await use_cases.complete_manifest(code, state)
+    except (ApplicationError, InvalidStateError) as exc:
+        return RedirectResponse(f"{web}/connections?app_error={_q(str(exc))}", status_code=303)
+    return RedirectResponse(install_url, status_code=303)
+
+
+@router.get("/app/setup")
+async def app_setup(
+    installation_id: str, state: str, use_cases: UseCases, setup_action: str = "install"
+) -> Any:
+    """GitHub redirect after install: attach installation, validate, return to dashboard."""
+    web = get_settings().public_web_base_url.rstrip("/")
+    try:
+        await use_cases.complete_setup(installation_id, state)
+    except (ApplicationError, InvalidStateError) as exc:
+        return RedirectResponse(f"{web}/connections?app_error={_q(str(exc))}", status_code=303)
+    return RedirectResponse(f"{web}/connections?app_connected=1", status_code=303)
 
 
 @router.get("/connections", response_model=list[ConnectionResponse])

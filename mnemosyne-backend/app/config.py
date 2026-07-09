@@ -47,6 +47,12 @@ class Settings(BaseSettings):
 
     # GitHub API base URL — overridable so BDD suites can point at fixtures
     github_api_base_url: str = "https://api.github.com"
+    # github.com base (App-creation page) — overridable for BDD fixtures
+    github_web_base_url: str = "https://github.com"
+    # Public base URLs (behind the proxy) used to build GitHub App manifest
+    # webhook/redirect/setup URLs and the post-install return to the dashboard.
+    public_api_base_url: str = "https://mnemosyne.backend.coolify.cyberdynecorp.ai"
+    public_web_base_url: str = "https://mnemosyne.coolify.cyberdynecorp.ai"
 
     # MCP server bind port
     mcp_port: int = 8100

@@ -111,6 +111,7 @@ class ConnectionStatus(StrEnum):
     ACTIVE = "active"
     BROKEN = "broken"
     DISABLED = "disabled"
+    PENDING_INSTALLATION = "pending_installation"  # App created, not yet installed
 
 
 class ConnectionKind(StrEnum):

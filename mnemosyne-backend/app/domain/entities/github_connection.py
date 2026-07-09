@@ -43,3 +43,6 @@ class GitHubConnection:
 
     def mark_active(self) -> None:
         self.status = ConnectionStatus.ACTIVE
+
+    def mark_pending_installation(self) -> None:
+        self.status = ConnectionStatus.PENDING_INSTALLATION

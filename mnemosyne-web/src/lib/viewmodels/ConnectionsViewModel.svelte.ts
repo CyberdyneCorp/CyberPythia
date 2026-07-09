@@ -100,6 +100,17 @@ export class ConnectionsViewModel {
     }
   }
 
+  /** Fetch the GitHub App manifest bootstrap for an org (page then submits it to GitHub). */
+  async fetchAppManifest(org: string) {
+    this.error = null;
+    try {
+      return await this.githubApi.appManifest(org);
+    } catch (error) {
+      this.error = error instanceof ApiError ? error.message : 'could not start App creation';
+      return null;
+    }
+  }
+
   async toggleOrganization(login: string, syncEnabled: boolean): Promise<void> {
     const updated = await this.githubApi.setOrganizationSync(login, syncEnabled);
     this.organizations = this.organizations.map((o) => (o.login === login ? updated : o));
