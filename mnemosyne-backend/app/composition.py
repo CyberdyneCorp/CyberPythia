@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.application.audit import AuditService
 from app.application.metrics_recompute import MetricsRecomputeService
 from app.application.use_cases.api_keys import ApiKeyUseCases
+from app.application.use_cases.capabilities import CapabilitiesService
 from app.application.use_cases.code import CodeUseCases
 from app.application.use_cases.context import ContextUseCases
 from app.application.use_cases.cross_repo import CrossRepoService
@@ -195,6 +196,12 @@ class Container:
     def cross_repo(self) -> CrossRepoService:
         return CrossRepoService(
             self.repositories, self.issues, self.pull_requests, self.embeddings
+        )
+
+    @cached_property
+    def capabilities(self) -> CapabilitiesService:
+        return CapabilitiesService(
+            self.repositories, self.documents, self.openspec, self.metrics_store
         )
 
     @cached_property

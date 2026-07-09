@@ -191,3 +191,59 @@ class TestRepositoryMetrics:
                 "mnemosyne_get_repository_metrics", {"full_name": "CyberdyneCorp/pythia"}
             )
         assert payload(res)["error"]["code"] == "no_metrics"
+
+
+class TestCapabilities:
+    async def _seed_caps(self, container):
+        from app.domain.entities.document import Document
+        from app.domain.entities.openspec_change import OpenSpecChange
+        from app.domain.value_objects.enums import DocumentType, OpenSpecStatus
+
+        auth = _repo("CyberdyneCorp", "auth")
+        await container.repositories.save(auth)
+        await container.openspec.save(OpenSpecChange(
+            id=uuid4(), repository_id=auth.id, change_id="add-login", path="p",
+            status=OpenSpecStatus.ACTIVE, affected_specs=["authentication", "sessions"],
+        ))
+        await container.documents.save(Document(
+            id=uuid4(), repository_id=auth.id, path="README.md", type=DocumentType.README,
+            title="Auth Service", content="c", content_hash="h", last_commit_sha=None,
+        ))
+        await container.metrics_store.save(
+            auth.id, computed_at=NOW.isoformat(),
+            issue_metrics={"open_count": 4, "closed_count": 10, "by_label": {"bug": 3}},
+            pr_metrics={"open_count": 1, "merged_count": 9}, summary={},
+        )
+        return auth
+
+    async def test_repository_capabilities(self, mcp, container):
+        await self._seed_caps(container)
+        async with Client(mcp) as c:
+            res = await c.call_tool(
+                "mnemosyne_get_repository_capabilities", {"full_name": "CyberdyneCorp/auth"}
+            )
+        body = payload(res)
+        assert body["capabilities"] == ["authentication", "sessions"]
+        assert body["issues"]["bugs"] == 3
+        assert "Auth Service" in body["documentation_topics"]
+
+    async def test_organization_capabilities(self, mcp, container):
+        await self._seed_caps(container)
+        async with Client(mcp) as c:
+            res = await c.call_tool(
+                "mnemosyne_get_organization_capabilities", {"organization": "CyberdyneCorp"}
+            )
+        body = payload(res)
+        assert body["repositories"] == 1
+        assert "authentication" in body["capabilities"]
+        assert body["total_open_bugs"] == 3
+
+    async def test_feature_document(self, mcp, container):
+        repo = await self._seed_caps(container)
+        _ = repo
+        async with Client(mcp) as c:
+            res = await c.call_tool(
+                "mnemosyne_generate_feature_document", {"full_name": "CyberdyneCorp/auth"}
+            )
+        body = payload(res)
+        assert "document" in body and isinstance(body["document"], str)

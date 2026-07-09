@@ -21,6 +21,7 @@
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
+    { id: 'capabilities', label: 'Capabilities' },
     { id: 'documentation', label: 'Documentation' },
     { id: 'openspec', label: 'OpenSpec' },
     { id: 'issues', label: 'Issues' },
@@ -91,6 +92,60 @@
   </div>
   <HealthPanel api={ctx.intelligenceApi} {repoId} />
   <DeliveryPanel api={ctx.intelligenceApi} {repoId} />
+{/if}
+
+{#if vm.tab === 'capabilities' && vm.capabilities}
+  {@const cap = vm.capabilities}
+  <div class="card">
+    <p>{cap.description ?? 'No description.'}</p>
+    <div class="stats">
+      <div class="card stat"><strong>{cap.issues.bugs}</strong><span>open bugs</span></div>
+      <div class="card stat">
+        <strong>{cap.issues.open}/{cap.issues.closed}</strong><span>issues open/closed</span>
+      </div>
+      <div class="card stat">
+        <strong>{cap.pull_requests.open}/{cap.pull_requests.merged}</strong><span>PRs open/merged</span>
+      </div>
+      <div class="card stat"><strong>{cap.documents}</strong><span>docs</span></div>
+    </div>
+    <h3>Capabilities</h3>
+    {#if cap.capabilities.length}
+      <div class="chips">
+        {#each cap.capabilities as c (c)}<span class="chip">{c}</span>{/each}
+      </div>
+    {:else}
+      <p class="muted small">No OpenSpec capabilities indexed — see documentation topics below.</p>
+    {/if}
+    {#if cap.documentation_topics.length}
+      <h3>Documentation topics</h3>
+      <ul class="topics">
+        {#each cap.documentation_topics as t (t)}<li>{t}</li>{/each}
+      </ul>
+    {/if}
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <h3>Feature document</h3>
+      <button
+        class="secondary"
+        disabled={vm.featureDocBusy}
+        onclick={() => vm.generateFeatureDoc()}
+      >
+        {vm.featureDocBusy ? 'Generating…' : 'Generate'}
+      </button>
+    </div>
+    <p class="muted small">
+      A grounded Markdown write-up of everything this project does, synthesized from indexed
+      docs / OpenSpec / code.
+    </p>
+    {#if vm.featureDoc}
+      {#if !vm.featureDoc.grounded}
+        <p class="muted small">Limited context — the document may be incomplete.</p>
+      {/if}
+      <pre class="doc">{vm.featureDoc.document}</pre>
+    {/if}
+  </div>
 {/if}
 
 {#if vm.tab === 'documentation'}
@@ -451,5 +506,39 @@
     border-radius: 8px;
     overflow-x: auto;
     white-space: pre-wrap;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.3rem 0 0.6rem;
+  }
+  .chip {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid var(--accent, #e8a33d);
+    border-radius: 999px;
+  }
+  .topics {
+    margin: 0.3rem 0 0.4rem 1.1rem;
+    font-size: 0.85rem;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .doc {
+    margin-top: 0.6rem;
+    padding: 0.8rem;
+    background: var(--panel2, rgba(127, 127, 127, 0.08));
+    border-radius: 6px;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    max-height: 500px;
+    overflow-y: auto;
   }
 </style>

@@ -9,8 +9,10 @@ import type {
   ConnectionTest,
   ContextPack,
   Document,
+  FeatureDocument,
   FileContent,
   DocumentSummary,
+  RepositoryCapabilities,
   IndexingMode,
   Issue,
   BacklogForecast,
@@ -193,6 +195,12 @@ export class RepositoriesApi {
   }
   metrics(id: string): Promise<Metrics> {
     return this.http.get(`/api/v1/repos/${id}/metrics`);
+  }
+  capabilities(id: string): Promise<RepositoryCapabilities> {
+    return this.http.get(`/api/v1/repos/${id}/capabilities`);
+  }
+  featureDocument(id: string): Promise<FeatureDocument> {
+    return this.http.post(`/api/v1/repos/${id}/feature-document`);
   }
 }
 

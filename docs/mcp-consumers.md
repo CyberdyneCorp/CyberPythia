@@ -80,6 +80,9 @@ Repositories are addressed by full name (`owner/name`).
 | `mnemosyne_find_stale_issues_across_repos` | stale open issues across all repos (or one org), oldest first |
 | `mnemosyne_find_stale_prs_across_repos` | stale open PRs across all repos (or one org), oldest first |
 | `mnemosyne_get_recent_activity` | recently synced repos + latest updated issues/PRs (all repos or one org) |
+| `mnemosyne_get_repository_capabilities` | one-call project overview: capabilities (OpenSpec areas), doc topics, **bug count**, issue/PR counts |
+| `mnemosyne_get_organization_capabilities` | what an org can do right now: union of capabilities + per-project briefs + total open bugs |
+| `mnemosyne_generate_feature_document` | grounded Markdown write-up of a project's features/capabilities |
 
 ## Error contract
 
