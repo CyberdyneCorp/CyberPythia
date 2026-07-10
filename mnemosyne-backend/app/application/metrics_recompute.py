@@ -23,7 +23,7 @@ from app.domain.value_objects.enums import DocumentType
 from app.domain.value_objects.health import HealthInputs, RepositorySignals
 
 
-class MetricsWriterProtocol(Protocol):  # PostgresMetricsRepository.save-compatible
+class MetricsWriterProtocol(Protocol):  # PostgresMetricsRepository-compatible
     async def save(
         self,
         repository_id: Any,
@@ -33,6 +33,8 @@ class MetricsWriterProtocol(Protocol):  # PostgresMetricsRepository.save-compati
         summary: dict[str, Any],
         computed_at: datetime,
     ) -> None: ...
+
+    async def get(self, repository_id: Any) -> dict[str, Any] | None: ...
 
 
 class MetricsHistoryProtocol(Protocol):  # PostgresMetricsHistoryRepository-compatible
@@ -62,8 +64,15 @@ class MetricsRecomputeService:
         self._history = history
         self._health = health or RepositoryHealthService()
 
-    async def recompute(self, repository: Repository) -> None:
+    async def recompute(
+        self, repository: Repository, *, has_releases: bool | None = None
+    ) -> None:
         now = datetime.now(UTC)
+        if has_releases is None:
+            # Preserve the last captured value so partial (incremental) recomputes
+            # don't clobber the release signal set by a full sync.
+            prior = await self._metrics_store.get(repository.id) or {}
+            has_releases = prior.get("summary", {}).get("has_releases")
         issues = await self._issues.list_by_repository(repository.id)
         prs = await self._pull_requests.list_by_repository(repository.id)
         documents = await self._documents.list_by_repository(repository.id)
@@ -89,6 +98,7 @@ class MetricsRecomputeService:
             "merged_prs": pr_metrics.merged_count,
             "avg_issue_resolution_seconds": issue_metrics.avg_resolution_seconds,
             "avg_pr_merge_seconds": pr_metrics.avg_time_to_merge_seconds,
+            "has_releases": has_releases,
         }
         await self._metrics_store.save(
             repository.id,

@@ -27,6 +27,7 @@ class ReadinessInputs:
     has_dependency_manifest: bool | None = None
     has_dependabot: bool | None = None
     has_security_scanning: bool | None = None
+    has_releases: bool | None = None
     closed_issues: int = 0
     merged_prs: int = 0
     open_issues: int = 0
@@ -60,6 +61,7 @@ def classify_readiness(inp: ReadinessInputs) -> dict[str, Any]:
         else bool(inp.has_dependabot or inp.has_security_scanning),
         "security_doc": inp.has_security_doc,
         "low_bug_ratio": low_bug_ratio,
+        "releases": inp.has_releases,
     }
 
     is_ready = all(v is True for v in ready.values())

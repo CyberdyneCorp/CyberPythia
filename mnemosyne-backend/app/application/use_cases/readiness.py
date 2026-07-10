@@ -40,6 +40,7 @@ class ReadinessService:
         m = await self.metrics.get(repo.id) or {}
         im = m.get("issue_metrics", {})
         pm = m.get("pr_metrics", {})
+        has_releases = m.get("summary", {}).get("has_releases")
         return ReadinessInputs(
             has_readme=DocumentType.README in doc_types,
             has_guide_doc=DocumentType.DOCS in doc_types,
@@ -51,6 +52,7 @@ class ReadinessService:
             has_dependency_manifest=sig.has_dependency_manifest,
             has_dependabot=sig.has_dependabot,
             has_security_scanning=sig.has_security_scanning,
+            has_releases=has_releases,
             closed_issues=int(im.get("closed_count", 0)),
             merged_prs=int(pm.get("merged_count", 0)),
             open_issues=int(im.get("open_count", 0)),
