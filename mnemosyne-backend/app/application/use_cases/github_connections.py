@@ -155,10 +155,12 @@ class GitHubConnectionUseCases:
                 "contents": "read", "issues": "read",
                 "pull_requests": "read", "metadata": "read",
             },
+            # `installation` / `installation_repositories` are app-management meta
+            # events GitHub always delivers — they are rejected if declared here.
             "default_events": [
                 "push", "issues", "issue_comment", "pull_request",
                 "pull_request_review", "pull_request_review_comment",
-                "repository", "installation", "installation_repositories",
+                "repository",
             ],
         }
         post_url = f"{self._gh_web}/organizations/{organization}/settings/apps/new?state={state}"
