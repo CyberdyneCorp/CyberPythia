@@ -110,7 +110,7 @@ class GitHubConnectionUseCases:
             token = await self._app_auth.installation_token(
                 app_id, installation_id, private_key_pem
             )
-            info = await self._github.validate_token(token)
+            info = await self._github.validate_installation_token(token)
         except (GitHubAppError, GitHubAuthError) as exc:
             raise InvalidCredentialError(str(exc)) from exc
 
@@ -210,7 +210,7 @@ class GitHubConnectionUseCases:
                 installation_id,
                 self._cipher.decrypt(connection.encrypted_private_key or b""),
             )
-            info = await self._github.validate_token(token)
+            info = await self._github.validate_installation_token(token, org)
         except (GitHubAppError, GitHubAuthError) as exc:
             connection.mark_broken()
             await self._connections.save(connection)

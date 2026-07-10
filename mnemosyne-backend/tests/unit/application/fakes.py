@@ -383,6 +383,17 @@ class FakeGitHub:
             raise GitHubAuthError("bad token")
         return self.token_info
 
+    async def validate_installation_token(self, token, owner=""):
+        if self.auth_fails:
+            raise GitHubAuthError("bad token")
+        if owner:
+            return GitHubTokenInfo(
+                login=owner,
+                owner_type="Organization",
+                permissions=set(self.token_info.permissions),
+            )
+        return self.token_info
+
     async def list_repositories(self, token):
         return self.repos
 
