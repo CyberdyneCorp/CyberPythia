@@ -153,6 +153,32 @@ class GitHubClient:
             permissions=permissions,
         )
 
+    async def validate_installation_token(
+        self, token: str, owner: str = ""
+    ) -> GitHubTokenInfo:
+        """Validate a GitHub App installation token.
+
+        Installation tokens are server-to-server: `GET /user` returns 403, so we
+        probe the installation-scoped `/installation/repositories` endpoint
+        instead. When the caller doesn't already know the account (manual
+        connect), derive it from the installed repositories. Permissions are
+        those the manifest declares and the install grants (contents/issues/
+        pull_requests/metadata, all read).
+        """
+        response = await self._request(
+            "GET", f"{self._base_url}/installation/repositories?per_page=1", token
+        )
+        login = owner
+        if not login:
+            repos = response.json().get("repositories", [])
+            if repos:
+                login = repos[0].get("owner", {}).get("login", "")
+        return GitHubTokenInfo(
+            login=login,
+            owner_type="Organization",
+            permissions={"contents", "issues", "pull_requests", "metadata"},
+        )
+
     async def list_repositories(self, token: str) -> list[GitHubRepoData]:
         raw = await self._paginate(
             "/user/repos",

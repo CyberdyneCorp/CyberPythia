@@ -62,6 +62,31 @@ async def test_complete_setup_activates_connection():
     assert set(view.permissions) == {"contents", "issues", "pull_requests", "metadata"}
 
 
+async def test_setup_does_not_use_user_context_validation():
+    """Regression: installation tokens 403 on GET /user, so App setup must validate
+    via the installation-scoped path, not validate_token."""
+    from app.domain.ports.github_port import GitHubAuthError
+
+    github = FakeGitHub()
+
+    async def _forbidden(_token):
+        raise GitHubAuthError("403 Forbidden for /user")
+
+    github.validate_token = _forbidden  # type: ignore[method-assign]
+    uc = GitHubConnectionUseCases(
+        FakeConnectionPort(), github, FakeCipher(),
+        app_auth=FakeGitHubAppAuth(),
+        public_api_base_url="https://api.example.ai",
+        github_web_base_url="https://github.com",
+        state_secret=SECRET,
+    )
+    _m, _p, state = uc.build_app_manifest("cyberdyne", "admin-1")
+    await uc.complete_manifest("code123", state)
+    view = await uc.complete_setup("55555", state)
+    assert view.status == ConnectionStatus.ACTIVE.value
+    assert view.installation_id == "55555"
+
+
 async def test_bad_state_rejected():
     uc = _uc()
     with pytest.raises(InvalidStateError):
