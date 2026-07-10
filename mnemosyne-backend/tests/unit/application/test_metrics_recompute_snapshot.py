@@ -23,6 +23,9 @@ class FakeMetricsStore:
     async def save(self, repository_id, **kw) -> None:
         self.saved[repository_id] = kw
 
+    async def get(self, repository_id):
+        return self.saved.get(repository_id)
+
 
 def make_repo() -> Repository:
     return Repository(
@@ -61,3 +64,17 @@ async def test_recompute_without_history_is_noop_for_snapshots() -> None:
     repo = make_repo()
     await svc.recompute(repo)  # no history wired -> must not raise
     assert repo.id in store.saved
+
+
+async def test_recompute_preserves_has_releases_when_not_supplied() -> None:
+    store = FakeMetricsStore()
+    svc = MetricsRecomputeService(
+        FakeIssuePort(), FakePullRequestPort(), FakeDocumentPort(), FakeOpenSpecPort(), store,
+    )
+    repo = make_repo()
+    # A full sync captured releases=True...
+    await svc.recompute(repo, has_releases=True)
+    assert store.saved[repo.id]["summary"]["has_releases"] is True
+    # ...an incremental recompute (no value supplied) must not clobber it.
+    await svc.recompute(repo)
+    assert store.saved[repo.id]["summary"]["has_releases"] is True

@@ -375,6 +375,7 @@ class FakeGitHub:
         self.files: dict[str, str] = {}  # path -> content
         self.tree: list[GitHubFileData] = []
         self.issues: list[GitHubIssueData] = []
+        self.releases_present = False
         self.pull_requests: list[GitHubPullRequestData] = []
         self.auth_fails = False
         self.rate_limit = {"limit": 5000, "remaining": 4999}
@@ -409,6 +410,9 @@ class FakeGitHub:
 
     async def get_tree(self, token, full_name, branch):
         return self.tree
+
+    async def has_releases(self, token, full_name):
+        return self.releases_present
 
     async def list_issues(self, token, full_name):
         return self.issues

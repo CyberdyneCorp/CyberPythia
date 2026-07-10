@@ -271,6 +271,14 @@ class GitHubClient:
         await self._snapshot(f"raw/github/repos/{full_name}/issues.json", raw)
         return [_issue_from(i) for i in raw]
 
+    async def has_releases(self, token: str, full_name: str) -> bool:
+        """Whether the repository has any published GitHub Release (one cheap call)."""
+        response = await self._request(
+            "GET", f"{self._base_url}/repos/{full_name}/releases?per_page=1", token
+        )
+        data = response.json()
+        return isinstance(data, list) and len(data) > 0
+
     async def list_milestones(
         self, token: str, full_name: str
     ) -> list[GitHubMilestoneData]:

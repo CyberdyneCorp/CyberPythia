@@ -486,7 +486,8 @@ class SyncRepositoryUseCase:
             self._pr_metrics,
             history=self._metrics_history,
         )
-        await service.recompute(ctx.repository)
+        has_releases = await self._github.has_releases(ctx.token, ctx.full_name)
+        await service.recompute(ctx.repository, has_releases=has_releases)
         return 1
 
 
