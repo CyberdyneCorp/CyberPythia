@@ -84,6 +84,10 @@ class Settings(BaseSettings):
     # limit; a bulletproof retry truncates harder if the API still rejects it.
     embedding_max_input_chars: int = 16000
 
+    # Apply Alembic migrations to head when the API starts (idempotent). Only the
+    # API container triggers the FastAPI lifespan, so migrations run once there.
+    run_migrations_on_boot: bool = True
+
     # Sync behavior
     stale_issue_days: int = 30
     stale_pr_days: int = 30

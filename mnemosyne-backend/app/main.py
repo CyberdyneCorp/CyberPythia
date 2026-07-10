@@ -1,5 +1,7 @@
 """FastAPI application entrypoint (design D4)."""
 
+import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -18,9 +20,27 @@ from app.interfaces.api.routers import (
     webhooks,
 )
 
+logger = logging.getLogger(__name__)
+
+
+async def _run_migrations() -> None:
+    """Apply Alembic migrations to head. Run in a thread: migrations/env.py uses
+    asyncio.run(), which can't be called from the already-running event loop."""
+
+    def _upgrade() -> None:
+        from alembic import command
+        from alembic.config import Config
+
+        command.upgrade(Config("alembic.ini"), "head")
+
+    await asyncio.to_thread(_upgrade)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    if get_settings().run_migrations_on_boot:
+        logger.info("applying database migrations (alembic upgrade head)")
+        await _run_migrations()
     yield
     container: Container = app.state.container
     await container.queue.close()
