@@ -41,6 +41,14 @@ async def sync_repository(ctx: dict[str, Any], repository_id: str, job_id: str) 
     return str(job.status.value)
 
 
+async def delete_connection(ctx: dict[str, Any], connection_id: str) -> str:
+    """Cascade-delete a connection and its indexed data off the request path."""
+    container = ctx["container"]
+    await container.connection_use_cases.perform_delete(UUID(connection_id))
+    logger.info("connection %s deleted", connection_id)
+    return connection_id
+
+
 async def scheduled_full_sync(ctx: dict[str, Any]) -> str:
     """Daily cron: discover + auto-enable new repos, then enqueue a full sync of all enabled.
 
@@ -89,7 +97,7 @@ def _cron_jobs() -> list[Any]:
 
 
 class WorkerSettings:
-    functions: ClassVar = [sync_repository]
+    functions: ClassVar = [sync_repository, delete_connection]
     cron_jobs: ClassVar[list[Any]] = _cron_jobs()
     on_startup = startup
     on_shutdown = shutdown

@@ -118,7 +118,6 @@ def build_fake_container():
     ]
     connections = FakeConnectionPort()
     cipher = FakeCipher()
-    connection_uc = GitHubConnectionUseCases(connections, github, cipher)
     repositories = FakeRepositoryPort()
     documents = FakeDocumentPort()
     openspec = FakeOpenSpecPort()
@@ -130,6 +129,9 @@ def build_fake_container():
     organizations = FakeOrganizationPort()
     queue = FakeQueue()
     lock = FakeSyncLock()
+    connection_uc = GitHubConnectionUseCases(
+        connections, github, cipher, repositories=repositories, queue=queue
+    )
     embeddings = FakeSearchEmbeddings()
     metrics_store = FakeMetricsStore()
     audit_port = FakeAuditPort()
@@ -312,9 +314,18 @@ class TestGitHubEndpoints:
             cid = created.json()["id"]
             tested = await c.post(f"/api/v1/github/connections/{cid}/test", headers=admin())
             assert tested.json()["ok"] is True
+            # Deletion is async: 202 + impact count, connection marked 'deleting'.
             deleted = await c.delete(f"/api/v1/github/connections/{cid}", headers=admin())
-            assert deleted.status_code == 204
-            missing = await c.post(f"/api/v1/github/connections/{cid}/test", headers=admin())
+            assert deleted.status_code == 202
+            assert deleted.json()["repository_count"] == 0
+            listing = await c.get("/api/v1/github/connections", headers=admin())
+            row = next(r for r in listing.json() if r["id"] == cid)
+            assert row["status"] == "deleting"
+            assert "repository_count" in row
+            # Deleting an unknown connection is a 404.
+            missing = await c.delete(
+                f"/api/v1/github/connections/{uuid4()}", headers=admin()
+            )
             assert missing.status_code == 404
 
 

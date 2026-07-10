@@ -112,6 +112,7 @@ class ConnectionStatus(StrEnum):
     BROKEN = "broken"
     DISABLED = "disabled"
     PENDING_INSTALLATION = "pending_installation"  # App created, not yet installed
+    DELETING = "deleting"  # deletion enqueued; worker is cascading it away
 
 
 class ConnectionKind(StrEnum):

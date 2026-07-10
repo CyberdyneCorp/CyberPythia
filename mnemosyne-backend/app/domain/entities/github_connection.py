@@ -46,3 +46,6 @@ class GitHubConnection:
 
     def mark_pending_installation(self) -> None:
         self.status = ConnectionStatus.PENDING_INSTALLATION
+
+    def mark_deleting(self) -> None:
+        self.status = ConnectionStatus.DELETING

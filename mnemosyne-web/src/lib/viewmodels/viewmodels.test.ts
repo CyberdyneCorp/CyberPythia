@@ -195,6 +195,32 @@ describe('ConnectionsViewModel', () => {
     expect(await vm.connect('ghp_bad')).toBe(false);
     expect(vm.error).toBe('missing: issues');
   });
+
+  it('delete reloads on success', async () => {
+    let deleted = false;
+    const githubApi = {
+      deleteConnection: async () => {
+        deleted = true;
+      },
+      listConnections: async () => []
+    };
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never, {} as never);
+    await vm.remove('c1');
+    expect(deleted).toBe(true);
+    expect(vm.error).toBeNull();
+  });
+
+  it('delete surfaces the error instead of swallowing it', async () => {
+    const githubApi = {
+      deleteConnection: async () => {
+        throw new ApiError(504, 'timeout', 'gateway timeout');
+      },
+      listConnections: async () => []
+    };
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never, {} as never);
+    await vm.remove('c1');
+    expect(vm.error).toBe('gateway timeout');
+  });
 });
 
 describe('AuthViewModel', () => {
