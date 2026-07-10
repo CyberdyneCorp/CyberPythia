@@ -11,6 +11,11 @@ class SyncConflictError(Exception):
     """A sync is already running for the repository (spec: repository-sync)."""
 
 
+# Best-effort steps enrich search; their failure degrades (not fails) the job.
+# Everything else is essential intelligence-bearing data.
+BEST_EFFORT_STEPS = frozenset({SyncStep.SOURCE_CODE, SyncStep.EMBEDDINGS})
+
+
 @dataclass(slots=True)
 class SyncStepResult:
     step: SyncStep
@@ -65,11 +70,30 @@ class SyncJob:
         result.items_processed = items
 
     def finish(self, at: datetime) -> None:
-        """Job fails if any step failed; successful steps' data is retained."""
+        """Classify the outcome; successful steps' data is retained regardless.
+
+        An essential step failure fails the job; a failure confined to
+        best-effort steps degrades it. `essential_succeeded` gates whether the
+        repository's `last_synced_at` should advance.
+        """
         self.finished_at = at
-        failed = any(s.status is SyncStatus.FAILED for s in self.steps)
-        self.status = SyncStatus.FAILED if failed else SyncStatus.SUCCEEDED
+        failed = self.failed_steps
+        if any(s.step not in BEST_EFFORT_STEPS for s in failed):
+            self.status = SyncStatus.FAILED
+        elif failed:
+            self.status = SyncStatus.DEGRADED
+        else:
+            self.status = SyncStatus.SUCCEEDED
 
     @property
     def failed_steps(self) -> list[SyncStepResult]:
         return [s for s in self.steps if s.status is SyncStatus.FAILED]
+
+    @property
+    def essential_succeeded(self) -> bool:
+        """True when every essential (non-best-effort) step succeeded."""
+        return all(
+            s.status is SyncStatus.SUCCEEDED
+            for s in self.steps
+            if s.step not in BEST_EFFORT_STEPS
+        )

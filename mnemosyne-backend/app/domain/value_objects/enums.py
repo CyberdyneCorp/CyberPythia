@@ -81,6 +81,7 @@ class SyncStatus(StrEnum):
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+    DEGRADED = "degraded"  # essential steps ok; a best-effort step failed
 
 
 class SyncStep(StrEnum):

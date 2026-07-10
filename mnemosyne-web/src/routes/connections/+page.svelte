@@ -346,7 +346,15 @@
           <tr>
             <td>{j.repository_full_name ?? '—'}</td>
             <td>
-              <span class="badge {j.status === 'succeeded' ? 'ok' : j.status === 'failed' ? 'err' : ''}">
+              <span
+                class="badge {j.status === 'succeeded'
+                  ? 'ok'
+                  : j.status === 'failed'
+                    ? 'err'
+                    : j.status === 'degraded'
+                      ? 'warn'
+                      : ''}"
+              >
                 {j.status}
               </span>
             </td>
