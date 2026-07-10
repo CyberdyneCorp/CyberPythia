@@ -78,6 +78,11 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
+    # Per-input char cap before embedding. text-embedding-3 accepts <= 8192
+    # tokens; since a token is always >= 1 character, capping characters bounds
+    # tokens. 16000 keeps realistic content (>=2 chars/token) safely under the
+    # limit; a bulletproof retry truncates harder if the API still rejects it.
+    embedding_max_input_chars: int = 16000
 
     # Sync behavior
     stale_issue_days: int = 30
