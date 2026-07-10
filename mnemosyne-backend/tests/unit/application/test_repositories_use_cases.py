@@ -111,6 +111,26 @@ class TestDiscovery:
         with pytest.raises(UnknownResourceError):
             await use_cases.discover(uuid4())
 
+    async def test_app_connection_discovers_via_installation_path(self):
+        """Regression: App installation tokens 403 on /user/repos, so discovery
+        must enumerate via /installation/repositories."""
+        from tests.unit.application.fakes import FakeGitHubAppAuth
+
+        github = FakeGitHub()
+        github.repos = []  # user-context path must NOT be used for an App
+        github.installation_repos = [repo_data(1, "cyberdyne/a"), repo_data(2, "cyberdyne/b")]
+        connections = FakeConnectionPort()
+        connection_uc = GitHubConnectionUseCases(
+            connections, github, FakeCipher(), app_auth=FakeGitHubAppAuth()
+        )
+        use_cases = RepositoryUseCases(
+            FakeRepositoryPort(), connections, connection_uc, github,
+            FakeSyncJobPort(), FakeQueue(), FakeSyncLock(),
+        )
+        view = await connection_uc.connect_app("app1", "inst1", "pem", "secret")
+        repos = await use_cases.discover(view.id)
+        assert [str(r.full_name) for r in repos] == ["cyberdyne/a", "cyberdyne/b"]
+
 
 class TestSelection:
     async def test_enable_disable(self, env):

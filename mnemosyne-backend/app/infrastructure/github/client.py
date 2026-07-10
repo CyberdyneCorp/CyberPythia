@@ -179,25 +179,41 @@ class GitHubClient:
             permissions={"contents", "issues", "pull_requests", "metadata"},
         )
 
+    @staticmethod
+    def _repo_data(r: dict[str, Any]) -> GitHubRepoData:
+        return GitHubRepoData(
+            github_id=r["id"],
+            full_name=r["full_name"],
+            description=r.get("description"),
+            visibility=r.get("visibility", "private" if r.get("private") else "public"),
+            default_branch=r.get("default_branch", "main"),
+            primary_language=r.get("language"),
+            archived=r.get("archived", False),
+            updated_at=_parse_dt(r.get("updated_at")),
+        )
+
     async def list_repositories(self, token: str) -> list[GitHubRepoData]:
         raw = await self._paginate(
             "/user/repos",
             token,
             params={"sort": "updated", "affiliation": "owner,organization_member"},
         )
-        return [
-            GitHubRepoData(
-                github_id=r["id"],
-                full_name=r["full_name"],
-                description=r.get("description"),
-                visibility=r.get("visibility", "private" if r.get("private") else "public"),
-                default_branch=r.get("default_branch", "main"),
-                primary_language=r.get("language"),
-                archived=r.get("archived", False),
-                updated_at=_parse_dt(r.get("updated_at")),
-            )
-            for r in raw
-        ]
+        return [self._repo_data(r) for r in raw]
+
+    async def list_installation_repositories(self, token: str) -> list[GitHubRepoData]:
+        """List repositories for a GitHub App installation.
+
+        Installation tokens are server-to-server: `/user/repos` returns 403. The
+        `/installation/repositories` endpoint returns `{repositories: [...]}` per
+        page, so we unwrap each page's array rather than using the bare-list
+        paginator.
+        """
+        pages = await self._paginate("/installation/repositories", token)
+        repos: list[GitHubRepoData] = []
+        for page in pages:
+            for r in page.get("repositories", []):
+                repos.append(self._repo_data(r))
+        return repos
 
     async def get_repository(self, token: str, full_name: str) -> GitHubRepoData:
         response = await self._request("GET", f"{self._base_url}/repos/{full_name}", token)
