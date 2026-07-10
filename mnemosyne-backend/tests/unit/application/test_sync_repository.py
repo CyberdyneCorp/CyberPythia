@@ -324,6 +324,21 @@ class TestFailureHandling:
         # repository not marked synced on failure
         assert (await env["repositories"].get(repo.id)).last_synced_at is None
 
+    async def test_best_effort_failure_degrades_and_marks_synced(self, env):
+        async def boom(document_id, repository_id, chunks):
+            raise RuntimeError("embeddings provider down")
+
+        env["embeddings"].embed_document = boom
+        repo, job = await seed(env)
+        result = await env["use_case"].run(repo.id, job.id)
+
+        # Only the best-effort embeddings step failed → degraded, not failed.
+        assert result.status is SyncStatus.DEGRADED
+        assert {s.step for s in result.failed_steps} == {SyncStep.EMBEDDINGS}
+        assert result.step_result(SyncStep.ISSUES).status is SyncStatus.SUCCEEDED
+        # essential steps succeeded → repository is marked synced
+        assert (await env["repositories"].get(repo.id)).last_synced_at is not None
+
     async def test_lock_released_after_run(self, env):
         repo, job = await seed(env)
         await env["use_case"].run(repo.id, job.id)
@@ -363,3 +378,47 @@ class TestChunker:
 
     def test_empty_content(self):
         assert _chunk_markdown("") == []
+
+
+class TestSyncJobOutcome:
+    """Essential vs best-effort step classification (spec: repository-sync)."""
+
+    def _job(self) -> SyncJob:
+        job = SyncJob(id=uuid4(), repository_id=uuid4(), mode=IndexingMode.CODE_CONTEXT)
+        job.plan()
+        for s in job.steps:
+            s.status = SyncStatus.SUCCEEDED
+        return job
+
+    def test_all_succeeded(self):
+        job = self._job()
+        job.finish(datetime.now(UTC))
+        assert job.status is SyncStatus.SUCCEEDED
+        assert job.essential_succeeded is True
+
+    def test_best_effort_failure_degrades(self):
+        job = self._job()
+        job.record_step(SyncStep.EMBEDDINGS, SyncStatus.FAILED, error="x")
+        job.finish(datetime.now(UTC))
+        assert job.status is SyncStatus.DEGRADED
+        assert job.essential_succeeded is True
+
+    def test_source_code_failure_degrades(self):
+        job = self._job()
+        job.record_step(SyncStep.SOURCE_CODE, SyncStatus.FAILED, error="x")
+        job.finish(datetime.now(UTC))
+        assert job.status is SyncStatus.DEGRADED
+
+    def test_essential_failure_fails(self):
+        job = self._job()
+        job.record_step(SyncStep.ISSUES, SyncStatus.FAILED, error="x")
+        job.finish(datetime.now(UTC))
+        assert job.status is SyncStatus.FAILED
+        assert job.essential_succeeded is False
+
+    def test_essential_failure_dominates_best_effort(self):
+        job = self._job()
+        job.record_step(SyncStep.EMBEDDINGS, SyncStatus.FAILED, error="x")
+        job.record_step(SyncStep.METADATA, SyncStatus.FAILED, error="x")
+        job.finish(datetime.now(UTC))
+        assert job.status is SyncStatus.FAILED

@@ -194,7 +194,9 @@ class SyncRepositoryUseCase:
         job.finish(datetime.now(UTC))
         await self._sync_jobs.save(job)
 
-        if job.status is SyncStatus.SUCCEEDED:
+        # Advance last_synced_at whenever the essential steps succeeded — a
+        # degraded job (best-effort step failed) still delivered core data.
+        if job.essential_succeeded:
             repository.last_synced_at = job.finished_at
             await self._repositories.save(repository)
         return job
