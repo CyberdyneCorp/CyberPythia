@@ -2,7 +2,7 @@
 
 from uuid import UUID, uuid4
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, BadRequestError
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -16,6 +16,9 @@ from app.infrastructure.persistence.models import (
 )
 
 EXCERPT_CHARS = 400
+# Bulletproof retry cap: text-embedding-3 allows <= 8192 tokens and a token is
+# always >= 1 character, so <= 8000 characters can never exceed the token limit.
+_HARD_INPUT_CHARS = 8000
 
 
 class PgVectorEmbeddingStore:
@@ -38,6 +41,19 @@ class PgVectorEmbeddingStore:
             # Degraded mode (no API key): deterministic bag-of-words hashing.
             # Weak but functional similarity for dev/BDD stacks.
             return [_hash_embedding(t, self._settings.embedding_dimensions) for t in texts]
+        cap = self._settings.embedding_max_input_chars
+        try:
+            return await self._create_embeddings([t[:cap] for t in texts])
+        except BadRequestError as exc:
+            # A pathologically token-dense chunk can still exceed 8192 tokens
+            # under the soft cap. A token is always >= 1 char, so truncating to
+            # the token limit in characters is a hard guarantee. Retry once.
+            if "maximum input length" not in str(exc):
+                raise
+            hard = min(cap, _HARD_INPUT_CHARS)
+            return await self._create_embeddings([t[:hard] for t in texts])
+
+    async def _create_embeddings(self, texts: list[str]) -> list[list[float]]:
         response = await self._client().embeddings.create(
             model=self._settings.embedding_model,
             input=texts,
