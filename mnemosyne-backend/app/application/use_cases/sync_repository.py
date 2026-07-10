@@ -486,7 +486,15 @@ class SyncRepositoryUseCase:
             self._pr_metrics,
             history=self._metrics_history,
         )
-        has_releases = await self._github.has_releases(ctx.token, ctx.full_name)
+        # Best-effort: a releases-check hiccup must not fail the essential metrics
+        # step. None makes recompute preserve the last captured value.
+        try:
+            has_releases: bool | None = await self._github.has_releases(
+                ctx.token, ctx.full_name
+            )
+        except Exception:
+            logger.warning("releases check failed for %s", ctx.full_name)
+            has_releases = None
         await service.recompute(ctx.repository, has_releases=has_releases)
         return 1
 
