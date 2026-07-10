@@ -371,6 +371,7 @@ class FakeGitHub:
             permissions={"contents", "issues", "pull_requests", "metadata"},
         )
         self.repos: list[GitHubRepoData] = []
+        self.installation_repos: list[GitHubRepoData] | None = None  # App discovery path
         self.files: dict[str, str] = {}  # path -> content
         self.tree: list[GitHubFileData] = []
         self.issues: list[GitHubIssueData] = []
@@ -396,6 +397,9 @@ class FakeGitHub:
 
     async def list_repositories(self, token):
         return self.repos
+
+    async def list_installation_repositories(self, token):
+        return self.installation_repos if self.installation_repos is not None else self.repos
 
     async def get_repository(self, token, full_name):
         return next(r for r in self.repos if r.full_name == full_name)

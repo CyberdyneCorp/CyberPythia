@@ -15,6 +15,7 @@ from app.domain.ports.persistence_ports import (
     SyncJobPort,
 )
 from app.domain.value_objects.enums import (
+    ConnectionKind,
     IndexingMode,
     RepositoryVisibility,
     SyncStatus,
@@ -51,7 +52,12 @@ class RepositoryUseCases:
         if connection is None:
             raise UnknownResourceError(f"connection {connection_id} not found")
         token = await self._connection_use_cases.credential_for(connection_id)
-        discovered = await self._github.list_repositories(token)
+        # App installation tokens are server-to-server: they must enumerate repos
+        # via /installation/repositories, not the user-context /user/repos.
+        if connection.kind is ConnectionKind.GITHUB_APP:
+            discovered = await self._github.list_installation_repositories(token)
+        else:
+            discovered = await self._github.list_repositories(token)
         repositories = [
             Repository(
                 id=uuid4(),
