@@ -36,6 +36,11 @@ def test_build_manifest_shape_and_urls():
     assert manifest["redirect_url"].endswith("/api/v1/github/app/manifest-callback")
     assert f"state={state}" in str(manifest["setup_url"])  # baked for the setup redirect
     assert post_url.startswith("https://github.com/organizations/CyberdyneCorp/settings/apps/new")
+    # GitHub rejects the manifest if these app-management meta events are declared
+    # (regression: "Default events unsupported: installation and installation_repositories").
+    events = manifest["default_events"]
+    assert "installation" not in events
+    assert "installation_repositories" not in events
 
 
 async def test_complete_manifest_persists_pending_connection():
