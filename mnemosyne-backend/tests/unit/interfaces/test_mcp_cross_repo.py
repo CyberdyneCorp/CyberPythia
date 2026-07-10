@@ -332,3 +332,23 @@ class TestReadiness:
                 "mnemosyne_get_organization_readiness", {"organization": "CyberdyneCorp"}))
         assert res["distribution"]["READY"] == 1
         assert res["total"] == 1
+
+    async def test_readiness_history_and_regressions_tools(self, mcp, container):
+        from datetime import UTC, date, datetime
+
+        from app.domain.entities.readiness_snapshot import ReadinessSnapshot
+
+        repo = await self._seed_ready(container)
+        ts = datetime(2026, 7, 9, tzinfo=UTC)
+        await container.readiness_history.record(
+            ReadinessSnapshot(repo.id, date(2026, 7, 8), ts, "DONE"))
+        await container.readiness_history.record(
+            ReadinessSnapshot(repo.id, date(2026, 7, 9), ts, "READY"))
+        async with Client(mcp) as c:
+            hist = payload(await c.call_tool(
+                "mnemosyne_get_readiness_history", {"full_name": "CyberdyneCorp/ready"}))
+            regs = payload(await c.call_tool(
+                "mnemosyne_get_readiness_regressions", {"organization": "CyberdyneCorp"}))
+        assert [h["gate"] for h in hist["history"]] == ["DONE", "READY"]
+        assert regs["regressions"][0]["from_gate"] == "DONE"
+        assert regs["regressions"][0]["to_gate"] == "READY"

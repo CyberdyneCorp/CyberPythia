@@ -402,3 +402,39 @@ class TestReadinessRest:
             r = await client.get(f"/api/v1/repos/{repo.id}/readiness", headers=user())
         assert r.status_code == 200
         assert r.json()["gate"] in {"MVP", "READY", "DONE"}
+
+    async def test_repo_readiness_history_endpoint(self, client, container):
+        from datetime import UTC, date, datetime
+
+        from app.domain.entities.readiness_snapshot import ReadinessSnapshot
+
+        repo = await seed_repo(container)
+        await container.readiness_history.record(
+            ReadinessSnapshot(repo.id, date(2026, 7, 9), datetime(2026, 7, 9, tzinfo=UTC), "MVP")
+        )
+        async with client:
+            r = await client.get(f"/api/v1/repos/{repo.id}/readiness-history", headers=user())
+        assert r.status_code == 200
+        assert r.json()["history"] == [{"date": "2026-07-09", "gate": "MVP"}]
+
+    async def test_org_readiness_regressions_endpoint(self, client, container):
+        from datetime import UTC, date, datetime
+
+        from app.domain.entities.readiness_snapshot import ReadinessSnapshot
+
+        repo = await seed_repo(container)
+        ts = datetime(2026, 7, 9, tzinfo=UTC)
+        await container.readiness_history.record(
+            ReadinessSnapshot(repo.id, date(2026, 7, 8), ts, "READY")
+        )
+        await container.readiness_history.record(
+            ReadinessSnapshot(repo.id, date(2026, 7, 9), ts, "MVP")
+        )
+        async with client:
+            r = await client.get(
+                "/api/v1/intelligence/organizations/cyberdyne/readiness-regressions",
+                headers=user(),
+            )
+        assert r.status_code == 200
+        regs = r.json()["regressions"]
+        assert len(regs) == 1 and regs[0]["from_gate"] == "READY" and regs[0]["to_gate"] == "MVP"

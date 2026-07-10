@@ -87,6 +87,8 @@ Repositories are addressed by full name (`owner/name`).
 | `mnemosyne_list_repositories_missing_openspec` | org repositories missing OpenSpec (adoption targets) |
 | `mnemosyne_get_repository_readiness` | observable readiness gate (MVP/READY/DONE) + per-check met/missing/unknown breakdown |
 | `mnemosyne_get_organization_readiness` | org gate distribution + per-repo gate and missing-for-READY checks |
+| `mnemosyne_get_readiness_history` | a repository's dated readiness-gate trend (recorded daily) |
+| `mnemosyne_get_readiness_regressions` | org repos whose latest gate dropped below the previous (from/to gate + date) |
 
 ## Error contract
 

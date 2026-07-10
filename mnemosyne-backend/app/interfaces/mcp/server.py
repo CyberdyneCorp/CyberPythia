@@ -883,6 +883,23 @@ def build_mcp(
         return await container.readiness.organization_readiness(organization)
 
     @mcp.tool
+    async def mnemosyne_get_readiness_history(full_name: str) -> dict[str, Any]:
+        """A repository's readiness-gate trend over time (dated MVP/READY/DONE points),
+        recorded daily. Empty until the daily job has run at least once."""
+        await auth()
+        try:
+            return await container.readiness.repository_history(full_name)
+        except ApplicationError as exc:
+            return _error("unknown_repository", str(exc))
+
+    @mcp.tool
+    async def mnemosyne_get_readiness_regressions(organization: str) -> dict[str, Any]:
+        """Repositories in an organization whose latest readiness gate dropped below the
+        previous recorded gate (e.g. READY->MVP), with from/to gate and the date."""
+        await auth()
+        return await container.readiness.organization_regressions(organization)
+
+    @mcp.tool
     async def mnemosyne_generate_feature_document(full_name: str) -> dict[str, Any]:
         """Generate a Markdown document of the project's features/capabilities, grounded
         in indexed docs/OpenSpec/code (with citations). For "write up everything this

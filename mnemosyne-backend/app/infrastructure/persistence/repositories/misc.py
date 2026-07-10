@@ -23,6 +23,7 @@ from app.domain.entities.context_pack import (
 from app.domain.entities.metrics_snapshot import MetricsSnapshot
 from app.domain.entities.milestone import Milestone
 from app.domain.entities.organization import Organization
+from app.domain.entities.readiness_snapshot import ReadinessSnapshot
 from app.domain.entities.source_chunk import SourceChunk
 from app.domain.entities.source_file import SourceFile
 from app.domain.entities.sync_job import SyncJob
@@ -46,6 +47,7 @@ from app.infrastructure.persistence.models import (
     OrganizationRow,
     RepositoryMetricsRow,
     RepositoryMetricsSnapshotRow,
+    RepositoryReadinessSnapshotRow,
     SourceChunkRow,
     SourceFileRow,
     SyncJobRow,
@@ -454,6 +456,62 @@ def _snapshot_to_entity(row: RepositoryMetricsSnapshotRow) -> MetricsSnapshot:
         merged_prs=row.merged_prs,
         median_cycle_seconds=row.median_cycle_seconds,
         health_overall=row.health_overall,
+    )
+
+
+class PostgresReadinessHistoryRepository(PostgresRepositoryBase):
+    async def record(self, snapshot: ReadinessSnapshot) -> None:
+        async with self._session_factory() as session, session.begin():
+            row = await session.scalar(
+                select(RepositoryReadinessSnapshotRow).where(
+                    RepositoryReadinessSnapshotRow.repository_id == snapshot.repository_id,
+                    RepositoryReadinessSnapshotRow.captured_on == snapshot.captured_on,
+                )
+            )
+            if row is None:
+                row = RepositoryReadinessSnapshotRow(
+                    id=uuid4(),
+                    repository_id=snapshot.repository_id,
+                    captured_on=snapshot.captured_on,
+                )
+                session.add(row)
+            row.captured_at = snapshot.captured_at
+            row.gate = snapshot.gate
+
+    async def list_for_repository(
+        self, repository_id: UUID, *, limit: int = 180
+    ) -> list[ReadinessSnapshot]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(RepositoryReadinessSnapshotRow)
+                .where(RepositoryReadinessSnapshotRow.repository_id == repository_id)
+                .order_by(RepositoryReadinessSnapshotRow.captured_on.asc())
+                .limit(limit)
+            )
+            return [_readiness_snapshot_to_entity(r) for r in rows]
+
+    async def all_by_repository(self) -> dict[UUID, list[ReadinessSnapshot]]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(RepositoryReadinessSnapshotRow).order_by(
+                    RepositoryReadinessSnapshotRow.repository_id,
+                    RepositoryReadinessSnapshotRow.captured_on.asc(),
+                )
+            )
+            out: dict[UUID, list[ReadinessSnapshot]] = {}
+            for row in rows:
+                out.setdefault(row.repository_id, []).append(
+                    _readiness_snapshot_to_entity(row)
+                )
+            return out
+
+
+def _readiness_snapshot_to_entity(row: RepositoryReadinessSnapshotRow) -> ReadinessSnapshot:
+    return ReadinessSnapshot(
+        repository_id=row.repository_id,
+        captured_on=row.captured_on,
+        captured_at=row.captured_at,
+        gate=row.gate,
     )
 
 

@@ -14,6 +14,7 @@ from app.domain.entities.milestone import Milestone
 from app.domain.entities.openspec_change import OpenSpecChange
 from app.domain.entities.organization import Organization
 from app.domain.entities.pull_request import PullRequest
+from app.domain.entities.readiness_snapshot import ReadinessSnapshot
 from app.domain.entities.repository import Repository
 from app.domain.entities.source_chunk import SourceChunk
 from app.domain.entities.source_file import SourceFile
@@ -178,6 +179,16 @@ class MetricsHistoryPort(Protocol):
     ) -> dict[UUID, list[MetricsSnapshot]]: ...
 
     async def prune(self, *, daily_days: int = 180) -> int: ...
+
+
+class ReadinessHistoryPort(Protocol):
+    async def record(self, snapshot: ReadinessSnapshot) -> None: ...
+
+    async def list_for_repository(
+        self, repository_id: UUID, *, limit: int = 180
+    ) -> list[ReadinessSnapshot]: ...
+
+    async def all_by_repository(self) -> dict[UUID, list[ReadinessSnapshot]]: ...
 
 
 class MilestonePort(Protocol):

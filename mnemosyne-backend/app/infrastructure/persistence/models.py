@@ -287,6 +287,19 @@ class RepositoryMetricsSnapshotRow(Base):
     health_overall: Mapped[float | None] = mapped_column(Float)
 
 
+class RepositoryReadinessSnapshotRow(Base):
+    __tablename__ = "repository_readiness_snapshots"
+    __table_args__ = (UniqueConstraint("repository_id", "captured_on"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    repository_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True
+    )
+    captured_on: Mapped[date] = mapped_column(Date)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    gate: Mapped[str] = mapped_column(String(16))
+
+
 class OrganizationRow(Base):
     __tablename__ = "organizations"
 

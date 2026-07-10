@@ -261,3 +261,11 @@ async def organization_readiness(
 ) -> Any:
     """MVP/READY/DONE distribution for the org + each repo's gate and gaps."""
     return await request.app.state.container.readiness.organization_readiness(organization)
+
+
+@router.get("/organizations/{organization}/readiness-regressions")
+async def organization_readiness_regressions(
+    organization: str, caller: EntitledCaller, request: Request
+) -> Any:
+    """Repositories whose latest readiness gate dropped below the previous one."""
+    return await request.app.state.container.readiness.organization_regressions(organization)

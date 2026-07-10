@@ -63,6 +63,11 @@ async def scheduled_full_sync(ctx: dict[str, Any]) -> str:
             d.discovered, d.newly_enabled, d.skipped_archived
         )
     summary = await container.scheduled_sync.run()
+    try:
+        recorded = await container.readiness.record_snapshots()
+        logger.info("recorded readiness snapshots for %d repositories", recorded)
+    except Exception:
+        logger.exception("readiness snapshot recording failed")
     await container.sync_runs.record(
         SyncRun(
             id=uuid4(),
