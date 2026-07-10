@@ -13,7 +13,8 @@ from app.application.errors import (
 from app.domain.entities.github_connection import GitHubConnection
 from app.domain.ports.github_app_port import GitHubAppError, GitHubAppPort
 from app.domain.ports.github_port import GitHubAuthError, GitHubPort
-from app.domain.ports.persistence_ports import ConnectionPort
+from app.domain.ports.infra_ports import QueuePort
+from app.domain.ports.persistence_ports import ConnectionPort, RepositoryPort
 from app.domain.services.signed_state import sign_state, verify_state
 from app.domain.value_objects.enums import ConnectionKind, ConnectionStatus
 
@@ -36,9 +37,10 @@ class ConnectionView:
     permissions: list[str]
     status: str
     installation_id: str | None = None
+    repository_count: int = 0
 
 
-def _view(connection: GitHubConnection) -> ConnectionView:
+def _view(connection: GitHubConnection, repository_count: int = 0) -> ConnectionView:
     return ConnectionView(
         id=connection.id,
         owner=connection.owner,
@@ -48,6 +50,7 @@ def _view(connection: GitHubConnection) -> ConnectionView:
         permissions=list(connection.permissions),
         status=connection.status.value,
         installation_id=connection.installation_id,
+        repository_count=repository_count,
     )
 
 
@@ -59,6 +62,8 @@ class GitHubConnectionUseCases:
         cipher: TokenCipher,
         app_auth: GitHubAppPort | None = None,
         *,
+        repositories: RepositoryPort | None = None,
+        queue: QueuePort | None = None,
         public_api_base_url: str = "",
         github_web_base_url: str = "https://github.com",
         state_secret: str = "",
@@ -67,6 +72,8 @@ class GitHubConnectionUseCases:
         self._github = github
         self._cipher = cipher
         self._app_auth = app_auth
+        self._repositories = repositories
+        self._queue = queue
         self._api_base = public_api_base_url.rstrip("/")
         self._gh_web = github_web_base_url.rstrip("/")
         self._state_secret = state_secret
@@ -248,7 +255,18 @@ class GitHubConnectionUseCases:
         return None
 
     async def list_connections(self) -> list[ConnectionView]:
-        return [_view(c) for c in await self._connections.list_all()]
+        connections = await self._connections.list_all()
+        counts = await self._repository_counts()
+        return [_view(c, counts.get(c.id, 0)) for c in connections]
+
+    async def _repository_counts(self) -> dict[UUID, int]:
+        """Repositories indexed per connection, so callers can gauge delete impact."""
+        if self._repositories is None:
+            return {}
+        counts: dict[UUID, int] = {}
+        for repo in await self._repositories.list_all():
+            counts[repo.connection_id] = counts.get(repo.connection_id, 0) + 1
+        return counts
 
     async def test(self, connection_id: UUID) -> dict[str, object]:
         """On-demand health check: auth + rate limit (spec: github-connection)."""
@@ -280,11 +298,28 @@ class GitHubConnectionUseCases:
             "rate_limit": rate,
         }
 
-    async def delete(self, connection_id: UUID) -> None:
-        """Destroy the credential. Indexed data stays; future syncs stop."""
+    async def begin_delete(self, connection_id: UUID) -> int:
+        """Schedule a connection for deletion.
+
+        Marks it `deleting` and enqueues the cascade to run in the worker, so a
+        large connection can't block or time out the request. Returns the number
+        of repositories that will be destroyed. The row is removed by the worker.
+        """
         connection = await self._connections.get(connection_id)
         if connection is None:
             raise UnknownResourceError(f"connection {connection_id} not found")
+        counts = await self._repository_counts()
+        connection.mark_deleting()
+        connection.updated_at = datetime.now(UTC)
+        await self._connections.save(connection)
+        if self._queue is not None:
+            await self._queue.enqueue(
+                "delete_connection", {"connection_id": str(connection_id)}
+            )
+        return counts.get(connection_id, 0)
+
+    async def perform_delete(self, connection_id: UUID) -> None:
+        """Worker step: cascade-delete the connection and its indexed data."""
         await self._connections.delete(connection_id)
 
     async def credential_for(self, connection_id: UUID) -> str:

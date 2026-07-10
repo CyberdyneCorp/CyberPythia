@@ -41,6 +41,11 @@ class ConnectionResponse(BaseModel):
     permissions: list[str]
     status: str
     installation_id: str | None = None
+    repository_count: int = 0
+
+
+class ConnectionDeleteResponse(BaseModel):
+    repository_count: int
 
 
 class AppConnectRequest(BaseModel):

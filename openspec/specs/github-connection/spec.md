@@ -37,11 +37,26 @@ The system SHALL provide an on-demand connection test that verifies the stored c
 - **THEN** the system SHALL mark the connection as broken and surface this state on the dashboard and sync attempts
 
 ### Requirement: Credential lifecycle
-The system SHALL allow an admin to rotate (replace) or delete a credential. Deleting a credential SHALL NOT delete already-indexed data but SHALL disable further syncs for its repositories.
+The system SHALL allow an admin to rotate (replace) or delete a credential.
+Deleting a credential SHALL cascade-delete the repositories indexed under it and
+their derived data, but SHALL do so **safely**: the number of repositories under
+a connection SHALL be reported before deletion, the deletion SHALL run
+asynchronously in the background worker (the connection is marked `deleting` and
+removed on completion) so a large cascade cannot block or time out the request,
+and callers SHALL be able to surface deletion failures.
 
 #### Scenario: Credential rotation
 - **WHEN** an admin replaces a credential for an owner
 - **THEN** subsequent syncs SHALL use the new credential and the old value SHALL be destroyed
+
+#### Scenario: Deletion is deferred to the worker
+- **WHEN** an admin deletes a connection
+- **THEN** the connection SHALL be marked `deleting` and a background job SHALL be enqueued to cascade-delete it and its repositories
+- **AND** the connection SHALL be removed once the job completes
+
+#### Scenario: Impact is known before deletion
+- **WHEN** an admin lists connections
+- **THEN** each connection SHALL report how many repositories are indexed under it
 
 ### Requirement: Connection credential kinds
 A GitHub connection SHALL have a kind of `pat` or `github_app`. A `pat` connection stores an encrypted fine-grained token (unchanged). A `github_app` connection stores the app id, installation id, encrypted App private key, and encrypted webhook secret. Both kinds SHALL resolve to a usable GitHub credential for discovery and sync, so downstream capabilities are credential-agnostic. No connection SHALL ever return its secret material after registration.

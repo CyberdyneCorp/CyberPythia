@@ -64,6 +64,26 @@ async def test_scheduled_full_sync_chains_discovery_then_sync(monkeypatch) -> No
     assert runs[0].enqueued == 3 and runs[0].failed == 0
 
 
+async def test_delete_connection_job_delegates_to_use_case() -> None:
+    from uuid import uuid4
+
+    called = {}
+
+    class FakeConnUC:
+        async def perform_delete(self, connection_id):
+            called["id"] = connection_id
+
+    cid = uuid4()
+    ctx = {"container": SimpleNamespace(connection_use_cases=FakeConnUC())}
+    result = await worker.delete_connection(ctx, str(cid))
+    assert called["id"] == cid
+    assert result == str(cid)
+
+
+def test_delete_connection_registered() -> None:
+    assert worker.delete_connection in worker.WorkerSettings.functions
+
+
 async def test_scheduled_full_sync_skips_discovery_when_disabled(monkeypatch) -> None:
     monkeypatch.setattr(worker._settings, "scheduled_discovery_enabled", False)
     discovery = FakeDiscovery()

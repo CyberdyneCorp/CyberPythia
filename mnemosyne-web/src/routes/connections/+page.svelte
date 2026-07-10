@@ -18,6 +18,15 @@
   let keyLabel = $state('');
   let keyExpiry = $state('90'); // days; '' = never
   let copied = $state(false);
+  // Typed-confirmation guard for the destructive connection delete.
+  let confirmingId = $state<string | null>(null);
+  let confirmText = $state('');
+
+  async function confirmDelete(id: string) {
+    await vm.remove(id);
+    confirmingId = null;
+    confirmText = '';
+  }
 
   import { page } from '$app/state';
   const appConnected = $derived(page.url.searchParams.get('app_connected') === '1');
@@ -381,10 +390,54 @@
       <button class="secondary" disabled={vm.busy} onclick={() => vm.discover(connection.id)}>
         Discover repositories
       </button>
-      <button class="secondary" onclick={() => vm.remove(connection.id)}>Delete</button>
+      {#if connection.status !== 'deleting'}
+        <button
+          class="secondary danger"
+          onclick={() => {
+            confirmingId = connection.id;
+            confirmText = '';
+          }}
+        >
+          Delete
+        </button>
+      {:else}
+        <span class="badge warn">deleting…</span>
+      {/if}
     </div>
+    {#if confirmingId === connection.id}
+      <div class="confirm">
+        <p class="error">
+          This permanently deletes <strong>{connection.repository_count}</strong>
+          {connection.repository_count === 1 ? 'repository' : 'repositories'} and all their
+          indexed data (docs, issues, PRs, code). This cannot be undone.
+        </p>
+        <p class="muted">
+          Type <strong>{connection.owner}</strong> to confirm.
+        </p>
+        <div class="row">
+          <input placeholder={connection.owner} bind:value={confirmText} />
+          <button
+            class="secondary danger"
+            disabled={confirmText !== connection.owner}
+            onclick={() => confirmDelete(connection.id)}
+          >
+            Delete {connection.repository_count} repos
+          </button>
+          <button
+            class="secondary"
+            onclick={() => {
+              confirmingId = null;
+              confirmText = '';
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    {/if}
   </div>
 {/each}
+{#if vm.error}<p class="error">{vm.error}</p>{/if}
 
 {#if vm.discovered}
   <div class="card">
@@ -459,9 +512,20 @@
     gap: 0.3rem;
     justify-content: flex-end;
   }
-  .org-idx.danger {
+  .org-idx.danger,
+  .danger {
     color: var(--red);
     border-color: var(--red);
+  }
+  .confirm {
+    margin-top: 0.6rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--red);
+    border-radius: 6px;
+  }
+  .confirm input {
+    flex: 1;
+    min-width: 160px;
   }
   .banner {
     padding: 0.5rem 0.8rem;

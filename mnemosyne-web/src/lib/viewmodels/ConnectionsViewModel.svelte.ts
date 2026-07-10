@@ -144,8 +144,13 @@ export class ConnectionsViewModel {
   }
 
   async remove(connectionId: string): Promise<void> {
-    await this.githubApi.deleteConnection(connectionId);
-    await this.load();
+    this.error = null;
+    try {
+      await this.githubApi.deleteConnection(connectionId);
+      await this.load();
+    } catch (error) {
+      this.error = error instanceof ApiError ? error.message : 'delete failed';
+    }
   }
 
   async discover(connectionId: string): Promise<void> {

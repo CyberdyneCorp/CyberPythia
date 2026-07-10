@@ -10,7 +10,13 @@ from app.application.errors import (
     UnknownResourceError,
 )
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
-from tests.unit.application.fakes import FakeCipher, FakeConnectionPort, FakeGitHub
+from tests.unit.application.fakes import (
+    FakeCipher,
+    FakeConnectionPort,
+    FakeGitHub,
+    FakeQueue,
+    FakeRepositoryPort,
+)
 
 
 @pytest.fixture
@@ -24,8 +30,20 @@ def connections():
 
 
 @pytest.fixture
-def use_cases(connections, github):
-    return GitHubConnectionUseCases(connections, github, FakeCipher())
+def repositories():
+    return FakeRepositoryPort()
+
+
+@pytest.fixture
+def queue():
+    return FakeQueue()
+
+
+@pytest.fixture
+def use_cases(connections, github, repositories, queue):
+    return GitHubConnectionUseCases(
+        connections, github, FakeCipher(), repositories=repositories, queue=queue
+    )
 
 
 async def test_connect_valid_pat(use_cases, connections):
@@ -99,12 +117,53 @@ async def test_test_unknown_connection(use_cases):
         await use_cases.test(uuid4())
 
 
-async def test_delete(use_cases, connections):
+async def test_begin_delete_marks_deleting_and_enqueues(use_cases, connections, queue):
     view = await use_cases.connect("ghp_secret_ab12")
-    await use_cases.delete(view.id)
+    count = await use_cases.begin_delete(view.id)
+    assert count == 0  # no repositories indexed under it
+    # Row stays until the worker runs, now marked 'deleting'.
+    stored = await connections.get(view.id)
+    assert stored is not None
+    assert stored.status.value == "deleting"
+    assert queue.jobs == [("delete_connection", {"connection_id": str(view.id)}, 0.0)]
+
+
+async def test_begin_delete_reports_repository_count(use_cases, connections, repositories):
+    from uuid import uuid4
+
+    from app.domain.entities.repository import Repository
+    from app.domain.value_objects.enums import RepositoryVisibility
+    from app.domain.value_objects.full_name import RepositoryFullName
+
+    view = await use_cases.connect("ghp_secret_ab12")
+    for i in range(3):
+        await repositories.save(
+            Repository(
+                id=uuid4(),
+                connection_id=view.id,
+                github_id=100 + i,
+                full_name=RepositoryFullName(f"cyberdyne/r{i}"),
+                description=None,
+                visibility=RepositoryVisibility.PRIVATE,
+                default_branch="main",
+                primary_language=None,
+                archived=False,
+                github_updated_at=None,
+            )
+        )
+    assert await use_cases.begin_delete(view.id) == 3
+
+
+async def test_perform_delete_removes_connection(use_cases, connections):
+    view = await use_cases.connect("ghp_secret_ab12")
+    await use_cases.begin_delete(view.id)
+    await use_cases.perform_delete(view.id)
     assert not connections.items
+
+
+async def test_begin_delete_unknown_connection(use_cases):
     with pytest.raises(UnknownResourceError):
-        await use_cases.delete(view.id)
+        await use_cases.begin_delete(uuid4())
 
 
 async def test_credential_for_internal_use(use_cases):

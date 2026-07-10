@@ -16,6 +16,7 @@ export interface Connection {
   permissions: string[];
   status: string;
   installation_id: string | null;
+  repository_count: number;
 }
 
 export interface Organization {

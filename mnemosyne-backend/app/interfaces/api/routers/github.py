@@ -16,6 +16,7 @@ from app.interfaces.api.errors import NotFoundError
 from app.interfaces.api.mapping import translate_error
 from app.interfaces.api.schemas.schemas import (
     AppConnectRequest,
+    ConnectionDeleteResponse,
     ConnectionResponse,
     ConnectionTestResponse,
     ConnectRequest,
@@ -239,12 +240,17 @@ async def test_connection(
     return result
 
 
-@router.delete("/connections/{connection_id}", status_code=204)
+@router.delete(
+    "/connections/{connection_id}",
+    status_code=202,
+    response_model=ConnectionDeleteResponse,
+)
 async def delete_connection(
     connection_id: UUID, caller: AdminCaller, use_cases: UseCases, audit: Audit
-) -> None:
+) -> ConnectionDeleteResponse:
     try:
-        await use_cases.delete(connection_id)
+        repository_count = await use_cases.begin_delete(connection_id)
     except ApplicationError as exc:
         raise translate_error(exc) from exc
     await audit.record(caller, "github.disconnect", target=str(connection_id))
+    return ConnectionDeleteResponse(repository_count=repository_count)
