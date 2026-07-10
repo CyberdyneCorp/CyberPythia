@@ -353,6 +353,18 @@ async def readiness(
         raise translate_error(exc) from exc
 
 
+@router.get("/{repo_id}/readiness-history")
+async def readiness_history(
+    repo_id: UUID, caller: EntitledCaller, use_cases: RepoUseCases, container: Container
+) -> Any:
+    """The repository's dated readiness-gate trend."""
+    try:
+        repo = await use_cases.get(repo_id)
+        return await cast(Any, container).readiness.repository_history(str(repo.full_name))
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
 @router.post("/{repo_id}/feature-document")
 async def feature_document(
     repo_id: UUID, caller: EntitledCaller, use_cases: CtxUseCases, audit: Audit

@@ -350,6 +350,22 @@ class FakeQueue:
         self.jobs.append((job_name, payload, defer_seconds))
 
 
+class FakeReadinessHistory:
+    def __init__(self):
+        self.rows = {}  # repo_id -> {captured_on: snapshot}
+
+    async def record(self, snapshot):
+        self.rows.setdefault(snapshot.repository_id, {})[snapshot.captured_on] = snapshot
+
+    async def list_for_repository(self, repository_id, *, limit=180):
+        return sorted(
+            self.rows.get(repository_id, {}).values(), key=lambda s: s.captured_on
+        )[:limit]
+
+    async def all_by_repository(self):
+        return {rid: await self.list_for_repository(rid) for rid in self.rows}
+
+
 class FakeStorage:
     def __init__(self):
         self.objects = {}

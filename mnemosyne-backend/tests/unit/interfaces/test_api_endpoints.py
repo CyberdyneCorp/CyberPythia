@@ -36,6 +36,7 @@ from tests.unit.application.fakes import (
     FakeOrganizationPort,
     FakePullRequestPort,
     FakeQueue,
+    FakeReadinessHistory,
     FakeRepositoryPort,
     FakeSourceChunkPort,
     FakeStorage,
@@ -190,6 +191,7 @@ def build_fake_container():
         RepositorySignalsService(), RepositoryHealthService(),
     )
     metrics_history = FakeHistoryPort()
+    readiness_history = FakeReadinessHistory()
     milestones_port = FakeMilestonePort()
     delivery_intelligence = DeliveryIntelligenceService(
         repositories, issues, prs, milestones_port, metrics_history, metrics_store,
@@ -237,8 +239,9 @@ def build_fake_container():
         capabilities=CapabilitiesService(repositories, documents, openspec, metrics_store),
         readiness=ReadinessService(
             repositories, files, documents, openspec, metrics_store,
-            RepositorySignalsService(),
+            RepositorySignalsService(), history=readiness_history,
         ),
+        readiness_history=readiness_history,
         metrics_history=metrics_history,
         milestones=milestones_port,
     )

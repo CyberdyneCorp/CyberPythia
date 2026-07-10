@@ -48,6 +48,7 @@ from app.infrastructure.persistence.repositories.misc import (
     PostgresMetricsRepository,
     PostgresMilestoneRepository,
     PostgresOrganizationRepository,
+    PostgresReadinessHistoryRepository,
     PostgresSourceChunkRepository,
     PostgresSyncJobRepository,
     PostgresSyncRunRepository,
@@ -172,6 +173,10 @@ class Container:
         return PostgresMetricsHistoryRepository(self.session_factory)
 
     @cached_property
+    def readiness_history(self) -> PostgresReadinessHistoryRepository:
+        return PostgresReadinessHistoryRepository(self.session_factory)
+
+    @cached_property
     def milestones(self) -> PostgresMilestoneRepository:
         return PostgresMilestoneRepository(self.session_factory)
 
@@ -210,6 +215,7 @@ class Container:
         return ReadinessService(
             self.repositories, self.files, self.documents, self.openspec,
             self.metrics_store, RepositorySignalsService(),
+            history=self.readiness_history,
         )
 
     @cached_property
