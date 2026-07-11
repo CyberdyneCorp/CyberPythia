@@ -431,3 +431,13 @@ issues/PRs, at-risk milestones, and a summary), for entitled callers.
 - **WHEN** an entitled caller GETs `/api/v1/intelligence/organizations/{org}/digest`
 - **THEN** the response SHALL contain the digest sections and a summary line
 
+### Requirement: Organization vulnerabilities endpoint
+
+The REST API SHALL expose `GET /api/v1/intelligence/organizations/{org}/vulnerabilities`
+returning repositories with their open critical/high Dependabot alert counts,
+most-critical first, for entitled callers.
+
+#### Scenario: Vulnerabilities endpoint
+- **WHEN** an entitled caller GETs `/api/v1/intelligence/organizations/{org}/vulnerabilities`
+- **THEN** the response SHALL list repositories with open critical/high counts, most-critical first
+

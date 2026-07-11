@@ -75,6 +75,8 @@ async def test_recompute_preserves_has_releases_when_not_supplied() -> None:
     # A full sync captured releases=True...
     await svc.recompute(repo, has_releases=True)
     assert store.saved[repo.id]["summary"]["has_releases"] is True
-    # ...an incremental recompute (no value supplied) must not clobber it.
+    await svc.recompute(repo, vulnerabilities={"critical": 2, "high": 1})
+    # ...an incremental recompute (no values supplied) must not clobber either signal.
     await svc.recompute(repo)
     assert store.saved[repo.id]["summary"]["has_releases"] is True
+    assert store.saved[repo.id]["summary"]["vulnerabilities"] == {"critical": 2, "high": 1}

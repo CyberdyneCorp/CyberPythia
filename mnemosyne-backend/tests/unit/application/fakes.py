@@ -422,6 +422,7 @@ class FakeGitHub:
         self.tree: list[GitHubFileData] = []
         self.issues: list[GitHubIssueData] = []
         self.releases_present = False
+        self.vuln_summary = None  # None = unknown/not permitted
         self.pull_requests: list[GitHubPullRequestData] = []
         self.auth_fails = False
         self.rate_limit = {"limit": 5000, "remaining": 4999}
@@ -459,6 +460,9 @@ class FakeGitHub:
 
     async def has_releases(self, token, full_name):
         return self.releases_present
+
+    async def vulnerability_summary(self, token, full_name):
+        return self.vuln_summary
 
     async def list_issues(self, token, full_name):
         return self.issues

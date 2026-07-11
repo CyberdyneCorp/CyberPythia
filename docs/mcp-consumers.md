@@ -90,6 +90,7 @@ Repositories are addressed by full name (`owner/name`).
 | `mnemosyne_get_readiness_history` | a repository's dated readiness-gate trend (recorded daily) |
 | `mnemosyne_get_readiness_regressions` | org repos whose latest gate dropped below the previous (from/to gate + date) |
 | `mnemosyne_get_organization_digest` | one-call attention digest: readiness regressions + stale issues/PRs + at-risk milestones + summary (also delivered daily to a configured webhook) |
+| `mnemosyne_get_organization_vulnerabilities` | org repos with open critical/high Dependabot alerts, most-critical first (captured during sync, best-effort) |
 | `mnemosyne_remember` | persist a durable memory (note/decision/gotcha/convention/todo) scoped to a repo or org — **the one write tool**; writes to Mnemosyne, never GitHub |
 | `mnemosyne_recall` | recall a repo's or org's memories, newest first, optional query/kind filter |
 | `mnemosyne_forget` | delete a memory by id |

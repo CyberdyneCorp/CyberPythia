@@ -23,6 +23,7 @@ from app.application.use_cases.readiness import ReadinessService
 from app.application.use_cases.repositories import RepositoryUseCases
 from app.application.use_cases.scheduled_discovery import ScheduledDiscoveryService
 from app.application.use_cases.scheduled_sync import ScheduledSyncService
+from app.application.use_cases.security import SecurityService
 from app.application.use_cases.sync_repository import MetricsWriter, SyncRepositoryUseCase
 from app.config import Settings, get_settings
 from app.domain.services.code_chunker import HeuristicCodeChunker
@@ -195,6 +196,10 @@ class Container:
     @cached_property
     def digest(self) -> DigestService:
         return DigestService(self.readiness, self.cross_repo, self.delivery_intelligence)
+
+    @cached_property
+    def security(self) -> SecurityService:
+        return SecurityService(self.repositories, self.metrics_store)
 
     @cached_property
     def milestones(self) -> PostgresMilestoneRepository:

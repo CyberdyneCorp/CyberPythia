@@ -333,6 +333,17 @@ class TestReadiness:
         assert res["distribution"]["READY"] == 1
         assert res["total"] == 1
 
+    async def test_organization_vulnerabilities_tool(self, mcp, container):
+        repo = await self._seed_ready(container)
+        await container.metrics_store.save(
+            repo.id, issue_metrics={}, pr_metrics={},
+            summary={"vulnerabilities": {"critical": 2, "high": 0}}, computed_at="x")
+        async with Client(mcp) as c:
+            res = payload(await c.call_tool(
+                "mnemosyne_get_organization_vulnerabilities", {"organization": "CyberdyneCorp"}))
+        assert res["total_critical"] == 2
+        assert res["repositories"][0]["critical"] == 2
+
     async def test_organization_digest_tool(self, mcp, container):
         await self._seed_ready(container)
         async with Client(mcp) as c:

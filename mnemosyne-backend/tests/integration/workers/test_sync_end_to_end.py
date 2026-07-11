@@ -110,6 +110,7 @@ def mock_github():
         ]
     )
     respx.get(f"{API_BASE}/repos/{FULL_NAME}/releases").respond(json=[])
+    respx.get(f"{API_BASE}/repos/{FULL_NAME}/dependabot/alerts").respond(json=[])
     respx.get(f"{API_BASE}/repos/{FULL_NAME}/pulls/61/reviews").respond(
         json=[{"user": {"login": "carol"}, "state": "APPROVED",
                "submitted_at": "2026-06-03T00:00:00Z"}]
@@ -225,6 +226,7 @@ async def test_code_context_sync_captures_and_chunks_source(session_factory):
     respx.get(f"{API_BASE}/repos/{FULL_NAME}/issues").respond(json=[])
     respx.get(f"{API_BASE}/repos/{FULL_NAME}/pulls").respond(json=[])
     respx.get(f"{API_BASE}/repos/{FULL_NAME}/releases").respond(json=[])
+    respx.get(f"{API_BASE}/repos/{FULL_NAME}/dependabot/alerts").respond(json=[])
 
     storage = MinioStorageAdapter(
         endpoint=MINIO_ENDPOINT, access_key="mnemosyne", secret_key="mnemosyne-secret",

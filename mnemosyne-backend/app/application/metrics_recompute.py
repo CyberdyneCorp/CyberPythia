@@ -65,14 +65,21 @@ class MetricsRecomputeService:
         self._health = health or RepositoryHealthService()
 
     async def recompute(
-        self, repository: Repository, *, has_releases: bool | None = None
+        self,
+        repository: Repository,
+        *,
+        has_releases: bool | None = None,
+        vulnerabilities: dict[str, int] | None = None,
     ) -> None:
         now = datetime.now(UTC)
-        if has_releases is None:
-            # Preserve the last captured value so partial (incremental) recomputes
-            # don't clobber the release signal set by a full sync.
-            prior = await self._metrics_store.get(repository.id) or {}
-            has_releases = prior.get("summary", {}).get("has_releases")
+        # Preserve best-effort signals a partial (incremental) recompute doesn't
+        # supply, so it doesn't clobber values a full sync captured.
+        if has_releases is None or vulnerabilities is None:
+            prior_summary = (await self._metrics_store.get(repository.id) or {}).get("summary", {})
+            if has_releases is None:
+                has_releases = prior_summary.get("has_releases")
+            if vulnerabilities is None:
+                vulnerabilities = prior_summary.get("vulnerabilities")
         issues = await self._issues.list_by_repository(repository.id)
         prs = await self._pull_requests.list_by_repository(repository.id)
         documents = await self._documents.list_by_repository(repository.id)
@@ -99,6 +106,7 @@ class MetricsRecomputeService:
             "avg_issue_resolution_seconds": issue_metrics.avg_resolution_seconds,
             "avg_pr_merge_seconds": pr_metrics.avg_time_to_merge_seconds,
             "has_releases": has_releases,
+            "vulnerabilities": vulnerabilities,
         }
         await self._metrics_store.save(
             repository.id,

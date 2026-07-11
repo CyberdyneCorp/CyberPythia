@@ -28,6 +28,7 @@ class ReadinessInputs:
     has_dependabot: bool | None = None
     has_security_scanning: bool | None = None
     has_releases: bool | None = None
+    open_critical_vulns: int | None = None  # None = not captured (unknown)
     closed_issues: int = 0
     merged_prs: int = 0
     open_issues: int = 0
@@ -62,6 +63,8 @@ def classify_readiness(inp: ReadinessInputs) -> dict[str, Any]:
         "security_doc": inp.has_security_doc,
         "low_bug_ratio": low_bug_ratio,
         "releases": inp.has_releases,
+        "no_critical_vulns": None if inp.open_critical_vulns is None
+        else inp.open_critical_vulns == 0,
     }
 
     is_ready = all(v is True for v in ready.values())
