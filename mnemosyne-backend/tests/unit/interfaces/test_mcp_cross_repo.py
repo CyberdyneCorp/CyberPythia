@@ -333,6 +333,13 @@ class TestReadiness:
         assert res["distribution"]["READY"] == 1
         assert res["total"] == 1
 
+    async def test_organization_digest_tool(self, mcp, container):
+        await self._seed_ready(container)
+        async with Client(mcp) as c:
+            res = payload(await c.call_tool(
+                "mnemosyne_get_organization_digest", {"organization": "CyberdyneCorp"}))
+        assert "summary" in res and "is_empty" in res
+
     async def test_memory_tools_roundtrip(self, mcp, container):
         await self._seed_ready(container)  # CyberdyneCorp/ready, enabled
         async with Client(mcp) as c:

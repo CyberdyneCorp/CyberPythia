@@ -84,6 +84,41 @@ def test_delete_connection_registered() -> None:
     assert worker.delete_connection in worker.WorkerSettings.functions
 
 
+async def test_deliver_digests_sends_only_enabled_nonempty(monkeypatch) -> None:
+    monkeypatch.setattr(worker._settings, "alert_digest_enabled", True)
+    sent: list[str] = []
+
+    class _Notifier:
+        configured = True
+
+        async def send(self, payload):
+            sent.append(payload["organization"])
+            return True
+
+    class _Digest:
+        async def build(self, org):
+            return {"organization": org, "is_empty": org == "quiet"}
+
+    orgs = SimpleNamespace(list_all=lambda: _orgs())
+
+    async def _orgs():
+        return [
+            SimpleNamespace(login="active", sync_enabled=True),
+            SimpleNamespace(login="quiet", sync_enabled=True),      # empty digest → skipped
+            SimpleNamespace(login="off", sync_enabled=False),       # disabled → skipped
+        ]
+
+    container = SimpleNamespace(notifier=_Notifier(), digest=_Digest(), organizations=orgs)
+    await worker._deliver_digests(container)
+    assert sent == ["active"]
+
+
+async def test_deliver_digests_noop_when_unconfigured(monkeypatch) -> None:
+    monkeypatch.setattr(worker._settings, "alert_digest_enabled", True)
+    container = SimpleNamespace(notifier=SimpleNamespace(configured=False))
+    await worker._deliver_digests(container)  # must not touch digest/organizations
+
+
 async def test_scheduled_full_sync_skips_discovery_when_disabled(monkeypatch) -> None:
     monkeypatch.setattr(worker._settings, "scheduled_discovery_enabled", False)
     discovery = FakeDiscovery()

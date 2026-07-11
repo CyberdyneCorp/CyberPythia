@@ -201,9 +201,17 @@ def build_fake_container():
     from app.application.use_cases.api_keys import ApiKeyUseCases
     from app.application.use_cases.capabilities import CapabilitiesService
     from app.application.use_cases.cross_repo import CrossRepoService
+    from app.application.use_cases.digest import DigestService
     from app.application.use_cases.memory import MemoryService
     from app.application.use_cases.readiness import ReadinessService
     from app.domain.services.repository_signals import RepositorySignalsService
+    from app.infrastructure.notify.webhook_notifier import WebhookNotifier
+
+    cross_repo_svc = CrossRepoService(repositories, issues, prs, embeddings)
+    readiness_svc = ReadinessService(
+        repositories, files, documents, openspec, metrics_store,
+        RepositorySignalsService(), history=readiness_history,
+    )
 
     return SimpleNamespace(
         settings=None,
@@ -238,14 +246,13 @@ def build_fake_container():
         organizations=organizations,
         intelligence=intelligence,
         delivery_intelligence=delivery_intelligence,
-        cross_repo=CrossRepoService(repositories, issues, prs, embeddings),
+        cross_repo=cross_repo_svc,
         capabilities=CapabilitiesService(repositories, documents, openspec, metrics_store),
-        readiness=ReadinessService(
-            repositories, files, documents, openspec, metrics_store,
-            RepositorySignalsService(), history=readiness_history,
-        ),
+        readiness=readiness_svc,
         readiness_history=readiness_history,
         memory=MemoryService(memories_port, repositories),
+        digest=DigestService(readiness_svc, cross_repo_svc, delivery_intelligence),
+        notifier=WebhookNotifier(None),
         metrics_history=metrics_history,
         milestones=milestones_port,
     )

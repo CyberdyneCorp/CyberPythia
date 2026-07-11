@@ -68,6 +68,10 @@ async def scheduled_full_sync(ctx: dict[str, Any]) -> str:
         logger.info("recorded readiness snapshots for %d repositories", recorded)
     except Exception:
         logger.exception("readiness snapshot recording failed")
+    try:
+        await _deliver_digests(container)
+    except Exception:
+        logger.exception("digest delivery failed")
     await container.sync_runs.record(
         SyncRun(
             id=uuid4(),
@@ -86,6 +90,21 @@ async def scheduled_full_sync(ctx: dict[str, Any]) -> str:
         f"discovered={discovered} newly_enabled={newly_enabled} "
         f"enqueued={summary.enqueued} skipped={summary.skipped} failed={summary.failed}"
     )
+
+
+async def _deliver_digests(container: Any) -> None:
+    """POST each enabled org's non-empty attention digest to the alert webhook."""
+    if not (_settings.alert_digest_enabled and container.notifier.configured):
+        return
+    orgs = await container.organizations.list_all()
+    for org in orgs:
+        if not org.sync_enabled:
+            continue
+        digest = await container.digest.build(org.login)
+        if digest["is_empty"]:
+            continue
+        sent = await container.notifier.send(digest)
+        logger.info("digest for %s delivered=%s", org.login, sent)
 
 
 def _cron_jobs() -> list[Any]:

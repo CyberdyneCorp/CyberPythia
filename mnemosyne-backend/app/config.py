@@ -88,6 +88,11 @@ class Settings(BaseSettings):
     # API container triggers the FastAPI lifespan, so migrations run once there.
     run_migrations_on_boot: bool = True
 
+    # Outbound alert delivery: POST each enabled org's daily attention digest to
+    # this incoming-webhook URL (Slack-compatible). Empty = pull-only.
+    alert_webhook_url: str = ""
+    alert_digest_enabled: bool = True
+
     # Sync behavior
     stale_issue_days: int = 30
     stale_pr_days: int = 30

@@ -13,6 +13,7 @@ from app.application.use_cases.code import CodeUseCases
 from app.application.use_cases.context import ContextUseCases
 from app.application.use_cases.cross_repo import CrossRepoService
 from app.application.use_cases.delivery_intelligence import DeliveryIntelligenceService
+from app.application.use_cases.digest import DigestService
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
 from app.application.use_cases.incremental_sync import IncrementalSyncUseCases
 from app.application.use_cases.intelligence import IntelligenceService
@@ -33,6 +34,7 @@ from app.infrastructure.auth.cyberdyne_auth import CyberdyneAuthAdapter
 from app.infrastructure.github.app_auth import GitHubAppAuth
 from app.infrastructure.github.client import GitHubClient
 from app.infrastructure.llm.openai_answerer import OpenAIAnswerer
+from app.infrastructure.notify.webhook_notifier import WebhookNotifier
 from app.infrastructure.object_storage.minio_storage import MinioStorageAdapter
 from app.infrastructure.persistence.database import get_session_factory
 from app.infrastructure.persistence.repositories.connections import PostgresConnectionRepository
@@ -185,6 +187,14 @@ class Container:
     @cached_property
     def memory(self) -> MemoryService:
         return MemoryService(self.memories, self.repositories)
+
+    @cached_property
+    def notifier(self) -> WebhookNotifier:
+        return WebhookNotifier(self.settings.alert_webhook_url or None)
+
+    @cached_property
+    def digest(self) -> DigestService:
+        return DigestService(self.readiness, self.cross_repo, self.delivery_intelligence)
 
     @cached_property
     def milestones(self) -> PostgresMilestoneRepository:
