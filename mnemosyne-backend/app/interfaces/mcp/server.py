@@ -900,6 +900,13 @@ def build_mcp(
         return await container.readiness.organization_regressions(organization)
 
     @mcp.tool
+    async def mnemosyne_get_organization_digest(organization: str) -> dict[str, Any]:
+        """One-call attention digest for an organization: readiness regressions, oldest
+        stale issues/PRs, at-risk milestone count, and a human-readable summary line."""
+        await auth()
+        return await container.digest.build(organization)
+
+    @mcp.tool
     async def mnemosyne_remember(
         content: str,
         full_name: str | None = None,

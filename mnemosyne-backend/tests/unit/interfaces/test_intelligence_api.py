@@ -417,6 +417,15 @@ class TestReadinessRest:
         assert r.status_code == 200
         assert r.json()["history"] == [{"date": "2026-07-09", "gate": "MVP"}]
 
+    async def test_org_digest_endpoint(self, client, container):
+        await seed_repo(container)
+        async with client:
+            r = await client.get(
+                "/api/v1/intelligence/organizations/cyberdyne/digest", headers=user())
+        assert r.status_code == 200
+        body = r.json()
+        assert "summary" in body and "regressions" in body and "is_empty" in body
+
     async def test_memory_crud_roundtrip(self, client, container):
         repo = await seed_repo(container)
         async with client:

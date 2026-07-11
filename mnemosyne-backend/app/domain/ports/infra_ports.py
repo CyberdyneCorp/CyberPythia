@@ -90,3 +90,9 @@ class AnswerPort(Protocol):
     """LLM answer synthesis for ask_repository_question (design OQ1)."""
 
     async def answer(self, question: str, context_blocks: list[str]) -> str: ...
+
+
+class NotifierPort(Protocol):
+    """Outbound alert delivery (e.g. an incoming-webhook URL). Best-effort."""
+
+    async def send(self, payload: dict[str, Any]) -> bool: ...

@@ -271,6 +271,14 @@ async def organization_readiness_regressions(
     return await request.app.state.container.readiness.organization_regressions(organization)
 
 
+@router.get("/organizations/{organization}/digest")
+async def organization_digest(
+    organization: str, caller: EntitledCaller, request: Request
+) -> Any:
+    """Attention digest: readiness regressions + stale issues/PRs + at-risk milestones."""
+    return await request.app.state.container.digest.build(organization)
+
+
 @router.post("/organizations/{organization}/memories", status_code=201)
 async def create_organization_memory(
     organization: str, body: MemoryCreateRequest, caller: EntitledCaller, request: Request
