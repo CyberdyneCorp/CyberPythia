@@ -16,6 +16,7 @@ from app.application.use_cases.delivery_intelligence import DeliveryIntelligence
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
 from app.application.use_cases.incremental_sync import IncrementalSyncUseCases
 from app.application.use_cases.intelligence import IntelligenceService
+from app.application.use_cases.memory import MemoryService
 from app.application.use_cases.process_webhook import ProcessWebhookDelivery
 from app.application.use_cases.readiness import ReadinessService
 from app.application.use_cases.repositories import RepositoryUseCases
@@ -44,6 +45,7 @@ from app.infrastructure.persistence.repositories.misc import (
     PostgresAuditRepository,
     PostgresContextPackRepository,
     PostgresFileRepository,
+    PostgresMemoryRepository,
     PostgresMetricsHistoryRepository,
     PostgresMetricsRepository,
     PostgresMilestoneRepository,
@@ -175,6 +177,14 @@ class Container:
     @cached_property
     def readiness_history(self) -> PostgresReadinessHistoryRepository:
         return PostgresReadinessHistoryRepository(self.session_factory)
+
+    @cached_property
+    def memories(self) -> PostgresMemoryRepository:
+        return PostgresMemoryRepository(self.session_factory)
+
+    @cached_property
+    def memory(self) -> MemoryService:
+        return MemoryService(self.memories, self.repositories)
 
     @cached_property
     def milestones(self) -> PostgresMilestoneRepository:

@@ -48,6 +48,11 @@ class ConnectionDeleteResponse(BaseModel):
     repository_count: int
 
 
+class MemoryCreateRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=8000)
+    kind: str = Field(default="note", max_length=32)
+
+
 class AppConnectRequest(BaseModel):
     app_id: str = Field(min_length=1)
     installation_id: str = Field(min_length=1)

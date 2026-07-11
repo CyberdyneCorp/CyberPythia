@@ -32,6 +32,7 @@ from tests.unit.application.fakes import (
     FakeFilePort,
     FakeGitHub,
     FakeIssuePort,
+    FakeMemoryPort,
     FakeOpenSpecPort,
     FakeOrganizationPort,
     FakePullRequestPort,
@@ -192,6 +193,7 @@ def build_fake_container():
     )
     metrics_history = FakeHistoryPort()
     readiness_history = FakeReadinessHistory()
+    memories_port = FakeMemoryPort()
     milestones_port = FakeMilestonePort()
     delivery_intelligence = DeliveryIntelligenceService(
         repositories, issues, prs, milestones_port, metrics_history, metrics_store,
@@ -199,6 +201,7 @@ def build_fake_container():
     from app.application.use_cases.api_keys import ApiKeyUseCases
     from app.application.use_cases.capabilities import CapabilitiesService
     from app.application.use_cases.cross_repo import CrossRepoService
+    from app.application.use_cases.memory import MemoryService
     from app.application.use_cases.readiness import ReadinessService
     from app.domain.services.repository_signals import RepositorySignalsService
 
@@ -242,6 +245,7 @@ def build_fake_container():
             RepositorySignalsService(), history=readiness_history,
         ),
         readiness_history=readiness_history,
+        memory=MemoryService(memories_port, repositories),
         metrics_history=metrics_history,
         milestones=milestones_port,
     )

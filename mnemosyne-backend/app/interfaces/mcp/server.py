@@ -900,6 +900,61 @@ def build_mcp(
         return await container.readiness.organization_regressions(organization)
 
     @mcp.tool
+    async def mnemosyne_remember(
+        content: str,
+        full_name: str | None = None,
+        organization: str | None = None,
+        kind: str = "note",
+    ) -> dict[str, Any]:
+        """Persist a durable memory (learning/decision/gotcha/convention/todo) scoped to a
+        repository (full_name) or an organization, recalled later by any agent. Writes only
+        to Mnemosyne, never to GitHub. Provide exactly one of full_name or organization."""
+        caller = await auth()
+        try:
+            if full_name:
+                return await container.memory.remember_repository(
+                    full_name, content=content, kind=kind, author=caller.subject)
+            if organization:
+                return await container.memory.remember_organization(
+                    organization, content=content, kind=kind, author=caller.subject)
+            return _error("invalid_request", "provide full_name or organization")
+        except ApplicationError as exc:
+            return _error("unknown_repository", str(exc))
+
+    @mcp.tool
+    async def mnemosyne_recall(
+        full_name: str | None = None,
+        organization: str | None = None,
+        query: str | None = None,
+        kind: str | None = None,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        """Recall memories for a repository (full_name) or organization, newest first,
+        optionally filtered by a text query and/or kind."""
+        await auth()
+        try:
+            if full_name:
+                return await container.memory.recall_repository(
+                    full_name, query=query, kind=kind, limit=limit)
+            if organization:
+                return await container.memory.recall_organization(
+                    organization, query=query, kind=kind, limit=limit)
+            return _error("invalid_request", "provide full_name or organization")
+        except ApplicationError as exc:
+            return _error("unknown_repository", str(exc))
+
+    @mcp.tool
+    async def mnemosyne_forget(memory_id: str) -> dict[str, Any]:
+        """Delete a memory by id. Returns {deleted: bool}."""
+        await auth()
+        from uuid import UUID
+        try:
+            deleted = await container.memory.forget(UUID(memory_id))
+        except ValueError:
+            return _error("invalid_request", "memory_id must be a UUID")
+        return {"deleted": deleted}
+
+    @mcp.tool
     async def mnemosyne_generate_feature_document(full_name: str) -> dict[str, Any]:
         """Generate a Markdown document of the project's features/capabilities, grounded
         in indexed docs/OpenSpec/code (with citations). For "write up everything this

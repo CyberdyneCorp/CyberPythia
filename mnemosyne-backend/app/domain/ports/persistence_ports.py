@@ -3,6 +3,7 @@
 from typing import Protocol
 from uuid import UUID
 
+from app.domain.entities.agent_memory import AgentMemory
 from app.domain.entities.api_key import ApiKey
 from app.domain.entities.audit_record import AuditRecord
 from app.domain.entities.context_pack import ContextPack
@@ -179,6 +180,24 @@ class MetricsHistoryPort(Protocol):
     ) -> dict[UUID, list[MetricsSnapshot]]: ...
 
     async def prune(self, *, daily_days: int = 180) -> int: ...
+
+
+class MemoryPort(Protocol):
+    async def save(self, memory: AgentMemory) -> None: ...
+
+    async def get(self, memory_id: UUID) -> AgentMemory | None: ...
+
+    async def list_for_repository(
+        self, repository_id: UUID, *, kind: str | None = None,
+        query: str | None = None, limit: int = 50,
+    ) -> list[AgentMemory]: ...
+
+    async def list_for_organization(
+        self, organization: str, *, kind: str | None = None,
+        query: str | None = None, limit: int = 50,
+    ) -> list[AgentMemory]: ...
+
+    async def delete(self, memory_id: UUID) -> bool: ...
 
 
 class ReadinessHistoryPort(Protocol):

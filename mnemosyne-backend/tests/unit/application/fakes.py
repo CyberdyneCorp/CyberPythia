@@ -350,6 +350,36 @@ class FakeQueue:
         self.jobs.append((job_name, payload, defer_seconds))
 
 
+class FakeMemoryPort:
+    def __init__(self):
+        self.items = {}  # id -> AgentMemory
+
+    async def save(self, memory):
+        self.items[memory.id] = memory
+
+    async def get(self, memory_id):
+        return self.items.get(memory_id)
+
+    def _filter(self, rows, kind, query, limit):
+        if kind:
+            rows = [m for m in rows if m.kind == kind]
+        if query:
+            rows = [m for m in rows if query.lower() in m.content.lower()]
+        rows = sorted(rows, key=lambda m: m.created_at, reverse=True)
+        return rows[:limit]
+
+    async def list_for_repository(self, repository_id, *, kind=None, query=None, limit=50):
+        rows = [m for m in self.items.values() if m.repository_id == repository_id]
+        return self._filter(rows, kind, query, limit)
+
+    async def list_for_organization(self, organization, *, kind=None, query=None, limit=50):
+        rows = [m for m in self.items.values() if m.organization == organization]
+        return self._filter(rows, kind, query, limit)
+
+    async def delete(self, memory_id):
+        return self.items.pop(memory_id, None) is not None
+
+
 class FakeReadinessHistory:
     def __init__(self):
         self.rows = {}  # repo_id -> {captured_on: snapshot}

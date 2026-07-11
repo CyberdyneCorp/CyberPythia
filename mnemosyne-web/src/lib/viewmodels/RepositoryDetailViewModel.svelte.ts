@@ -2,6 +2,7 @@
 import { ApiError } from '$lib/api/http';
 import type { RepositoriesApi } from '$lib/api/mnemosyneApi';
 import type {
+  AgentMemory,
   Document,
   DocumentSummary,
   FeatureDocument,
@@ -23,6 +24,7 @@ export type Tab =
   | 'pull-requests'
   | 'files'
   | 'metrics'
+  | 'memory'
   | 'code-context'
   | 'agent-context';
 
@@ -39,6 +41,7 @@ export class RepositoryDetailViewModel {
   pullRequests = $state<PullRequest[]>([]);
   files = $state<SourceFile[]>([]);
   metrics = $state<Metrics | null>(null);
+  memories = $state<AgentMemory[]>([]);
   error = $state<string | null>(null);
   loading = $state(false);
 
@@ -77,6 +80,9 @@ export class RepositoryDetailViewModel {
         case 'metrics':
           this.metrics = await this.api.metrics(this.repoId);
           break;
+        case 'memory':
+          this.memories = (await this.api.memories(this.repoId)).memories;
+          break;
         case 'code-context':
         case 'agent-context':
           break;
@@ -98,6 +104,29 @@ export class RepositoryDetailViewModel {
       this.error = error instanceof ApiError ? error.message : 'failed to generate document';
     } finally {
       this.featureDocBusy = false;
+    }
+  }
+
+  async addMemory(content: string, kind: string): Promise<boolean> {
+    if (!content.trim()) return false;
+    this.error = null;
+    try {
+      const created = await this.api.createMemory(this.repoId, content.trim(), kind);
+      this.memories = [created, ...this.memories];
+      return true;
+    } catch (error) {
+      this.error = error instanceof ApiError ? error.message : 'failed to save memory';
+      return false;
+    }
+  }
+
+  async deleteMemory(memoryId: string): Promise<void> {
+    this.error = null;
+    try {
+      await this.api.deleteMemory(this.repoId, memoryId);
+      this.memories = this.memories.filter((m) => m.id !== memoryId);
+    } catch (error) {
+      this.error = error instanceof ApiError ? error.message : 'failed to delete memory';
     }
   }
 

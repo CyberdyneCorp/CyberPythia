@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import delete, func, select
 
+from app.domain.entities.agent_memory import AgentMemory
 from app.domain.entities.api_key import ApiKey
 from app.domain.entities.audit_record import AuditRecord
 from app.domain.entities.context_pack import (
@@ -40,6 +41,7 @@ from app.infrastructure.persistence.mappers import (
     webhook_delivery_to_entity,
 )
 from app.infrastructure.persistence.models import (
+    AgentMemoryRow,
     ApiKeyRow,
     AuditLogRow,
     ContextPackRow,
@@ -456,6 +458,75 @@ def _snapshot_to_entity(row: RepositoryMetricsSnapshotRow) -> MetricsSnapshot:
         merged_prs=row.merged_prs,
         median_cycle_seconds=row.median_cycle_seconds,
         health_overall=row.health_overall,
+    )
+
+
+class PostgresMemoryRepository(PostgresRepositoryBase):
+    async def save(self, memory: AgentMemory) -> None:
+        async with self._session_factory() as session, session.begin():
+            row = await session.get(AgentMemoryRow, memory.id)
+            if row is None:
+                row = AgentMemoryRow(id=memory.id)
+                session.add(row)
+            row.repository_id = memory.repository_id
+            row.organization = memory.organization
+            row.kind = memory.kind
+            row.content = memory.content
+            row.author = memory.author
+            row.created_at = memory.created_at
+
+    async def get(self, memory_id: UUID) -> AgentMemory | None:
+        async with self._session_factory() as session:
+            row = await session.get(AgentMemoryRow, memory_id)
+            return _memory_to_entity(row) if row else None
+
+    async def _list(
+        self, where: Any, kind: str | None, query: str | None, limit: int
+    ) -> list[AgentMemory]:
+        stmt = select(AgentMemoryRow).where(where)
+        if kind:
+            stmt = stmt.where(AgentMemoryRow.kind == kind)
+        if query:
+            stmt = stmt.where(AgentMemoryRow.content.ilike(f"%{query}%"))
+        stmt = stmt.order_by(AgentMemoryRow.created_at.desc()).limit(limit)
+        async with self._session_factory() as session:
+            rows = await session.scalars(stmt)
+            return [_memory_to_entity(r) for r in rows]
+
+    async def list_for_repository(
+        self, repository_id: UUID, *, kind: str | None = None,
+        query: str | None = None, limit: int = 50,
+    ) -> list[AgentMemory]:
+        return await self._list(
+            AgentMemoryRow.repository_id == repository_id, kind, query, limit
+        )
+
+    async def list_for_organization(
+        self, organization: str, *, kind: str | None = None,
+        query: str | None = None, limit: int = 50,
+    ) -> list[AgentMemory]:
+        return await self._list(
+            AgentMemoryRow.organization == organization, kind, query, limit
+        )
+
+    async def delete(self, memory_id: UUID) -> bool:
+        async with self._session_factory() as session, session.begin():
+            row = await session.get(AgentMemoryRow, memory_id)
+            if row is None:
+                return False
+            await session.delete(row)
+            return True
+
+
+def _memory_to_entity(row: AgentMemoryRow) -> AgentMemory:
+    return AgentMemory(
+        id=row.id,
+        content=row.content,
+        kind=row.kind,
+        author=row.author,
+        created_at=row.created_at,
+        repository_id=row.repository_id,
+        organization=row.organization,
     )
 
 
