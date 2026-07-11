@@ -837,6 +837,34 @@ describe('RepositoryDetailViewModel capabilities', () => {
     await vm.generateFeatureDoc();
     expect(vm.featureDoc?.document).toContain('# Features');
   });
+
+  it('loads, adds, and deletes memories', async () => {
+    const store: { id: string; content: string; kind: string }[] = [
+      { id: 'm1', content: 'existing', kind: 'note' }
+    ];
+    const api = {
+      memories: async () => ({ memories: [...store] }),
+      createMemory: async (_id: string, content: string, kind: string) => ({
+        id: 'm2', content, kind, author: 'a', created_at: 'x',
+        repository_id: 'r1', organization: null
+      }),
+      deleteMemory: async () => {}
+    };
+    const { RepositoryDetailViewModel } = await import('./RepositoryDetailViewModel.svelte');
+    const vm = new RepositoryDetailViewModel(api as never, 'r1');
+    await vm.open('memory');
+    expect(vm.memories.map((m) => m.id)).toEqual(['m1']);
+    expect(await vm.addMemory('  chose pgvector  ', 'decision')).toBe(true);
+    expect(vm.memories[0]).toMatchObject({ id: 'm2', content: 'chose pgvector', kind: 'decision' });
+    await vm.deleteMemory('m1');
+    expect(vm.memories.map((m) => m.id)).toEqual(['m2']);
+  });
+
+  it('ignores an empty memory', async () => {
+    const { RepositoryDetailViewModel } = await import('./RepositoryDetailViewModel.svelte');
+    const vm = new RepositoryDetailViewModel({} as never, 'r1');
+    expect(await vm.addMemory('   ', 'note')).toBe(false);
+  });
 });
 
 describe('IntelligenceViewModel server-scoped portfolio', () => {

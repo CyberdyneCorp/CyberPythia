@@ -28,9 +28,18 @@
     { id: 'pull-requests', label: 'Pull Requests' },
     { id: 'files', label: 'Files' },
     { id: 'metrics', label: 'Metrics' },
+    { id: 'memory', label: 'Memory' },
     { id: 'code-context', label: 'Code Context' },
     { id: 'agent-context', label: 'Agent Context' }
   ];
+
+  let memoryContent = $state('');
+  let memoryKind = $state('note');
+  const MEMORY_KINDS = ['note', 'decision', 'gotcha', 'convention', 'todo'];
+
+  async function submitMemory() {
+    if (await vm.addMemory(memoryContent, memoryKind)) memoryContent = '';
+  }
 
   $effect(() => {
     const requested = page.url.searchParams.get('tab') as Tab | null;
@@ -273,6 +282,39 @@
   </div>
 {/if}
 
+{#if vm.tab === 'memory'}
+  <div class="card">
+    <p class="muted small">
+      Durable memory for this repo — learnings, decisions, gotchas, conventions. Agents read and
+      write these over MCP/REST; they live in Mnemosyne, never pushed to GitHub.
+    </p>
+    <div class="mem-add">
+      <select bind:value={memoryKind} aria-label="Memory kind">
+        {#each MEMORY_KINDS as k (k)}<option value={k}>{k}</option>{/each}
+      </select>
+      <input
+        placeholder="Record a memory…"
+        bind:value={memoryContent}
+        onkeydown={(e) => e.key === 'Enter' && submitMemory()}
+      />
+      <button class="secondary" disabled={!memoryContent.trim()} onclick={submitMemory}>Add</button>
+    </div>
+  </div>
+  {#each vm.memories as m (m.id)}
+    <div class="card mem-row">
+      <div class="mem-head">
+        <span class="chip">{m.kind}</span>
+        <span class="muted small">{m.author} · {new Date(m.created_at).toLocaleString()}</span>
+        <button class="link danger" onclick={() => vm.deleteMemory(m.id)}>Delete</button>
+      </div>
+      <p class="mem-content">{m.content}</p>
+    </div>
+  {/each}
+  {#if !vm.memories.length && !vm.loading}
+    <p class="muted pad">No memories yet.</p>
+  {/if}
+{/if}
+
 {#if vm.tab === 'code-context'}
   <div class="card">
     <div class="ask-row">
@@ -365,6 +407,32 @@
 {/if}
 
 <style>
+  .mem-add {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+  }
+  .mem-add input {
+    flex: 1;
+  }
+  .mem-row {
+    padding: 0.7rem 0.9rem;
+  }
+  .mem-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .mem-head .link {
+    margin-left: auto;
+  }
+  .mem-content {
+    margin: 0.4rem 0 0;
+    white-space: pre-wrap;
+  }
+  .link.danger {
+    color: var(--red);
+  }
   .tabs {
     display: flex;
     gap: 0.25rem;

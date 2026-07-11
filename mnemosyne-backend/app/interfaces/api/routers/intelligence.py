@@ -13,7 +13,7 @@ from app.application.use_cases.intelligence import IntelligenceService
 from app.application.use_cases.org_intelligence import build_org_intelligence
 from app.domain.value_objects.health import RepositoryHealth
 from app.interfaces.api.mapping import translate_error
-from app.interfaces.api.schemas.schemas import CompareRequest
+from app.interfaces.api.schemas.schemas import CompareRequest, MemoryCreateRequest
 from app.interfaces.api.security import EntitledCaller
 
 router = APIRouter(prefix="/api/v1/intelligence", tags=["intelligence"])
@@ -269,3 +269,22 @@ async def organization_readiness_regressions(
 ) -> Any:
     """Repositories whose latest readiness gate dropped below the previous one."""
     return await request.app.state.container.readiness.organization_regressions(organization)
+
+
+@router.post("/organizations/{organization}/memories", status_code=201)
+async def create_organization_memory(
+    organization: str, body: MemoryCreateRequest, caller: EntitledCaller, request: Request
+) -> Any:
+    """Record a durable memory scoped to the organization."""
+    return await request.app.state.container.memory.remember_organization(
+        organization, content=body.content, kind=body.kind, author=caller.subject)
+
+
+@router.get("/organizations/{organization}/memories")
+async def list_organization_memories(
+    organization: str, caller: EntitledCaller, request: Request,
+    query: str | None = None, kind: str | None = None, limit: int = 50,
+) -> Any:
+    """List the organization's memories, newest first."""
+    return await request.app.state.container.memory.recall_organization(
+        organization, query=query, kind=kind, limit=limit)

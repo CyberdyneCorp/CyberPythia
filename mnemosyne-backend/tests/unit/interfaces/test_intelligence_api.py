@@ -417,6 +417,22 @@ class TestReadinessRest:
         assert r.status_code == 200
         assert r.json()["history"] == [{"date": "2026-07-09", "gate": "MVP"}]
 
+    async def test_memory_crud_roundtrip(self, client, container):
+        repo = await seed_repo(container)
+        async with client:
+            created = await client.post(
+                f"/api/v1/repos/{repo.id}/memories",
+                json={"content": "use uv not pip", "kind": "convention"}, headers=user())
+            assert created.status_code == 201
+            mem_id = created.json()["id"]
+            listed = await client.get(f"/api/v1/repos/{repo.id}/memories", headers=user())
+            assert [m["id"] for m in listed.json()["memories"]] == [mem_id]
+            deleted = await client.delete(
+                f"/api/v1/repos/{repo.id}/memories/{mem_id}", headers=user())
+            assert deleted.status_code == 204
+            after = await client.get(f"/api/v1/repos/{repo.id}/memories", headers=user())
+            assert after.json()["memories"] == []
+
     async def test_org_readiness_regressions_endpoint(self, client, container):
         from datetime import UTC, date, datetime
 

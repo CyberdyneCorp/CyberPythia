@@ -300,6 +300,20 @@ class RepositoryReadinessSnapshotRow(Base):
     gate: Mapped[str] = mapped_column(String(16))
 
 
+class AgentMemoryRow(Base):
+    __tablename__ = "agent_memories"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    repository_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True, nullable=True
+    )
+    organization: Mapped[str | None] = mapped_column(String(200), index=True, nullable=True)
+    kind: Mapped[str] = mapped_column(String(32), default="note")
+    content: Mapped[str] = mapped_column(Text)
+    author: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class OrganizationRow(Base):
     __tablename__ = "organizations"
 

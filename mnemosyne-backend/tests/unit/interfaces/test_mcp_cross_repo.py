@@ -333,6 +333,20 @@ class TestReadiness:
         assert res["distribution"]["READY"] == 1
         assert res["total"] == 1
 
+    async def test_memory_tools_roundtrip(self, mcp, container):
+        await self._seed_ready(container)  # CyberdyneCorp/ready, enabled
+        async with Client(mcp) as c:
+            created = payload(await c.call_tool("mnemosyne_remember", {
+                "content": "chose pgvector for search", "full_name": "CyberdyneCorp/ready",
+                "kind": "decision"}))
+            assert created["kind"] == "decision"
+            recalled = payload(await c.call_tool("mnemosyne_recall", {
+                "full_name": "CyberdyneCorp/ready", "query": "pgvector"}))
+            assert len(recalled["memories"]) == 1
+            forgot = payload(await c.call_tool(
+                "mnemosyne_forget", {"memory_id": created["id"]}))
+            assert forgot["deleted"] is True
+
     async def test_readiness_history_and_regressions_tools(self, mcp, container):
         from datetime import UTC, date, datetime
 

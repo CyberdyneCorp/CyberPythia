@@ -472,6 +472,16 @@ export interface FeatureDocument {
   grounded: boolean;
 }
 
+export interface AgentMemory {
+  id: string;
+  content: string;
+  kind: string;
+  author: string;
+  created_at: string;
+  repository_id: string | null;
+  organization: string | null;
+}
+
 export interface RepositoryBrief {
   repository_id: string;
   full_name: string;

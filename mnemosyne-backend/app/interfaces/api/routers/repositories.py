@@ -33,6 +33,7 @@ from app.interfaces.api.schemas.schemas import (
     ContextPackRequest,
     ContextPackResponse,
     FileContentResponse,
+    MemoryCreateRequest,
     Page,
     RepositoryResponse,
     RepositorySelectionBulkRequest,
@@ -363,6 +364,44 @@ async def readiness_history(
         return await cast(Any, container).readiness.repository_history(str(repo.full_name))
     except ApplicationError as exc:
         raise translate_error(exc) from exc
+
+
+@router.post("/{repo_id}/memories", status_code=201)
+async def create_memory(
+    repo_id: UUID, body: MemoryCreateRequest, caller: EntitledCaller,
+    use_cases: RepoUseCases, container: Container,
+) -> Any:
+    """Record a durable memory for the repository (agent-writable, Mnemosyne-only)."""
+    try:
+        repo = await use_cases.get(repo_id)
+        return await cast(Any, container).memory.remember_repository(
+            str(repo.full_name), content=body.content, kind=body.kind, author=caller.subject)
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
+@router.get("/{repo_id}/memories")
+async def list_memories(
+    repo_id: UUID, caller: EntitledCaller, use_cases: RepoUseCases, container: Container,
+    query: str | None = None, kind: str | None = None, limit: int = 50,
+) -> Any:
+    """List the repository's memories, newest first, with optional query/kind filters."""
+    try:
+        repo = await use_cases.get(repo_id)
+        return await cast(Any, container).memory.recall_repository(
+            str(repo.full_name), query=query, kind=kind, limit=limit)
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
+
+
+@router.delete("/{repo_id}/memories/{memory_id}", status_code=204)
+async def delete_memory(
+    repo_id: UUID, memory_id: UUID, caller: EntitledCaller, container: Container,
+) -> None:
+    """Delete a memory by id."""
+    deleted = await cast(Any, container).memory.forget(memory_id)
+    if not deleted:
+        raise NotFoundError(f"memory {memory_id} not found")
 
 
 @router.post("/{repo_id}/feature-document")

@@ -1,6 +1,7 @@
 /** Typed API clients over HttpClient (MVVM: viewmodels depend on these, views never do). */
 import type { HttpClient } from '$lib/api/http';
 import type {
+  AgentMemory,
   ApiKey,
   ApiKeyCreated,
   AppManifestBootstrap,
@@ -209,6 +210,19 @@ export class RepositoriesApi {
   }
   featureDocument(id: string): Promise<FeatureDocument> {
     return this.http.post(`/api/v1/repos/${id}/feature-document`);
+  }
+  memories(id: string, query?: string, kind?: string): Promise<{ memories: AgentMemory[] }> {
+    const params = new URLSearchParams();
+    if (query) params.set('query', query);
+    if (kind) params.set('kind', kind);
+    const qs = params.toString();
+    return this.http.get(`/api/v1/repos/${id}/memories${qs ? `?${qs}` : ''}`);
+  }
+  createMemory(id: string, content: string, kind: string): Promise<AgentMemory> {
+    return this.http.post(`/api/v1/repos/${id}/memories`, { content, kind });
+  }
+  deleteMemory(id: string, memoryId: string): Promise<void> {
+    return this.http.delete(`/api/v1/repos/${id}/memories/${memoryId}`);
   }
 }
 

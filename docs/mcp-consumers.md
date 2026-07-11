@@ -89,6 +89,9 @@ Repositories are addressed by full name (`owner/name`).
 | `mnemosyne_get_organization_readiness` | org gate distribution + per-repo gate and missing-for-READY checks |
 | `mnemosyne_get_readiness_history` | a repository's dated readiness-gate trend (recorded daily) |
 | `mnemosyne_get_readiness_regressions` | org repos whose latest gate dropped below the previous (from/to gate + date) |
+| `mnemosyne_remember` | persist a durable memory (note/decision/gotcha/convention/todo) scoped to a repo or org — **the one write tool**; writes to Mnemosyne, never GitHub |
+| `mnemosyne_recall` | recall a repo's or org's memories, newest first, optional query/kind filter |
+| `mnemosyne_forget` | delete a memory by id |
 
 ## Error contract
 
