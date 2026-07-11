@@ -417,6 +417,19 @@ class TestReadinessRest:
         assert r.status_code == 200
         assert r.json()["history"] == [{"date": "2026-07-09", "gate": "MVP"}]
 
+    async def test_org_vulnerabilities_endpoint(self, client, container):
+        repo = await seed_repo(container)
+        await container.metrics_store.save(
+            repo.id, issue_metrics={}, pr_metrics={},
+            summary={"vulnerabilities": {"critical": 3, "high": 1}}, computed_at=NOW)
+        async with client:
+            r = await client.get(
+                "/api/v1/intelligence/organizations/cyberdyne/vulnerabilities", headers=user())
+        assert r.status_code == 200
+        body = r.json()
+        assert body["total_critical"] == 3
+        assert body["repositories"][0]["critical"] == 3
+
     async def test_org_digest_endpoint(self, client, container):
         await seed_repo(container)
         async with client:

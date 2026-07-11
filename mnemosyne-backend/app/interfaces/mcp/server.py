@@ -900,6 +900,14 @@ def build_mcp(
         return await container.readiness.organization_regressions(organization)
 
     @mcp.tool
+    async def mnemosyne_get_organization_vulnerabilities(organization: str) -> dict[str, Any]:
+        """Repositories in an organization with open critical/high Dependabot alerts,
+        most-critical first, plus org totals. Captured during sync (best-effort — needs a
+        credential with security-alerts read; repos without the signal are omitted)."""
+        await auth()
+        return await container.security.organization_vulnerabilities(organization)
+
+    @mcp.tool
     async def mnemosyne_get_organization_digest(organization: str) -> dict[str, Any]:
         """One-call attention digest for an organization: readiness regressions, oldest
         stale issues/PRs, at-risk milestone count, and a human-readable summary line."""

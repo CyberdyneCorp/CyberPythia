@@ -165,9 +165,9 @@ NOT count toward a gate. READY SHALL require CI, tests, a documented design (Ope
 an ADR document), at least one closed issue and one merged pull request, a README, and a
 guide document. DONE SHALL require READY plus a dependency manifest, monitoring
 (Dependabot or a security-scanning workflow), a SECURITY document, a low open-bug ratio,
-and at least one published GitHub Release. The layer SHALL also produce an
-organization-level distribution (counts per gate) with each repository's gate and what
-it is missing to reach READY.
+at least one published GitHub Release, and no open critical dependency vulnerabilities.
+The layer SHALL also produce an organization-level distribution (counts per gate) with
+each repository's gate and what it is missing to reach READY.
 
 #### Scenario: Repository meeting all READY checks
 - **WHEN** a repository has CI, tests, OpenSpec/ADRs, a closed issue, a merged PR, a README, and a guide doc
@@ -178,12 +178,12 @@ it is missing to reach READY.
 - **THEN** those checks SHALL be reported `unknown` and the repository SHALL NOT be classified READY on them
 
 #### Scenario: DONE requires observable hardening and a release
-- **WHEN** a READY repository additionally has a dependency manifest, monitoring, a SECURITY doc, a low open-bug ratio, and at least one published release
+- **WHEN** a READY repository additionally has a dependency manifest, monitoring, a SECURITY doc, a low open-bug ratio, at least one published release, and no open critical vulnerabilities
 - **THEN** it SHALL be classified DONE
 
-#### Scenario: A release is required for DONE
-- **WHEN** a repository meets every other DONE check but has no published release
-- **THEN** the `releases` check SHALL be `missing` and the repository SHALL NOT be classified DONE
+#### Scenario: An open critical vulnerability blocks DONE
+- **WHEN** a repository meets every other DONE check but has one or more open critical dependency alerts
+- **THEN** the `no_critical_vulns` check SHALL be `missing` and the repository SHALL NOT be classified DONE
 
 #### Scenario: Organization distribution
 - **WHEN** an organization readiness rollup is requested
@@ -234,4 +234,15 @@ scheduled run.
 #### Scenario: Delivery failure is contained
 - **WHEN** the alert webhook is unreachable
 - **THEN** the scheduled run SHALL still complete successfully
+
+### Requirement: Organization vulnerability view
+
+The intelligence layer SHALL capture each repository's open Dependabot alert
+counts (critical and high) during sync — best-effort, treated as unknown when the
+credential lacks permission — and expose an organization view listing repositories
+with open critical/high counts, most-critical first.
+
+#### Scenario: Organization vulnerabilities listed
+- **WHEN** an organization vulnerability view is requested
+- **THEN** it SHALL list repositories with their open critical and high alert counts, most-critical first
 

@@ -279,6 +279,30 @@ class GitHubClient:
         data = response.json()
         return isinstance(data, list) and len(data) > 0
 
+    async def vulnerability_summary(
+        self, token: str, full_name: str
+    ) -> dict[str, int] | None:
+        """Open Dependabot alert counts by severity, or None when not permitted.
+
+        Requires a `security_events`/`vulnerability_alerts` read grant the PAT or
+        App may not have; a 403/404 (or the feature being off) yields None (the
+        signal is treated as unknown, never as zero).
+        """
+        try:
+            raw = await self._paginate(
+                f"/repos/{full_name}/dependabot/alerts",
+                token,
+                params={"state": "open"},
+            )
+        except (GitHubAuthError, GitHubNotFoundError, httpx.HTTPStatusError):
+            return None
+        counts = {"critical": 0, "high": 0}
+        for alert in raw:
+            sev = (alert.get("security_advisory", {}) or {}).get("severity", "")
+            if sev in counts:
+                counts[sev] += 1
+        return counts
+
     async def list_milestones(
         self, token: str, full_name: str
     ) -> list[GitHubMilestoneData]:

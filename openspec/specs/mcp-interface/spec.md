@@ -336,3 +336,13 @@ issues/PRs, at-risk milestones, and a summary line).
 - **WHEN** an entitled caller invokes `mnemosyne_get_organization_digest`
 - **THEN** it SHALL return the digest sections and summary
 
+### Requirement: Organization vulnerabilities MCP tool
+
+The MCP server SHALL expose `mnemosyne_get_organization_vulnerabilities(organization)`
+returning repositories with their open critical/high Dependabot alert counts,
+most-critical first.
+
+#### Scenario: Vulnerabilities tool
+- **WHEN** an entitled caller invokes `mnemosyne_get_organization_vulnerabilities`
+- **THEN** it SHALL return repositories with open critical/high counts, most-critical first
+

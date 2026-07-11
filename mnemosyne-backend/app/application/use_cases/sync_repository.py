@@ -495,7 +495,16 @@ class SyncRepositoryUseCase:
         except Exception:
             logger.warning("releases check failed for %s", ctx.full_name)
             has_releases = None
-        await service.recompute(ctx.repository, has_releases=has_releases)
+        try:
+            vulnerabilities = await self._github.vulnerability_summary(
+                ctx.token, ctx.full_name
+            )
+        except Exception:
+            logger.warning("vulnerability check failed for %s", ctx.full_name)
+            vulnerabilities = None
+        await service.recompute(
+            ctx.repository, has_releases=has_releases, vulnerabilities=vulnerabilities
+        )
         return 1
 
 

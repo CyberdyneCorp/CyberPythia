@@ -279,6 +279,14 @@ async def organization_digest(
     return await request.app.state.container.digest.build(organization)
 
 
+@router.get("/organizations/{organization}/vulnerabilities")
+async def organization_vulnerabilities(
+    organization: str, caller: EntitledCaller, request: Request
+) -> Any:
+    """Repositories with open critical/high Dependabot alerts, most-critical first."""
+    return await request.app.state.container.security.organization_vulnerabilities(organization)
+
+
 @router.post("/organizations/{organization}/memories", status_code=201)
 async def create_organization_memory(
     organization: str, body: MemoryCreateRequest, caller: EntitledCaller, request: Request

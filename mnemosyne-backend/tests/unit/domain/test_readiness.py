@@ -15,7 +15,7 @@ def _ready_inputs(**over) -> ReadinessInputs:
 def _done_inputs(**over) -> ReadinessInputs:
     base = dict(
         has_dependency_manifest=True, has_dependabot=True, has_security_doc=True,
-        has_releases=True, open_issues=10, open_bugs=1,
+        has_releases=True, open_critical_vulns=0, open_issues=10, open_bugs=1,
     )
     return _ready_inputs(**{**base, **over})
 
@@ -37,6 +37,17 @@ def test_done_when_hardening_met():
     r = classify_readiness(_done_inputs())
     assert r["gate"] == "DONE"
     assert r["missing_for_done"] == []
+
+
+def test_open_critical_vuln_blocks_done():
+    r = classify_readiness(_done_inputs(open_critical_vulns=2))
+    assert r["gate"] == "READY"
+    assert r["done_checks"]["no_critical_vulns"] == "missing"
+    assert "no_critical_vulns" in r["missing_for_done"]
+
+    unknown = classify_readiness(_done_inputs(open_critical_vulns=None))
+    assert unknown["done_checks"]["no_critical_vulns"] == "unknown"
+    assert unknown["gate"] == "READY"  # unknown never satisfies DONE
 
 
 def test_no_release_blocks_done():

@@ -121,6 +121,10 @@ class GitHubPort(Protocol):
 
     async def has_releases(self, token: str, full_name: str) -> bool: ...
 
+    async def vulnerability_summary(
+        self, token: str, full_name: str
+    ) -> dict[str, int] | None: ...
+
     async def list_pull_requests(
         self, token: str, full_name: str
     ) -> list[GitHubPullRequestData]: ...
