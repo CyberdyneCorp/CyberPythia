@@ -161,6 +161,8 @@ class GitHubConnectionUseCases:
             "default_permissions": {
                 "contents": "read", "issues": "read",
                 "pull_requests": "read", "metadata": "read",
+                # Read-only security signals for readiness/vulnerability intelligence.
+                "vulnerability_alerts": "read", "security_events": "read",
             },
             # `installation` / `installation_repositories` are app-management meta
             # events GitHub always delivers — they are rejected if declared here.

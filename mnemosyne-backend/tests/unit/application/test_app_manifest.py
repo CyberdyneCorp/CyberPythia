@@ -30,7 +30,8 @@ def test_build_manifest_shape_and_urls():
     uc = _uc()
     manifest, post_url, state = uc.build_app_manifest("CyberdyneCorp", "admin-1")
     assert manifest["default_permissions"] == {
-        "contents": "read", "issues": "read", "pull_requests": "read", "metadata": "read"
+        "contents": "read", "issues": "read", "pull_requests": "read", "metadata": "read",
+        "vulnerability_alerts": "read", "security_events": "read",
     }
     assert manifest["hook_attributes"]["url"] == "https://api.example.ai/api/v1/webhooks/github"
     assert manifest["redirect_url"].endswith("/api/v1/github/app/manifest-callback")
