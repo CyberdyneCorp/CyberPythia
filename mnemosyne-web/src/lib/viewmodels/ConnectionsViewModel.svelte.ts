@@ -119,6 +119,23 @@ export class ConnectionsViewModel {
   orgBusy = $state<string | null>(null);
 
   /** Index (enable) or un-index (disable) every repository in an organization. */
+  orgMessage = $state<string | null>(null);
+
+  async syncOrganization(login: string): Promise<void> {
+    if (this.orgBusy) return;
+    this.orgBusy = login;
+    this.error = null;
+    this.orgMessage = null;
+    try {
+      const { enqueued, skipped } = await this.githubApi.syncAll(login);
+      this.orgMessage = `${login}: ${enqueued} sync(s) queued${skipped ? `, ${skipped} skipped` : ''}`;
+    } catch (error) {
+      this.error = error instanceof ApiError ? error.message : 'could not trigger sync';
+    } finally {
+      this.orgBusy = null;
+    }
+  }
+
   async indexOrganization(login: string, enabled: boolean, mode?: IndexingMode): Promise<void> {
     if (this.orgBusy) return;
     this.orgBusy = login;

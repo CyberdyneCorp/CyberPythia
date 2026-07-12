@@ -97,6 +97,10 @@ export class GitHubApi {
       indexing_mode: mode ?? null
     });
   }
+  syncAll(organization?: string): Promise<{ enqueued: number; skipped: number }> {
+    const q = organization ? `?organization=${encodeURIComponent(organization)}` : '';
+    return this.http.post(`/api/v1/repos/sync-all${q}`);
+  }
   syncRuns(): Promise<SyncRun[]> {
     return this.http.get('/api/v1/admin/sync-runs');
   }

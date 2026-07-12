@@ -2,7 +2,11 @@
 
 from uuid import UUID, uuid4
 
-from app.application.errors import SyncAlreadyRunningError, UnknownResourceError
+from app.application.errors import (
+    ApplicationError,
+    SyncAlreadyRunningError,
+    UnknownResourceError,
+)
 from app.application.use_cases.github_connections import GitHubConnectionUseCases
 from app.domain.entities.repository import Repository
 from app.domain.entities.sync_job import SyncJob
@@ -175,6 +179,33 @@ class RepositoryUseCases:
             defer_seconds=defer_seconds,
         )
         return job
+
+    async def sync_all(
+        self, *, triggered_by: str, organization: str | None = None,
+        stagger_seconds: float = 0.0,
+    ) -> dict[str, int]:
+        """Enqueue a sync for every enabled repository (optionally one org).
+
+        Reuses the per-repo enqueue path: an already-running sync is skipped and a
+        single failure doesn't stop the rest. Returns enqueued/skipped counts.
+        """
+        repos = await self._repositories.list_all(enabled_only=True)
+        if organization:
+            owner = organization.lower()
+            repos = [r for r in repos if r.full_name.owner.lower() == owner]
+        enqueued = skipped = 0
+        for repo in repos:
+            try:
+                await self.trigger_sync(
+                    repo.id, triggered_by=triggered_by,
+                    defer_seconds=enqueued * stagger_seconds,
+                )
+                enqueued += 1
+            except SyncAlreadyRunningError:
+                skipped += 1
+            except ApplicationError:
+                skipped += 1
+        return {"enqueued": enqueued, "skipped": skipped}
 
     async def sync_status(self, repository_id: UUID) -> SyncJob | None:
         await self.get(repository_id)

@@ -210,6 +210,18 @@ describe('ConnectionsViewModel', () => {
     expect(vm.error).toBeNull();
   });
 
+  it('syncs an organization and reports the queued count', async () => {
+    const githubApi = {
+      syncAll: async (org: string) => ({ enqueued: 12, skipped: 3 }),
+      listConnections: async () => []
+    };
+    const vm = new ConnectionsViewModel(githubApi as never, {} as never, {} as never);
+    await vm.syncOrganization('CyberdyneCorp');
+    expect(vm.orgMessage).toContain('12 sync(s) queued');
+    expect(vm.orgMessage).toContain('3 skipped');
+    expect(vm.error).toBeNull();
+  });
+
   it('delete surfaces the error instead of swallowing it', async () => {
     const githubApi = {
       deleteConnection: async () => {

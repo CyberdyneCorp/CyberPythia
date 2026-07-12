@@ -248,8 +248,10 @@
   <p class="muted small">
     Choose which organizations Mnemosyne <strong>syncs</strong> (nightly), and index / un-index all
     of an organization's repositories at once. Un-indexed repos are removed from all intelligence
-    (portfolio, scorecard, and per-repo metrics over REST + MCP).
+    (portfolio, scorecard, and per-repo metrics over REST + MCP). <strong>Sync now</strong> triggers
+    an immediate sync of an org's indexed repos (otherwise they sync nightly at 03:00 UTC).
   </p>
+  {#if vm.orgMessage}<p class="banner ok">{vm.orgMessage}</p>{/if}
   <div class="row org-controls">
     <span class="muted small">Index-all mode:</span>
     <select bind:value={orgMode} class="bulk-mode">
@@ -293,6 +295,14 @@
                 onclick={() => vm.indexOrganization(org.login, false)}
               >
                 Un-index all
+              </button>
+              <button
+                class="secondary org-idx"
+                disabled={vm.orgBusy === org.login || org.enabled_repos === 0}
+                title={org.enabled_repos === 0 ? 'No indexed repos to sync' : 'Sync all indexed repos now'}
+                onclick={() => vm.syncOrganization(org.login)}
+              >
+                Sync now
               </button>
               <button class="secondary org-idx" onclick={() => createApp(org.login)}>
                 Create App
