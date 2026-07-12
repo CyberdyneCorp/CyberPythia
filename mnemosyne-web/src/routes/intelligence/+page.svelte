@@ -215,12 +215,77 @@
       <a class="rdrow" href={`/repos/${r.repository_id}`}>
         <span class="gatechip {r.gate}">{r.gate}</span>
         <span class="fn">{r.full_name}</span>
-        {#if r.gate !== 'DONE' && r.missing_for_ready.length}
-          <span class="miss">missing: {r.missing_for_ready.join(', ')}</span>
+        {#if r.gate === 'MVP' && r.missing_for_ready.length}
+          <span class="miss">for READY: {r.missing_for_ready.join(', ')}</span>
+        {:else if r.gate === 'READY' && r.missing_for_done.length}
+          <span class="miss">for DONE: {r.missing_for_done.join(', ')}</span>
         {/if}
       </a>
     {/each}
     {#if !rd.repositories.length}<p class="muted pad">No repositories.</p>{/if}
+  </section>
+{/if}
+
+<!-- Readiness regressions (alerts) -->
+{#if vm.regressions && vm.regressions.regressions.length}
+  {@const rg = vm.regressions}
+  <section class="panel">
+    <div class="panel-head">
+      <h2 class="title">Readiness regressions</h2>
+      <span class="mono eyebrow-inline">gate dropped vs. previous snapshot</span>
+    </div>
+    {#each rg.regressions as r (r.repository_id)}
+      <a class="frow" href={`/repos/${r.repository_id}`}>
+        <span class="badge err">▼</span>
+        <span class="fn">{r.full_name}</span>
+        <span class="ft"><span class="mono">{r.from_gate} → {r.to_gate}</span></span>
+        <span class="mono days">{r.date}</span>
+      </a>
+    {/each}
+  </section>
+{/if}
+
+<!-- Vulnerabilities (when an org is selected) -->
+{#if vm.vulnerabilities}
+  {@const vn = vm.vulnerabilities}
+  <section class="panel">
+    <div class="panel-head">
+      <h2 class="title">Vulnerabilities</h2>
+      <span class="mono eyebrow-inline">open Dependabot alerts</span>
+    </div>
+    <div class="orgstats">
+      <div class="stat"><strong style="color:var(--red)">{vn.total_critical}</strong><span>critical</span></div>
+      <div class="stat"><strong style="color:var(--ac)">{vn.total_high}</strong><span>high</span></div>
+      <div class="stat"><strong>{vn.repositories.length}</strong><span>affected repos</span></div>
+    </div>
+    {#each vn.repositories as r (r.repository_id)}
+      <a class="frow" href={`/repos/${r.repository_id}`}>
+        <span class="badge err">{r.critical}C</span>
+        <span class="badge warn">{r.high}H</span>
+        <span class="fn">{r.full_name}</span>
+      </a>
+    {/each}
+    {#if !vn.repositories.length}
+      <p class="muted pad">No open critical/high alerts captured (needs a sync with the App's Dependabot-alerts grant).</p>
+    {/if}
+  </section>
+{/if}
+
+<!-- Organization capabilities (when an org is selected) -->
+{#if vm.capabilities}
+  {@const cp = vm.capabilities}
+  <section class="panel">
+    <div class="panel-head">
+      <h2 class="title">Capabilities</h2>
+      <span class="mono eyebrow-inline">
+        {cp.capabilities.length} across {cp.repositories} repos · {cp.total_open_bugs} open bugs
+      </span>
+    </div>
+    {#if cp.capabilities.length}
+      <div class="chips pad">
+        {#each cp.capabilities as c (c)}<span class="chip">{c}</span>{/each}
+      </div>
+    {:else}<p class="muted pad">No OpenSpec capability areas indexed yet.</p>{/if}
   </section>
 {/if}
 
@@ -334,6 +399,19 @@
   .stat span {
     font-size: 0.72rem;
     color: var(--tx3);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .chip {
+    font-size: 0.72rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    white-space: nowrap;
   }
   .gchip {
     font-family: 'IBM Plex Mono', monospace;

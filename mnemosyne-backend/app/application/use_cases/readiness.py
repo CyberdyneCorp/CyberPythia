@@ -92,6 +92,7 @@ class ReadinessService:
                 "full_name": str(r.full_name),
                 "gate": result["gate"],
                 "missing_for_ready": result["missing_for_ready"],
+                "missing_for_done": result["missing_for_done"],
             })
         rows.sort(key=lambda x: ({"DONE": 0, "READY": 1, "MVP": 2}[x["gate"]], x["full_name"]))
         return {
