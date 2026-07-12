@@ -349,6 +349,7 @@
 {#if vm.syncJobs.length}
   <div class="card">
     <div class="eyebrow pad">Recent sync jobs</div>
+    <div class="scroll-y">
     <table>
       <thead><tr><th>Repository</th><th>Status</th><th>Trigger</th><th>When</th><th>Detail</th></tr></thead>
       <tbody>
@@ -375,6 +376,7 @@
         {/each}
       </tbody>
     </table>
+    </div>
   </div>
 {/if}
 

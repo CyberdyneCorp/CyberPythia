@@ -300,16 +300,18 @@
       <button class="secondary" disabled={!memoryContent.trim()} onclick={submitMemory}>Add</button>
     </div>
   </div>
-  {#each vm.memories as m (m.id)}
-    <div class="card mem-row">
-      <div class="mem-head">
-        <span class="chip">{m.kind}</span>
-        <span class="muted small">{m.author} · {new Date(m.created_at).toLocaleString()}</span>
-        <button class="link danger" onclick={() => vm.deleteMemory(m.id)}>Delete</button>
+  <div class="scroll-y">
+    {#each vm.memories as m (m.id)}
+      <div class="card mem-row">
+        <div class="mem-head">
+          <span class="chip">{m.kind}</span>
+          <span class="muted small">{m.author} · {new Date(m.created_at).toLocaleString()}</span>
+          <button class="link danger" onclick={() => vm.deleteMemory(m.id)}>Delete</button>
+        </div>
+        <p class="mem-content">{m.content}</p>
       </div>
-      <p class="mem-content">{m.content}</p>
-    </div>
-  {/each}
+    {/each}
+  </div>
   {#if !vm.memories.length && !vm.loading}
     <p class="muted pad">No memories yet.</p>
   {/if}
