@@ -125,3 +125,53 @@ async def test_empty_when_no_enabled_repos() -> None:
     await _seed(repos, ("cyberdyne/c", False))
     summary = await ScheduledSyncService(repos, RecordingTrigger()).run()
     assert summary == type(summary)(enqueued=0, skipped=0, failed=0)
+
+
+async def test_orders_least_recently_synced_first() -> None:
+    from datetime import UTC, datetime
+
+    repos = FakeRepositoryPort()
+    recent = make_repo("cyberdyne/recent")
+    recent.last_synced_at = datetime(2026, 7, 12, tzinfo=UTC)
+    old = make_repo("cyberdyne/old")
+    old.last_synced_at = datetime(2026, 7, 1, tzinfo=UTC)
+    never = make_repo("cyberdyne/never")  # last_synced_at is None
+    for r in (recent, old, never):
+        await repos.save(r)
+    trigger = RecordingTrigger()
+    await ScheduledSyncService(repos, trigger).run()
+    order = [rid for rid, _, _ in trigger.calls]
+    assert order == [never.id, old.id, recent.id]  # never -> oldest -> newest
+
+
+async def test_per_run_cap_defers_remainder() -> None:
+    from datetime import UTC, datetime
+
+    repos = FakeRepositoryPort()
+    made = []
+    for i in range(4):
+        r = make_repo(f"cyberdyne/r{i}")
+        r.last_synced_at = datetime(2026, 7, 1 + i, tzinfo=UTC)  # r0 oldest
+        await repos.save(r)
+        made.append(r)
+    trigger = RecordingTrigger()
+    summary = await ScheduledSyncService(repos, trigger, max_repos_per_run=2).run()
+    assert summary.enqueued == 2
+    # only the two least-recently-synced (r0, r1) are attempted this run
+    assert [rid for rid, _, _ in trigger.calls] == [made[0].id, made[1].id]
+
+
+async def test_fairness_a_failed_repo_is_prioritised_next_run() -> None:
+    from datetime import UTC, datetime
+
+    repos = FakeRepositoryPort()
+    synced = make_repo("cyberdyne/synced")
+    synced.last_synced_at = datetime(2026, 7, 12, tzinfo=UTC)  # succeeded before
+    stale = make_repo("cyberdyne/stale")
+    stale.last_synced_at = datetime(2026, 7, 1, tzinfo=UTC)  # failed before -> stale
+    for r in (synced, stale):
+        await repos.save(r)
+    trigger = RecordingTrigger()
+    await ScheduledSyncService(repos, trigger, max_repos_per_run=1).run()
+    # under a tight cap, the previously-failed (stale) repo is attempted first
+    assert [rid for rid, _, _ in trigger.calls] == [stale.id]

@@ -378,6 +378,7 @@ class Container:
             self.repositories,
             self.repository_use_cases,
             stagger_seconds=self.settings.scheduled_sync_stagger_seconds,
+            max_repos_per_run=self.settings.scheduled_sync_max_repos_per_run,
             organizations=self.organizations,
         )
 

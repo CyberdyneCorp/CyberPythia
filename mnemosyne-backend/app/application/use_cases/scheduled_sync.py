@@ -8,6 +8,7 @@ failing does not stop the rest.
 
 import logging
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -15,6 +16,17 @@ from app.application.errors import ApplicationError, SyncAlreadyRunningError
 from app.domain.entities.repository import Repository
 
 logger = logging.getLogger(__name__)
+
+_EPOCH = datetime.min.replace(tzinfo=UTC)
+
+
+def least_recently_synced_first(repositories: list[Repository]) -> list[Repository]:
+    """Order by ``last_synced_at`` ascending — never-synced first, then oldest.
+
+    Fairness under rate pressure: a repo that failed keeps its stale timestamp and
+    rises to the front of the next run, so no repository is permanently starved.
+    """
+    return sorted(repositories, key=lambda r: r.last_synced_at or _EPOCH)
 
 
 class _Repositories(Protocol):
@@ -45,11 +57,13 @@ class ScheduledSyncService:
         repository_use_cases: _Trigger,
         *,
         stagger_seconds: float = 0.0,
+        max_repos_per_run: int = 0,
         organizations: "_Organizations | None" = None,
     ) -> None:
         self._repositories = repositories
         self._use_cases = repository_use_cases
         self._stagger_seconds = stagger_seconds
+        self._max_repos_per_run = max_repos_per_run
         self._organizations = organizations
 
     async def run(self) -> ScheduledSyncSummary:
@@ -58,10 +72,21 @@ class ScheduledSyncService:
             await self._organizations.disabled_logins() if self._organizations else set()
         )
         enqueued = skipped = failed = 0
-        for repo in repositories:
-            if repo.full_name.owner in disabled:
+        # Fairness: attempt least-recently-synced (incl. never-synced) first, then
+        # cap the batch so a big org spreads across runs instead of starving the
+        # tail when the rate budget runs out.
+        eligible = []
+        for r in least_recently_synced_first(repositories):
+            if r.full_name.owner in disabled:
                 skipped += 1  # organization sync is disabled by the admin
-                continue
+            else:
+                eligible.append(r)
+        deferred = 0
+        if self._max_repos_per_run > 0 and len(eligible) > self._max_repos_per_run:
+            deferred = len(eligible) - self._max_repos_per_run
+            eligible = eligible[: self._max_repos_per_run]
+
+        for repo in eligible:
             try:
                 await self._use_cases.trigger_sync(
                     repo.id,
@@ -78,10 +103,8 @@ class ScheduledSyncService:
                 logger.exception("scheduled sync: failed to enqueue %s", repo.full_name)
                 failed += 1
         logger.info(
-            "scheduled full sync: enqueued=%d skipped=%d failed=%d over %d enabled repos",
-            enqueued,
-            skipped,
-            failed,
-            len(repositories),
+            "scheduled full sync: enqueued=%d skipped=%d failed=%d deferred=%d "
+            "over %d enabled repos",
+            enqueued, skipped, failed, deferred, len(repositories),
         )
         return ScheduledSyncSummary(enqueued=enqueued, skipped=skipped, failed=failed)

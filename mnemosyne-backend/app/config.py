@@ -117,6 +117,10 @@ class Settings(BaseSettings):
 
     # Rate-limit resilience for the nightly fan-out
     scheduled_sync_stagger_seconds: float = 5.0  # defer between successive enqueues
+    # Cap repos attempted per scheduled run (0 = all). Least-recently-synced go
+    # first, so a large org spreads across runs instead of starving its tail when
+    # the GitHub rate budget can't cover everything in one run.
+    scheduled_sync_max_repos_per_run: int = 0
     github_rate_limit_max_wait_seconds: int = 60  # cap; beyond this, fail fast + retry next run
 
     @property

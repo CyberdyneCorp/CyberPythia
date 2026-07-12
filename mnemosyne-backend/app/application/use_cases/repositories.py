@@ -189,10 +189,13 @@ class RepositoryUseCases:
         Reuses the per-repo enqueue path: an already-running sync is skipped and a
         single failure doesn't stop the rest. Returns enqueued/skipped counts.
         """
+        from app.application.use_cases.scheduled_sync import least_recently_synced_first
+
         repos = await self._repositories.list_all(enabled_only=True)
         if organization:
             owner = organization.lower()
             repos = [r for r in repos if r.full_name.owner.lower() == owner]
+        repos = least_recently_synced_first(repos)  # oldest first under budget pressure
         enqueued = skipped = 0
         for repo in repos:
             try:
