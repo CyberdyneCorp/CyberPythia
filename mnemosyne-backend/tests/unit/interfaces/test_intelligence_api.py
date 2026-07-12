@@ -7,7 +7,12 @@ import pytest
 from fastmcp import Client
 
 from app.interfaces.mcp.server import build_mcp
-from tests.unit.interfaces.test_api_endpoints import build_fake_container, seed_repo, user
+from tests.unit.interfaces.test_api_endpoints import (
+    build_fake_container,
+    scoped,
+    seed_repo,
+    user,
+)
 from tests.unit.interfaces.test_mcp_server import entitled_caller, payload, rejecting_caller
 
 NOW = datetime(2026, 7, 7, tzinfo=UTC)
@@ -124,6 +129,34 @@ class TestIntelligenceRest:
                 f"/api/v1/intelligence/repositories/{repo.id}/health", headers=user()
             )
         assert r.status_code == 404
+
+    async def test_org_memory_cross_org_denied(self, client):
+        # #52/#53: a caller scoped to cyberdyne cannot read or write another org's
+        # memory namespace; both reads and writes 404 (out-of-scope reads as absent).
+        async with client:
+            get_miss = await client.get(
+                "/api/v1/intelligence/organizations/aminitech/memories", headers=scoped()
+            )
+            post_miss = await client.post(
+                "/api/v1/intelligence/organizations/aminitech/memories",
+                json={"content": "x", "kind": "note"}, headers=scoped(),
+            )
+        assert get_miss.status_code == 404
+        assert post_miss.status_code == 404
+
+    async def test_org_memory_same_org_allowed(self, client):
+        # A same-org (or unrestricted) caller keeps full recall/remember.
+        async with client:
+            post_ok = await client.post(
+                "/api/v1/intelligence/organizations/cyberdyne/memories",
+                json={"content": "ours", "kind": "note"}, headers=scoped(),
+            )
+            get_ok = await client.get(
+                "/api/v1/intelligence/organizations/cyberdyne/memories", headers=scoped()
+            )
+        assert post_ok.status_code == 201
+        assert get_ok.status_code == 200
+        assert get_ok.json()["memories"]
 
     async def test_compare_endpoint(self, client, container):
         repo = await _seed_scored(container)

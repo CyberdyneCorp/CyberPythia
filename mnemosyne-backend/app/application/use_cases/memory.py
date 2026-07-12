@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 from app.application.errors import UnknownResourceError
 from app.domain.entities.agent_memory import AgentMemory
 from app.domain.ports.persistence_ports import MemoryPort, RepositoryPort
+from app.domain.services.org_scope import allowed_organizations, is_organization_allowed
 
 
 def _view(m: AgentMemory) -> dict[str, Any]:
@@ -44,6 +45,8 @@ class MemoryService:
     async def remember_organization(
         self, organization: str, *, content: str, kind: str, author: str
     ) -> dict[str, Any]:
+        if not is_organization_allowed(organization):
+            raise UnknownResourceError(f"organization '{organization}' is not accessible")
         return await self._save(
             content=content, kind=kind, author=author, organization=organization
         )
@@ -76,10 +79,30 @@ class MemoryService:
         self, organization: str, *, query: str | None = None,
         kind: str | None = None, limit: int = 50,
     ) -> dict[str, Any]:
+        if not is_organization_allowed(organization):
+            raise UnknownResourceError(f"organization '{organization}' is not accessible")
         rows = await self.memories.list_for_organization(
             organization, kind=kind, query=query, limit=limit
         )
         return {"organization": organization, "memories": [_view(m) for m in rows]}
 
     async def forget(self, memory_id: UUID) -> bool:
+        """Delete a memory after checking the caller may access its owner.
+
+        Never deletes by bare id: an out-of-scope (or unknown) memory reads as
+        absent, so callers get the same not-found result as an unknown id.
+        """
+        memory = await self.memories.get(memory_id)
+        if memory is None or not await self._may_access(memory):
+            return False
         return await self.memories.delete(memory_id)
+
+    async def _may_access(self, memory: AgentMemory) -> bool:
+        if memory.repository_id is not None:
+            # Repository resolution passes through the per-org choke point, so an
+            # out-of-scope repo reads as absent.
+            return await self.repositories.get(memory.repository_id) is not None
+        if memory.organization is not None:
+            return is_organization_allowed(memory.organization)
+        # Unowned memory: only an unrestricted (admin/worker) caller may touch it.
+        return allowed_organizations() is None

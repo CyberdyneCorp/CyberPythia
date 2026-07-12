@@ -298,8 +298,11 @@ async def create_organization_memory(
     organization: str, body: MemoryCreateRequest, caller: EntitledCaller, request: Request
 ) -> Any:
     """Record a durable memory scoped to the organization."""
-    return await request.app.state.container.memory.remember_organization(
-        organization, content=body.content, kind=body.kind, author=caller.subject)
+    try:
+        return await request.app.state.container.memory.remember_organization(
+            organization, content=body.content, kind=body.kind, author=caller.subject)
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
 
 
 @router.get("/organizations/{organization}/memories")
@@ -308,5 +311,8 @@ async def list_organization_memories(
     query: str | None = None, kind: str | None = None, limit: LimitParam = 50,
 ) -> Any:
     """List the organization's memories, newest first."""
-    return await request.app.state.container.memory.recall_organization(
-        organization, query=query, kind=kind, limit=limit)
+    try:
+        return await request.app.state.container.memory.recall_organization(
+            organization, query=query, kind=kind, limit=limit)
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
