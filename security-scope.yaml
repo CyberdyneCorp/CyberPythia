@@ -1,0 +1,65 @@
+# Mnemosyne — defensive security testing scope.
+# Read by the pentest skill before ANY test traffic. Live probing is refused
+# unless the target below is confirmed in-scope with a real authorizer + dates.
+#
+# DRAFT — pending owner sign-off. Do not run live hunters until `authorized_by`
+# and the dates are confirmed by the repo owner and the localhost stack is up.
+
+version: "1.0"
+authorized_by: "Leonardo Araujo dos Santos (repo owner) — PENDING CONFIRMATION"
+authorization_date: "2026-07-12"
+review_date: "2026-10-12"   # quarterly
+
+environments:
+  - name: localhost
+    default_testing: active
+    rate_limit_rps: 20
+
+# ONLY the local docker-compose stack is authorized for active testing.
+# Production (*.coolify.cyberdynecorp.ai) is explicitly OUT of scope here.
+assets:
+  - name: "http://localhost:8000"
+    environment: localhost
+    asset_type: rest_api
+    engagement_type: white_box          # full source available in this repo
+    tech_stack: [python, fastapi, sqlalchemy, postgres, pgvector, redis]
+    testing_level: active
+    destructive_testing: denied
+    service_affecting: denied
+    owasp_api_top10_applicable: true
+    allow_self_registration: false      # auth is CyberdyneAuth-issued; use test creds
+    notes: "Mnemosyne REST API (docker-compose). Auth via CyberdyneAuth JWT / mnem_ API key."
+
+  - name: "http://localhost:8100"
+    environment: localhost
+    asset_type: rest_api
+    engagement_type: white_box
+    tech_stack: [python, fastmcp]
+    testing_level: active
+    destructive_testing: denied
+    service_affecting: denied
+    notes: "Mnemosyne MCP (streamable HTTP). FastMCP host-allowlist applies."
+
+  - name: "http://localhost:3000"
+    environment: localhost
+    asset_type: web_application
+    engagement_type: white_box
+    tech_stack: [sveltekit, svelte, typescript, node]
+    testing_level: active
+    destructive_testing: denied
+    service_affecting: denied
+    notes: "Mnemosyne web dashboard (SvelteKit)."
+
+# Explicitly out of scope — never probe these under this file.
+out_of_scope:
+  - "mnemosyne.backend.coolify.cyberdynecorp.ai"
+  - "mnemosyne.mcp.coolify.cyberdynecorp.ai"
+  - "mnemosyne.coolify.cyberdynecorp.ai"
+  - "auth.backend.coolify.cyberdynecorp.ai"   # CyberdyneAuth — third-party dependency
+
+# Techniques never permitted.
+never_run:
+  - dos_flooding
+  - credential_stuffing
+  - social_engineering
+  - data_exfiltration

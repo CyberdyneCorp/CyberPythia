@@ -138,15 +138,45 @@ async def test_jwks_unknown_kid_refetch_throttled_by_cooldown(settings, rsa_key,
 
 @respx.mock
 async def test_jwks_ttl_expiry_still_refreshes(settings, rsa_key, jwks):
-    # The cooldown must not defeat the normal TTL-based refresh.
+    # With the attempt throttle open (cooldown=0), an expired TTL still refreshes
+    # on every call — the cooldown only rate-limits attempts, it never pins a
+    # stale cache.
     settings = settings.model_copy(
-        update={"auth_jwks_cache_ttl_seconds": 0, "auth_jwks_min_refresh_seconds": 3600}
+        update={"auth_jwks_cache_ttl_seconds": 0, "auth_jwks_min_refresh_seconds": 0}
     )
     route = respx.get(f"{ISSUER}/.well-known/jwks.json").respond(json=jwks)
     verifier = JwksVerifier(settings)
     await verifier.verify(make_token(rsa_key, entitlements=["mnemosyne"]))
     await verifier.verify(make_token(rsa_key, entitlements=["mnemosyne"]))
-    assert route.call_count == 2  # TTL=0 -> refetch every call despite cooldown
+    assert route.call_count == 2  # TTL=0, cooldown=0 -> refetch every call
+
+
+@respx.mock
+async def test_jwks_unknown_kid_amplification_bounded_during_outage(settings, rsa_key, jwks):
+    # CWE-770: while the JWKS endpoint is failing, unknown-kid requests must not
+    # re-attempt an outbound GET each time. The cooldown keys off the last
+    # *attempt*, so a failing endpoint is hit at most once per window.
+    settings = settings.model_copy(update={"auth_jwks_min_refresh_seconds": 3600})
+    route = respx.get(f"{ISSUER}/.well-known/jwks.json").respond(status_code=503)
+    verifier = JwksVerifier(settings)
+    # The first unknown kid attempts a fetch (fails, endpoint down).
+    with pytest.raises(AuthUnavailableError):
+        await verifier.verify(make_token(rsa_key, kid="attacker-0"))
+    # Every subsequent unknown kid within the cooldown does NOT re-hit the
+    # endpoint — it is rejected from the (empty) cache instead.
+    for i in range(1, 25):
+        with pytest.raises(TokenInvalidError):
+            await verifier.verify(make_token(rsa_key, kid=f"attacker-{i}"))
+    assert route.call_count == 1  # outage not amplified past the first attempt
+
+
+@respx.mock
+async def test_jwks_malformed_numeric_audience_rejected(settings, rsa_key, jwks):
+    # CWE-287: a non-string/non-list `aud` must fail closed (401), not 500.
+    respx.get(f"{ISSUER}/.well-known/jwks.json").respond(json=jwks)
+    token = make_token(rsa_key, entitlements=["mnemosyne"], aud=12345)
+    with pytest.raises(TokenInvalidError):
+        await JwksVerifier(settings).verify(token)
 
 
 @respx.mock

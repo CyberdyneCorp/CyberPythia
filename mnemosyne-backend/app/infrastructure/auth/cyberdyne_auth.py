@@ -52,8 +52,13 @@ class JwksVerifier:
         self._client = client
         self._keys: dict[str, PyJWK] = {}
         self._fetched_at: float = 0.0
+        # Last time a fetch was *attempted* (success or failure). The unknown-kid
+        # cooldown keys off this so a JWKS outage can't be amplified into one
+        # outbound GET per unknown-kid request while the endpoint is failing.
+        self._attempted_at: float = 0.0
 
     async def _fetch_jwks(self) -> None:
+        self._attempted_at = time.monotonic()
         client = self._client or httpx.AsyncClient()
         try:
             response = await client.get(self._settings.jwks_url, timeout=10)
@@ -73,13 +78,14 @@ class JwksVerifier:
     async def _get_key(self, kid: str) -> PyJWK:
         now = time.monotonic()
         ttl_expired = now - self._fetched_at > self._settings.auth_jwks_cache_ttl_seconds
-        if kid not in self._keys or ttl_expired:
-            # TTL expiry always refreshes; an unknown kid only refreshes once the
-            # min-refresh cooldown has elapsed, so a caller streaming random kids
-            # cannot amplify one outbound JWKS GET per request (CWE-770, spec: auth).
-            cooldown = self._settings.auth_jwks_min_refresh_seconds
-            if ttl_expired or now - self._fetched_at >= cooldown:
-                await self._fetch_jwks()
+        stale = kid not in self._keys or ttl_expired
+        # Refetch at most once per min-refresh window, measured from the last
+        # attempt (success OR failure), so neither a caller streaming random kids
+        # nor a JWKS outage (where the last success never advances) can amplify
+        # into one outbound GET per request (CWE-770, spec: auth).
+        throttle_open = now - self._attempted_at >= self._settings.auth_jwks_min_refresh_seconds
+        if stale and throttle_open:
+            await self._fetch_jwks()
         key = self._keys.get(kid)
         if key is None:
             raise TokenInvalidError("unknown signing key")
@@ -119,7 +125,14 @@ class JwksVerifier:
         aud = claims.get("aud")
         if not aud:
             return
-        audiences = [aud] if isinstance(aud, str) else list(aud)
+        if isinstance(aud, str):
+            audiences = [aud]
+        elif isinstance(aud, (list, tuple)):
+            audiences = [a for a in aud if isinstance(a, str)]
+        else:
+            # A malformed non-string/non-list `aud` fails closed (CWE-287) rather
+            # than raising a TypeError that would surface as a 500.
+            raise TokenInvalidError("token validation failed")
         if self._settings.service_audience not in audiences:
             raise TokenInvalidError("token validation failed")
 
