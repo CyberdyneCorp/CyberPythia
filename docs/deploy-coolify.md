@@ -124,7 +124,9 @@ working unchanged. The logged-in user must hold the `mnemosyne` entitlement.
 
 ## 4. Rollout order (design: Migration Plan)
 
-1. Deploy; wait until `GET /api/v1/health` returns `"status": "ok"`.
+1. Deploy; wait until `GET /api/v1/health` returns `"status": "ok"`. This public
+   probe returns the overall status only; per-component reachability is available
+   to admins at `GET /api/v1/admin/health`.
 2. Register the OAuth clients + `mnemosyne` entitlement in CyberdyneAuth
    ([auth-integration.md](auth-integration.md)); update the web client's
    `redirect_uris` with the production callback URL.

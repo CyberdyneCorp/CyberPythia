@@ -227,7 +227,9 @@ def _hash_embedding(text: str, dimensions: int) -> list[float]:
 
     vector = [0.0] * dimensions
     for token in re.findall(r"[a-z0-9]{2,}", text.lower()):
-        digest = hashlib.md5(token.encode()).digest()
+        # blake2b (not md5, CWE-327): only a non-cryptographic bucketing of tokens
+        # for the OpenAI-unavailable degraded-mode fallback vector.
+        digest = hashlib.blake2b(token.encode(), digest_size=8).digest()
         index = int.from_bytes(digest[:4], "big") % dimensions
         vector[index] += 1.0
     norm = math.sqrt(sum(v * v for v in vector)) or 1.0

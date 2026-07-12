@@ -682,6 +682,40 @@ class TestOpenApiContract:
         assert "security" not in webhook_post
 
 
+class TestHealthDisclosure:
+    """#73 (CWE-200): the public probe leaks no per-dependency detail; the detail
+    is admin-only."""
+
+    async def test_public_health_has_no_dependency_detail(self, client):
+        async with client as c:
+            resp = await c.get("/api/v1/health")
+        assert resp.status_code == 200  # healthcheck contract: 200 while serving
+        body = resp.json()
+        assert set(body) == {"status"}
+        assert body["status"] in {"ok", "degraded"}
+        # No component map and no failing exception class names anywhere.
+        assert "checks" not in body
+        assert "error" not in resp.text
+
+    async def test_admin_health_exposes_component_detail(self, client):
+        async with client as c:
+            resp = await c.get("/api/v1/admin/health", headers=admin())
+        assert resp.status_code == 200
+        body = resp.json()
+        assert set(body) == {"status", "checks"}
+        assert {"database", "redis", "object_storage"} <= set(body["checks"])
+
+    async def test_admin_health_requires_authentication(self, client):
+        async with client as c:
+            resp = await c.get("/api/v1/admin/health")
+        assert resp.status_code == 401
+
+    async def test_admin_health_rejects_non_admin(self, client):
+        async with client as c:
+            resp = await c.get("/api/v1/admin/health", headers=user())
+        assert resp.status_code == 403
+
+
 class TestCors:
     """The web app is served from a different origin than the API (prod bug 2026-07-07)."""
 
