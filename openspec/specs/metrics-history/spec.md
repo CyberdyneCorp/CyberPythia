@@ -21,14 +21,21 @@ update that day's snapshot rather than appending a duplicate.
 - **THEN** that day's snapshot SHALL be updated in place, not duplicated
 
 ### Requirement: Time-series retention
-The system SHALL provide a retention operation that keeps daily granularity for recent history
-and coarser granularity for older history, so the series does not grow without bound. Retention
-SHALL run off the request path.
+The system SHALL bound the growth of the per-repository daily snapshot series
+(metrics and readiness) by deleting snapshots older than a configurable retention
+window. Retention SHALL run off the request path (as part of the scheduled daily
+run), SHALL be disableable (a window of 0 keeps everything), and SHALL not fail
+the scheduled run on error.
 
-#### Scenario: Old points are downsampled
-- **GIVEN** a repository with snapshots older than the daily-retention window
+#### Scenario: Old points are pruned
+- **GIVEN** snapshots older than the configured retention window
 - **WHEN** retention runs
-- **THEN** older points SHALL be reduced to the coarser granularity and recent points preserved
+- **THEN** those snapshots SHALL be deleted and snapshots within the window preserved
+
+#### Scenario: Retention disabled
+- **GIVEN** the retention window is configured to 0
+- **WHEN** retention runs
+- **THEN** no snapshots SHALL be deleted
 
 ### Requirement: History reads for analytics
 The system SHALL expose the snapshot series for a repository over a bounded window so trend and

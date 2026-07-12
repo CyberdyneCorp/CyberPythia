@@ -57,7 +57,7 @@ class FakeHistoryPort:
             for rid, snaps in self.rows.items()
         }
 
-    async def prune(self, *, daily_days=180) -> int:
+    async def prune(self, *, retention_days: int) -> int:
         return 0
 
 
