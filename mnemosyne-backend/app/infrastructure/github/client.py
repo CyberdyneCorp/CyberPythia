@@ -9,6 +9,7 @@ import base64
 import logging
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -46,6 +47,21 @@ def _parse_dt(value: str | None) -> datetime | None:
     if not value:
         return None
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _url_path(value: str) -> str:
+    """Percent-encode each path segment before it is interpolated into a request
+    URL (CWE-22 / URL injection), preserving the ``/`` separators GitHub REST
+    paths rely on. Normal owner/repo and file paths pass through unchanged."""
+    return "/".join(quote(segment, safe="") for segment in value.split("/"))
+
+
+def _safe_object_key(key: str) -> str:
+    """Reject object-storage keys that escape their prefix via ``..`` segments
+    (CWE-22). Normal keys pass through unchanged."""
+    if any(segment == ".." for segment in key.split("/")):
+        raise ValueError(f"unsafe object key: {key!r}")
+    return key
 
 
 class GitHubClient:
@@ -141,7 +157,7 @@ class GitHubClient:
     async def _snapshot(self, key: str, payload: Any) -> None:
         """Raw payloads land in object storage before normalization (spec: repository-sync)."""
         if self._storage is not None:
-            await self._storage.put_json(key, payload)
+            await self._storage.put_json(_safe_object_key(key), payload)
 
     # -- GitHubPort ---------------------------------------------------------
 
@@ -231,6 +247,7 @@ class GitHubClient:
         return repos
 
     async def get_repository(self, token: str, full_name: str) -> GitHubRepoData:
+        full_name = _url_path(full_name)
         response = await self._request("GET", f"{self._base_url}/repos/{full_name}", token)
         r = response.json()
         await self._snapshot(f"raw/github/repos/{full_name}/metadata.json", r)
@@ -246,6 +263,7 @@ class GitHubClient:
         )
 
     async def get_file_content(self, token: str, full_name: str, path: str) -> str:
+        full_name, path = _url_path(full_name), _url_path(path)
         response = await self._request(
             "GET", f"{self._base_url}/repos/{full_name}/contents/{path}", token
         )
@@ -255,6 +273,7 @@ class GitHubClient:
         return str(payload.get("content", ""))
 
     async def get_tree(self, token: str, full_name: str, branch: str) -> list[GitHubFileData]:
+        full_name, branch = _url_path(full_name), _url_path(branch)
         response = await self._request(
             "GET",
             f"{self._base_url}/repos/{full_name}/git/trees/{branch}",
@@ -280,6 +299,7 @@ class GitHubClient:
         return files
 
     async def list_issues(self, token: str, full_name: str) -> list[GitHubIssueData]:
+        full_name = _url_path(full_name)
         raw = await self._paginate(
             f"/repos/{full_name}/issues", token, params={"state": "all"}
         )
@@ -288,6 +308,7 @@ class GitHubClient:
 
     async def has_releases(self, token: str, full_name: str) -> bool:
         """Whether the repository has any published GitHub Release (one cheap call)."""
+        full_name = _url_path(full_name)
         response = await self._request(
             "GET", f"{self._base_url}/repos/{full_name}/releases?per_page=1", token
         )
@@ -303,6 +324,7 @@ class GitHubClient:
         App may not have; a 403/404 (or the feature being off) yields None (the
         signal is treated as unknown, never as zero).
         """
+        full_name = _url_path(full_name)
         try:
             raw = await self._paginate(
                 f"/repos/{full_name}/dependabot/alerts",
@@ -321,6 +343,7 @@ class GitHubClient:
     async def list_milestones(
         self, token: str, full_name: str
     ) -> list[GitHubMilestoneData]:
+        full_name = _url_path(full_name)
         raw = await self._paginate(
             f"/repos/{full_name}/milestones", token, params={"state": "all"}
         )
@@ -328,12 +351,14 @@ class GitHubClient:
         return [_milestone_from(m) for m in raw]
 
     async def get_issue(self, token: str, full_name: str, number: int) -> GitHubIssueData:
+        full_name = _url_path(full_name)
         response = await self._request(
             "GET", f"{self._base_url}/repos/{full_name}/issues/{number}", token
         )
         return _issue_from(response.json())
 
     async def list_pull_requests(self, token: str, full_name: str) -> list[GitHubPullRequestData]:
+        full_name = _url_path(full_name)
         raw = await self._paginate(
             f"/repos/{full_name}/pulls", token, params={"state": "all"}
         )
@@ -349,6 +374,7 @@ class GitHubClient:
     async def get_pull_request(
         self, token: str, full_name: str, number: int
     ) -> GitHubPullRequestData:
+        full_name = _url_path(full_name)
         response = await self._request(
             "GET", f"{self._base_url}/repos/{full_name}/pulls/{number}", token
         )

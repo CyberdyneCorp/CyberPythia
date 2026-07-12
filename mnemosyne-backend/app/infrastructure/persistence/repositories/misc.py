@@ -60,9 +60,24 @@ from app.infrastructure.persistence.models import (
 )
 from app.infrastructure.persistence.repositories.base import PostgresRepositoryBase
 
+# Cap free-text memory search so a caller can't push an unbounded LIKE pattern.
+_MAX_MEMORY_QUERY_LEN = 256
+
 
 def _query_hash(query: str) -> str:
     return hashlib.sha256(query.strip().lower().encode()).hexdigest()
+
+
+def _like_contains(query: str) -> str:
+    """Escape LIKE metacharacters so a user query matches literally, never as a
+    wildcard (CWE-89-like). Pair with ``ilike(..., escape="\\\\")``."""
+    escaped = (
+        query[:_MAX_MEMORY_QUERY_LEN]
+        .replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+    )
+    return f"%{escaped}%"
 
 
 class PostgresFileRepository(PostgresRepositoryBase):
@@ -489,7 +504,9 @@ class PostgresMemoryRepository(PostgresRepositoryBase):
         if kind:
             stmt = stmt.where(AgentMemoryRow.kind == kind)
         if query:
-            stmt = stmt.where(AgentMemoryRow.content.ilike(f"%{query}%"))
+            stmt = stmt.where(
+                AgentMemoryRow.content.ilike(_like_contains(query), escape="\\")
+            )
         stmt = stmt.order_by(AgentMemoryRow.created_at.desc()).limit(limit)
         async with self._session_factory() as session:
             rows = await session.scalars(stmt)

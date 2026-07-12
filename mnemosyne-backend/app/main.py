@@ -82,6 +82,7 @@ def create_app(container: Container | None = None) -> FastAPI:
 
     register_error_handlers(app)
     app.include_router(health.router)
+    app.include_router(health.admin_router)
     app.include_router(github.router)
     app.include_router(github.admin_router)
     app.include_router(repositories.router)
