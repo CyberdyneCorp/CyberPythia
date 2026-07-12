@@ -377,6 +377,10 @@ class FakeMemoryPort:
         return self._filter(rows, kind, query, limit)
 
     async def list_for_organization(self, organization, *, kind=None, query=None, limit=50):
+        # Mirror the Postgres adapter: out-of-scope orgs read as empty so tests
+        # exercise the per-org boundary.
+        if not is_organization_allowed(organization):
+            return []
         rows = [m for m in self.items.values() if m.organization == organization]
         return self._filter(rows, kind, query, limit)
 

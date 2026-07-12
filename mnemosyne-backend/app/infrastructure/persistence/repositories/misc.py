@@ -31,6 +31,7 @@ from app.domain.entities.source_file import SourceFile
 from app.domain.entities.sync_job import SyncJob
 from app.domain.entities.sync_run import SyncRun
 from app.domain.entities.webhook_delivery import WebhookDelivery
+from app.domain.services.org_scope import is_organization_allowed
 from app.domain.value_objects.enums import IndexingMode
 from app.infrastructure.persistence.mappers import (
     audit_to_entity,
@@ -506,6 +507,10 @@ class PostgresMemoryRepository(PostgresRepositoryBase):
         self, organization: str, *, kind: str | None = None,
         query: str | None = None, limit: int = 50,
     ) -> list[AgentMemory]:
+        # Defense-in-depth: out-of-scope orgs read as empty even if the use-case
+        # gate is bypassed (mirrors the repository choke point).
+        if not is_organization_allowed(organization):
+            return []
         return await self._list(
             AgentMemoryRow.organization == organization, kind, query, limit
         )
