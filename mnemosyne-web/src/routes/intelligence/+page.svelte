@@ -90,19 +90,21 @@
       <span class="mono eyebrow-inline">score 0–100 · grade A–F</span>
       <input class="mini-filter" placeholder="Filter…" bind:value={boardFilter} />
     </div>
-    {#each board as entry, i (entry.repository_id)}
-      <a class="lrow" href={`/repos/${entry.repository_id}`}>
-        <span class="mono rank">{boardFilter ? '' : i + 1}</span>
-        <span class="name">{entry.full_name}</span>
-        {#if entry.has_data}
-          <span class="bar"><span class="fill" style="width:{scoreW(entry)};background:{gradeColor(entry.grade)}"></span></span>
-          <span class="mono score">{entry.overall}</span>
-          <span class="mono gradechip" style="color:{gradeColor(entry.grade)};background:{gradeBg(entry.grade)}">{entry.grade}</span>
-        {:else}
-          <span class="insufficient">insufficient data</span>
-        {/if}
-      </a>
-    {/each}
+    <div class="scroll-y">
+      {#each board as entry, i (entry.repository_id)}
+        <a class="lrow" href={`/repos/${entry.repository_id}`}>
+          <span class="mono rank">{boardFilter ? '' : i + 1}</span>
+          <span class="name">{entry.full_name}</span>
+          {#if entry.has_data}
+            <span class="bar"><span class="fill" style="width:{scoreW(entry)};background:{gradeColor(entry.grade)}"></span></span>
+            <span class="mono score">{entry.overall}</span>
+            <span class="mono gradechip" style="color:{gradeColor(entry.grade)};background:{gradeBg(entry.grade)}">{entry.grade}</span>
+          {:else}
+            <span class="insufficient">insufficient data</span>
+          {/if}
+        </a>
+      {/each}
+    </div>
     {#if !boardFilter && o.leaderboard.length > CAP}
       <button class="showall secondary" onclick={() => (boardAll = !boardAll)}>
         {boardAll ? 'Show top 25' : `Show all ${o.leaderboard.length}`}
