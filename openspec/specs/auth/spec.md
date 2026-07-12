@@ -4,7 +4,7 @@
 TBD - created by archiving change add-github-context-memory-core. Update Purpose after archive.
 ## Requirements
 ### Requirement: Bearer token validation via CyberdyneAuth
-The system SHALL require a CyberdyneAuth-issued bearer token on every REST and MCP request except health checks and public metadata endpoints. The system SHALL validate tokens locally by verifying the RS256 signature against the CyberdyneAuth JWKS (`/.well-known/jwks.json`), the issuer (`OIDC_ISSUER`), and the expiry. The JWKS SHALL be cached and refreshed on unknown-`kid` or on a configurable TTL.
+The system SHALL require a CyberdyneAuth-issued bearer token on every REST and MCP request except health checks and public metadata endpoints. The system SHALL validate tokens locally by verifying the RS256 signature against the CyberdyneAuth JWKS (`/.well-known/jwks.json`), the issuer (`OIDC_ISSUER`), and the expiry. The JWKS SHALL be cached and refreshed on unknown-`kid` or on a configurable TTL. To prevent a pre-authentication caller from amplifying JWKS traffic by streaming random `kid` values (CWE-770), an unknown `kid` SHALL trigger at most one JWKS refetch per configurable minimum-refresh window (`AUTH_JWKS_MIN_REFRESH_SECONDS`); within that window an unknown `kid` SHALL be treated as unknown without a refetch, while the TTL-based refresh is unaffected. When a validated token carries an audience (`aud`) claim, that audience MUST include the configured `SERVICE_AUDIENCE`; a token whose `aud` does not match SHALL be rejected, while a token with no `aud` (user tokens) remains valid (CWE-287).
 
 #### Scenario: Valid user token
 - **WHEN** a request carries a bearer token signed by CyberdyneAuth with a valid `kid`, `iss`, and unexpired `exp`
@@ -17,6 +17,18 @@ The system SHALL require a CyberdyneAuth-issued bearer token on every REST and M
 #### Scenario: Missing token
 - **WHEN** a request to a protected endpoint carries no `Authorization` header
 - **THEN** the system SHALL respond 401
+
+#### Scenario: Unknown-kid refetch is throttled
+- **WHEN** many tokens carrying distinct unknown `kid` values are presented within the minimum-refresh window
+- **THEN** the system SHALL perform at most one JWKS refetch for the window and reject each token with an unknown-signing-key error
+
+#### Scenario: Token with a mismatched audience is rejected
+- **WHEN** a token carries an `aud` claim that does not include the configured `SERVICE_AUDIENCE`
+- **THEN** the system SHALL respond 401
+
+#### Scenario: Token without an audience is accepted
+- **WHEN** an otherwise valid user token carries no `aud` claim
+- **THEN** the system SHALL resolve the caller identity and process the request
 
 ### Requirement: Token introspection fallback
 The system SHALL support RFC 7662 introspection against `POST /api/v1/auth/introspect` as an alternative validation path, authenticating with Mnemosyne's own client-credentials service token. Introspection SHALL be used when local JWKS validation is unavailable or when authoritative revocation checking is configured (`AUTH_VALIDATION_MODE=introspect`).
@@ -48,11 +60,15 @@ The system SHALL authorize callers by CyberdyneAuth claims, read from the valida
 - **THEN** the call SHALL be rejected as missing entitlement
 
 ### Requirement: Admin-only operations
-The system SHALL restrict credential management (GitHub connection create/update/delete), repository indexing selection, and sync triggering to callers with `is_admin: true` or an `mnemosyne:admin` scope.
+The system SHALL restrict credential management (GitHub connection create/update/delete), repository indexing selection, and sync triggering to callers with `is_admin: true` or an `mnemosyne:admin` scope. For these sensitive operations, when `AUTH_FORCE_INTROSPECT_ADMIN` is enabled (default), the system SHALL re-validate the presented token through the revocation-aware introspection path regardless of any entitlements the token embeds locally, so that a revoked-but-unexpired token cannot administer (CWE-613); a token that introspection reports inactive SHALL be rejected with 401.
 
 #### Scenario: Non-admin attempts to connect GitHub
 - **WHEN** an entitled but non-admin caller invokes `POST /github/connect`
 - **THEN** the system SHALL respond 403
+
+#### Scenario: Revoked token cannot administer
+- **WHEN** a caller presents a structurally valid, entitlement-bearing JWT that introspection reports as revoked (`active: false`) to an admin-only operation
+- **THEN** the system SHALL respond 401 even though the JWT signature is locally valid
 
 ### Requirement: Web UI login via OIDC
 The web UI SHALL authenticate users with the CyberdyneAuth OIDC authorization-code flow with PKCE (S256), using a registered public client, discovery at `<OIDC_ISSUER>/.well-known/openid-configuration`, and scopes `openid email profile offline_access`. The UI SHALL attach the resulting access token as a bearer token on API calls and SHALL use refresh-token rotation to stay signed in.
@@ -111,6 +127,14 @@ A valid API key SHALL resolve to a caller identity that carries the required
 `mnemosyne` entitlement (read/query access). An API-key caller SHALL NOT be
 treated as an administrator and SHALL be denied admin-only operations.
 
+An API key MAY carry an optional organization boundary. A key with no boundary
+(the default, and every key issued before this capability) SHALL be unrestricted
+across all organizations. A key configured with a non-empty organization list
+SHALL be restricted to exactly those organizations (case-insensitive), using the
+**same** per-organization boundary mechanism as user tokens — not a separate
+authorization path. The create flow SHALL accept an optional organization list,
+normalise it to lower-case, and treat an empty selection as unrestricted.
+
 #### Scenario: Valid API key grants query access
 - **WHEN** a request carries a bearer token beginning with `mnem_` whose SHA-256 hash matches a stored key that is not revoked and not expired
 - **THEN** the system SHALL resolve a caller with the `mnemosyne` entitlement and process the request as an entitled (non-admin) caller
@@ -134,6 +158,14 @@ treated as an administrator and SHALL be denied admin-only operations.
 #### Scenario: API key cannot perform admin operations
 - **WHEN** a caller authenticated by an API key invokes an admin-only endpoint
 - **THEN** the system SHALL respond 403 (administrator privileges required)
+
+#### Scenario: Unscoped API key is unrestricted
+- **WHEN** a request is authenticated by an API key that carries no organization boundary
+- **THEN** the caller SHALL access repositories and memories across all indexed organizations
+
+#### Scenario: Org-scoped API key is denied cross-org data
+- **WHEN** a request is authenticated by an API key restricted to organization `cyberdyne` and reads a repository or memory owned by a different organization
+- **THEN** the out-of-scope resource SHALL be treated as not found, while `cyberdyne` resources remain accessible
 
 ### Requirement: MCP OAuth protected resource
 
@@ -160,16 +192,35 @@ configuration and never persisted with user identities.
 
 ### Requirement: Per-organization access scoping
 
+The system SHALL maintain a request/tool-scoped organization boundary with three
+states: **unset** (deny-all), **unrestricted** (all organizations), and a
+restricted set of organizations. The boundary SHALL default to **unset**: with no
+boundary established, every organization SHALL be treated as inaccessible
+(fail-closed, CWE-284).
+
 A caller's accessible organizations SHALL be derived from CyberdyneAuth
 entitlements: a caller who is `is_admin`, holds the bare product entitlement, or
-is admitted by service audience SHALL have access to all indexed organizations;
-a caller whose only grant is one or more plan-qualified entitlements
-(`product_key:<org>`) SHALL be restricted to exactly those organizations
-(case-insensitive). Every read of repository or organization data SHALL be
-limited to the caller's accessible organizations: a repository outside scope
-SHALL be treated as not found, and organization-scoped, cross-repository, and
-portfolio results SHALL exclude out-of-scope organizations. Background sync
-(no caller) SHALL be unrestricted.
+is admitted by service audience SHALL be unrestricted; a caller whose only grant
+is one or more plan-qualified entitlements (`product_key:<org>`) SHALL be
+restricted to exactly those organizations (case-insensitive). The system SHALL
+set this boundary as soon as a caller's identity is proven — on the base
+authenticated dependency, not only the entitled dependency — so no authenticated
+request path is left at the unset default or an unrestricted view (FINDING-025).
+
+Every read of repository or organization data SHALL be limited to the boundary: a
+repository outside scope SHALL be treated as not found, and organization-scoped,
+cross-repository, and portfolio results SHALL exclude out-of-scope organizations.
+An **unset** boundary SHALL expose no organizations.
+
+Entrypoints that run without a per-caller identity but legitimately span every
+organization — background worker jobs (repository sync, connection deletion,
+scheduled discovery/sync) and signature-authenticated webhook processing — SHALL
+explicitly grant the unrestricted state at entry. They SHALL NOT rely on the
+default being unrestricted.
+
+#### Scenario: Unset boundary denies every organization
+- **WHEN** repository or organization data is read with no organization boundary established
+- **THEN** every organization SHALL be treated as inaccessible (out-of-scope repositories not found; rollups empty)
 
 #### Scenario: Org-scoped caller sees only its organization
 - **WHEN** a caller whose entitlement is `mnemosyne:CyberdyneCorp` lists repositories
@@ -182,4 +233,64 @@ portfolio results SHALL exclude out-of-scope organizations. Background sync
 #### Scenario: Unscoped caller sees everything
 - **WHEN** a caller holds the bare `mnemosyne` entitlement or is `is_admin`
 - **THEN** repositories across all indexed organizations SHALL be accessible
+
+#### Scenario: Background worker job reaches every organization
+- **WHEN** a worker job (e.g. the scheduled full sync) runs with no request or caller
+- **THEN** it SHALL explicitly grant the unrestricted state and access all enabled repositories across every organization, despite the fail-closed default
+
+#### Scenario: Webhook processing reaches the target repository
+- **WHEN** a signature-authenticated webhook is processed with no bearer caller
+- **THEN** processing SHALL explicitly grant the unrestricted state so the target repository is visible to incremental sync
+
+### Requirement: Read-only credential write protection
+Mnemosyne API keys SHALL be read/query-only credentials: the resolved caller identity SHALL carry a read-only marker, and such callers SHALL be denied every mutating operation even when they hold the required entitlement (CWE-269). This applies to the mutating MCP tools (`mnemosyne_remember`, `mnemosyne_forget`) and the REST memory write/delete endpoints (repository memory create/delete and organization memory create). Read and query operations SHALL continue to succeed for read-only credentials.
+
+#### Scenario: Read-only credential denied on a mutating MCP tool
+- **WHEN** a read-only credential invokes `mnemosyne_remember` or `mnemosyne_forget`
+- **THEN** the tool SHALL return an error and perform no write
+
+#### Scenario: Read-only credential denied on a REST memory write
+- **WHEN** a read-only credential calls a repository or organization memory create/delete endpoint
+- **THEN** the system SHALL respond 403 with a `read_only` error code
+
+#### Scenario: Read-only credential can still read
+- **WHEN** a read-only credential lists or recalls memories
+- **THEN** the request SHALL be processed
+
+#### Scenario: Non-read-only caller may write
+- **WHEN** an entitled, non-read-only caller creates a memory
+- **THEN** the request SHALL be processed
+
+### Requirement: Organization-scoped document access
+Document-detail access SHALL be filtered by the caller's accessible organizations. `GET /api/v1/repos/{repo_id}/docs/{doc_id}` SHALL resolve the repository through the org-scoped repository lookup — which returns 404 for a repository outside the caller's accessible organizations — before fetching the document, so a caller cannot read a document belonging to an out-of-scope repository by knowing its identifiers (CWE-639/BOLA).
+
+#### Scenario: Out-of-scope document is not found
+- **WHEN** a caller scoped to organization A requests a document of a repository owned by organization B
+- **THEN** the system SHALL respond 404
+
+#### Scenario: In-scope or unrestricted document access succeeds
+- **WHEN** an unrestricted (or in-scope) caller requests a document of an accessible repository
+- **THEN** the system SHALL return the document
+
+### Requirement: MCP tools authenticate through a central choke point
+
+The MCP server SHALL enforce authentication and organization scoping for every
+tool invocation at a single central choke point (a server middleware) that runs
+before the tool body executes, so a newly added tool cannot be served
+unauthenticated or unscoped (CWE-1188). The choke point SHALL authenticate the
+caller, apply the caller's organization boundary, and — for mutating tools —
+reject read/query-only credentials (e.g. API keys). Read-only tools SHALL remain
+callable by read-only credentials.
+
+#### Scenario: Tool with no in-body auth is still authenticated
+- **WHEN** a tool that does not itself perform authentication is invoked without a valid credential
+- **THEN** the central choke point SHALL reject the call with an unauthenticated error before the tool body runs
+
+#### Scenario: Central choke point applies the org boundary
+- **WHEN** an org-scoped caller invokes any tool
+- **THEN** the caller's organization boundary SHALL be in effect for the tool body, so out-of-scope organizations are inaccessible even if the tool does not scope itself
+
+#### Scenario: Read-only credential rejected on a mutating tool
+- **WHEN** a read/query-only credential invokes a mutating tool (e.g. remember/forget)
+- **THEN** the central choke point SHALL reject the call as forbidden (read-only)
 
