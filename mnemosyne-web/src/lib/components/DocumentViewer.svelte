@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { marked } from 'marked';
+  import { renderMarkdown } from '$lib/markdown';
   import type { Document } from '$lib/models';
 
   let { doc, onClose }: { doc: Document; onClose: () => void } = $props();
 
-  const html = $derived(doc.content ? (marked.parse(doc.content) as string) : null);
+  // Content is GitHub-derived and attacker-controllable; renderMarkdown
+  // sanitizes it (DOMPurify) before it reaches {@html}, preventing stored XSS.
+  const html = $derived(doc.content ? renderMarkdown(doc.content) : null);
 </script>
 
 <div class="card viewer">
@@ -18,7 +20,7 @@
       This document was quarantined by secret scanning — its content is not stored.
     </p>
   {:else if html}
-    <!-- eslint-disable-next-line svelte/no-at-html-tags — trusted internal markdown render -->
+    <!-- eslint-disable-next-line svelte/no-at-html-tags — sanitized with DOMPurify above -->
     <article>{@html html}</article>
   {:else}
     <p class="muted">Empty document.</p>
