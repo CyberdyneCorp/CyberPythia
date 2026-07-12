@@ -7,9 +7,11 @@ import pytest
 
 from app.domain.entities.metrics_snapshot import MetricsSnapshot
 from app.domain.entities.milestone import Milestone
+from app.domain.entities.readiness_snapshot import ReadinessSnapshot
 from app.infrastructure.persistence.repositories.misc import (
     PostgresMetricsHistoryRepository,
     PostgresMilestoneRepository,
+    PostgresReadinessHistoryRepository,
 )
 from tests.integration.persistence.test_repositories import seed_repo
 
@@ -54,6 +56,53 @@ class TestMetricsHistoryRepository:
         await adapter.record(_snap(repo.id, 2, open_issues=10))
         grouped = await adapter.list_all_windows()
         assert [s.open_issues for s in grouped[repo.id]] == [20, 10]  # chronological
+
+    async def test_prune_deletes_old_keeps_recent(self, session_factory):
+        repo = await seed_repo(session_factory)
+        adapter = PostgresMetricsHistoryRepository(session_factory)
+        today = datetime.now(UTC).date()
+        old = today - timedelta(days=400)
+        await adapter.record(_snap(repo.id, 1, captured_on=old, open_issues=99))
+        await adapter.record(_snap(repo.id, 1, captured_on=today, open_issues=11))
+        removed = await adapter.prune(retention_days=365)
+        assert removed == 1
+        remaining = await adapter.list_window(repo.id)
+        assert [s.open_issues for s in remaining] == [11]
+
+    async def test_prune_disabled_is_noop(self, session_factory):
+        repo = await seed_repo(session_factory)
+        adapter = PostgresMetricsHistoryRepository(session_factory)
+        old = datetime.now(UTC).date() - timedelta(days=400)
+        await adapter.record(_snap(repo.id, 1, captured_on=old))
+        assert await adapter.prune(retention_days=0) == 0
+        assert len(await adapter.list_window(repo.id)) == 1
+
+
+class TestReadinessHistoryRepository:
+    def _readiness(self, repo_id, captured_on, gate="READY"):
+        return ReadinessSnapshot(
+            repository_id=repo_id, captured_on=captured_on, captured_at=NOW, gate=gate
+        )
+
+    async def test_prune_deletes_old_keeps_recent(self, session_factory):
+        repo = await seed_repo(session_factory)
+        adapter = PostgresReadinessHistoryRepository(session_factory)
+        today = datetime.now(UTC).date()
+        old = today - timedelta(days=400)
+        await adapter.record(self._readiness(repo.id, old, gate="MVP"))
+        await adapter.record(self._readiness(repo.id, today, gate="DONE"))
+        removed = await adapter.prune(retention_days=365)
+        assert removed == 1
+        remaining = await adapter.list_for_repository(repo.id)
+        assert [s.gate for s in remaining] == ["DONE"]
+
+    async def test_prune_disabled_is_noop(self, session_factory):
+        repo = await seed_repo(session_factory)
+        adapter = PostgresReadinessHistoryRepository(session_factory)
+        old = datetime.now(UTC).date() - timedelta(days=400)
+        await adapter.record(self._readiness(repo.id, old))
+        assert await adapter.prune(retention_days=0) == 0
+        assert len(await adapter.list_for_repository(repo.id)) == 1
 
 
 class TestMilestoneRepository:

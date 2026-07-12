@@ -72,6 +72,10 @@ async def scheduled_full_sync(ctx: dict[str, Any]) -> str:
         await _deliver_digests(container)
     except Exception:
         logger.exception("digest delivery failed")
+    try:
+        await _prune_history(container)
+    except Exception:
+        logger.exception("history retention pruning failed")
     await container.sync_runs.record(
         SyncRun(
             id=uuid4(),
@@ -105,6 +109,19 @@ async def _deliver_digests(container: Any) -> None:
             continue
         sent = await container.notifier.send(digest)
         logger.info("digest for %s delivered=%s", org.login, sent)
+
+
+async def _prune_history(container: Any) -> None:
+    """Delete metrics/readiness snapshots past the retention window (0 = keep all)."""
+    days = _settings.history_retention_days
+    if days <= 0:
+        return
+    metrics_removed = await container.metrics_history.prune(retention_days=days)
+    readiness_removed = await container.readiness_history.prune(retention_days=days)
+    logger.info(
+        "history retention: pruned metrics=%d readiness=%d (older than %dd)",
+        metrics_removed, readiness_removed, days,
+    )
 
 
 def _cron_jobs() -> list[Any]:

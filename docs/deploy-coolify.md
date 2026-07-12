@@ -31,6 +31,7 @@ Coolify → New Resource → **Docker Compose** → this repository, compose fil
 | `DEFAULT_ORG_SYNC_ENABLED` | `true` (default) — a newly-discovered org syncs unless toggled off | |
 | `SCHEDULED_SYNC_STAGGER_SECONDS` | defer between successive nightly enqueues (default `5.0`) | |
 | `GITHUB_RATE_LIMIT_MAX_WAIT_SECONDS` | cap on in-request rate-limit wait; beyond it, fail fast (default `60`) | |
+| `HISTORY_RETENTION_DAYS` | delete metrics/readiness snapshots older than N days on the daily run (default `365`; `0` = keep all) | |
 
 ## Scheduled daily sync
 
@@ -65,6 +66,12 @@ call fast** so the worker slot is freed and the repo is retried on the next dail
 than blocking a slot for up to an hour. On a large enabled set this trades one repo's freshness
 for completing the overall run; the durable capacity fix is an org fine-grained PAT or GitHub App
 (higher hourly limits).
+
+**History retention.** The metrics and readiness time-series append ~1 row per repo per day, so
+without pruning they grow unbounded. After each nightly run the worker deletes snapshots older than
+`HISTORY_RETENTION_DAYS` (default 365) from both series. Pruning is best-effort — a failure is logged
+and never aborts the run — and runs off the request path. Set `HISTORY_RETENTION_DAYS=0` to keep all
+history.
 
 ## 3. Domains
 

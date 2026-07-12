@@ -119,6 +119,34 @@ async def test_deliver_digests_noop_when_unconfigured(monkeypatch) -> None:
     await worker._deliver_digests(container)  # must not touch digest/organizations
 
 
+class _FakePruneStore:
+    def __init__(self, removed: int) -> None:
+        self.removed = removed
+        self.called_with: int | None = None
+
+    async def prune(self, *, retention_days: int) -> int:
+        self.called_with = retention_days
+        return self.removed
+
+
+async def test_prune_history_prunes_both_stores_when_enabled(monkeypatch) -> None:
+    monkeypatch.setattr(worker._settings, "history_retention_days", 90)
+    metrics, readiness = _FakePruneStore(4), _FakePruneStore(2)
+    container = SimpleNamespace(metrics_history=metrics, readiness_history=readiness)
+    await worker._prune_history(container)
+    assert metrics.called_with == 90
+    assert readiness.called_with == 90
+
+
+async def test_prune_history_noop_when_disabled(monkeypatch) -> None:
+    monkeypatch.setattr(worker._settings, "history_retention_days", 0)
+    metrics, readiness = _FakePruneStore(4), _FakePruneStore(2)
+    container = SimpleNamespace(metrics_history=metrics, readiness_history=readiness)
+    await worker._prune_history(container)
+    assert metrics.called_with is None
+    assert readiness.called_with is None
+
+
 async def test_scheduled_full_sync_skips_discovery_when_disabled(monkeypatch) -> None:
     monkeypatch.setattr(worker._settings, "scheduled_discovery_enabled", False)
     discovery = FakeDiscovery()

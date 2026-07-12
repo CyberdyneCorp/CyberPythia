@@ -1,6 +1,6 @@
 """In-memory fakes for application-layer unit tests."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from app.domain.entities.github_connection import GitHubConnection
@@ -398,6 +398,20 @@ class FakeReadinessHistory:
 
     async def all_by_repository(self):
         return {rid: await self.list_for_repository(rid) for rid in self.rows}
+
+    async def prune(self, *, retention_days: int) -> int:
+        if retention_days <= 0:
+            return 0
+        cutoff = (datetime.now(UTC) - timedelta(days=retention_days)).date()
+        removed = 0
+        for repo_id, by_date in list(self.rows.items()):
+            for captured_on in list(by_date):
+                if captured_on < cutoff:
+                    del by_date[captured_on]
+                    removed += 1
+            if not by_date:
+                del self.rows[repo_id]
+        return removed
 
 
 class FakeStorage:

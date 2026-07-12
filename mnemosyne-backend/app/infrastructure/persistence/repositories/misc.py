@@ -3,11 +3,12 @@
 import hashlib
 import json
 from dataclasses import asdict
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.domain.entities.agent_memory import AgentMemory
 from app.domain.entities.api_key import ApiKey
@@ -440,11 +441,11 @@ class PostgresMetricsHistoryRepository(PostgresRepositoryBase):
                 out.setdefault(row.repository_id, []).append(_snapshot_to_entity(row))
             return out
 
-    async def prune(self, *, daily_days: int = 180) -> int:
-        # Downsampling of older-than-daily_days points is a worker-side maintenance
-        # task; the append path already caps at one row per repo per day, so the
-        # series grows ~1 row/repo/day. Returns rows removed (0 until enabled).
-        return 0
+    async def prune(self, *, retention_days: int) -> int:
+        """Delete snapshots older than the retention window. 0 = keep all."""
+        return await _prune_snapshots(
+            self._session_factory, RepositoryMetricsSnapshotRow, retention_days
+        )
 
 
 def _snapshot_to_entity(row: RepositoryMetricsSnapshotRow) -> MetricsSnapshot:
@@ -530,6 +531,22 @@ def _memory_to_entity(row: AgentMemoryRow) -> AgentMemory:
     )
 
 
+async def _prune_snapshots(
+    session_factory: async_sessionmaker[AsyncSession],
+    row_type: type[Any],
+    retention_days: int,
+) -> int:
+    """Delete snapshot rows with ``captured_on`` older than the retention window."""
+    if retention_days <= 0:
+        return 0
+    cutoff = (datetime.now(UTC) - timedelta(days=retention_days)).date()
+    async with session_factory() as session, session.begin():
+        result = await session.execute(
+            delete(row_type).where(row_type.captured_on < cutoff)
+        )
+        return int(getattr(result, "rowcount", 0) or 0)
+
+
 class PostgresReadinessHistoryRepository(PostgresRepositoryBase):
     async def record(self, snapshot: ReadinessSnapshot) -> None:
         async with self._session_factory() as session, session.begin():
@@ -575,6 +592,12 @@ class PostgresReadinessHistoryRepository(PostgresRepositoryBase):
                     _readiness_snapshot_to_entity(row)
                 )
             return out
+
+    async def prune(self, *, retention_days: int) -> int:
+        """Delete snapshots older than the retention window. 0 = keep all."""
+        return await _prune_snapshots(
+            self._session_factory, RepositoryReadinessSnapshotRow, retention_days
+        )
 
 
 def _readiness_snapshot_to_entity(row: RepositoryReadinessSnapshotRow) -> ReadinessSnapshot:

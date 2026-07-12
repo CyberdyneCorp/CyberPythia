@@ -121,6 +121,10 @@ class Settings(BaseSettings):
     # first, so a large org spreads across runs instead of starving its tail when
     # the GitHub rate budget can't cover everything in one run.
     scheduled_sync_max_repos_per_run: int = 0
+
+    # Delete metrics/readiness snapshots older than this many days on the daily
+    # run, so the per-repo daily time-series don't grow unbounded (0 = keep all).
+    history_retention_days: int = 365
     github_rate_limit_max_wait_seconds: int = 60  # cap; beyond this, fail fast + retry next run
 
     @property
