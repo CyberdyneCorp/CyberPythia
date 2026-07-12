@@ -205,6 +205,21 @@ td .mono {
   font-variant-numeric: tabular-nums;
 }
 
+/* Bounded scroll region for lists that can grow unbounded, so a panel doesn't
+   stretch the page. Thin, unobtrusive scrollbar. */
+.scroll-y {
+  max-height: 24rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.scroll-y::-webkit-scrollbar {
+  width: 8px;
+}
+.scroll-y::-webkit-scrollbar-thumb {
+  background: var(--line2, rgba(127, 127, 127, 0.35));
+  border-radius: 999px;
+}
+
 .badge {
   display: inline-block;
   padding: 0.12rem 0.5rem;

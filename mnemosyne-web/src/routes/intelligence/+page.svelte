@@ -211,17 +211,19 @@
       <div class="stat"><strong class="gate MVP">{rd.distribution.MVP}</strong><span>mvp</span></div>
       <div class="stat"><strong>{rd.total}</strong><span>total</span></div>
     </div>
-    {#each rd.repositories as r (r.repository_id)}
-      <a class="rdrow" href={`/repos/${r.repository_id}`}>
-        <span class="gatechip {r.gate}">{r.gate}</span>
-        <span class="fn">{r.full_name}</span>
-        {#if r.gate === 'MVP' && r.missing_for_ready.length}
-          <span class="miss">for READY: {r.missing_for_ready.join(', ')}</span>
-        {:else if r.gate === 'READY' && r.missing_for_done.length}
-          <span class="miss">for DONE: {r.missing_for_done.join(', ')}</span>
-        {/if}
-      </a>
-    {/each}
+    <div class="scroll-y">
+      {#each rd.repositories as r (r.repository_id)}
+        <a class="rdrow" href={`/repos/${r.repository_id}`}>
+          <span class="gatechip {r.gate}">{r.gate}</span>
+          <span class="fn">{r.full_name}</span>
+          {#if r.gate === 'MVP' && r.missing_for_ready.length}
+            <span class="miss">for READY: {r.missing_for_ready.join(', ')}</span>
+          {:else if r.gate === 'READY' && r.missing_for_done.length}
+            <span class="miss">for DONE: {r.missing_for_done.join(', ')}</span>
+          {/if}
+        </a>
+      {/each}
+    </div>
     {#if !rd.repositories.length}<p class="muted pad">No repositories.</p>{/if}
   </section>
 {/if}
@@ -234,14 +236,16 @@
       <h2 class="title">Readiness regressions</h2>
       <span class="mono eyebrow-inline">gate dropped vs. previous snapshot</span>
     </div>
-    {#each rg.regressions as r (r.repository_id)}
-      <a class="frow" href={`/repos/${r.repository_id}`}>
-        <span class="badge err">▼</span>
-        <span class="fn">{r.full_name}</span>
-        <span class="ft"><span class="mono">{r.from_gate} → {r.to_gate}</span></span>
-        <span class="mono days">{r.date}</span>
-      </a>
-    {/each}
+    <div class="scroll-y">
+      {#each rg.regressions as r (r.repository_id)}
+        <a class="frow" href={`/repos/${r.repository_id}`}>
+          <span class="badge err">▼</span>
+          <span class="fn">{r.full_name}</span>
+          <span class="ft"><span class="mono">{r.from_gate} → {r.to_gate}</span></span>
+          <span class="mono days">{r.date}</span>
+        </a>
+      {/each}
+    </div>
   </section>
 {/if}
 
@@ -258,13 +262,15 @@
       <div class="stat"><strong style="color:var(--ac)">{vn.total_high}</strong><span>high</span></div>
       <div class="stat"><strong>{vn.repositories.length}</strong><span>affected repos</span></div>
     </div>
-    {#each vn.repositories as r (r.repository_id)}
-      <a class="frow" href={`/repos/${r.repository_id}`}>
-        <span class="badge err">{r.critical}C</span>
-        <span class="badge warn">{r.high}H</span>
-        <span class="fn">{r.full_name}</span>
-      </a>
-    {/each}
+    <div class="scroll-y">
+      {#each vn.repositories as r (r.repository_id)}
+        <a class="frow" href={`/repos/${r.repository_id}`}>
+          <span class="badge err">{r.critical}C</span>
+          <span class="badge warn">{r.high}H</span>
+          <span class="fn">{r.full_name}</span>
+        </a>
+      {/each}
+    </div>
     {#if !vn.repositories.length}
       <p class="muted pad">No open critical/high alerts captured (needs a sync with the App's Dependabot-alerts grant).</p>
     {/if}
@@ -282,7 +288,7 @@
       </span>
     </div>
     {#if cp.capabilities.length}
-      <div class="chips pad">
+      <div class="chips pad scroll-y">
         {#each cp.capabilities as c (c)}<span class="chip">{c}</span>{/each}
       </div>
     {:else}<p class="muted pad">No OpenSpec capability areas indexed yet.</p>{/if}
@@ -303,21 +309,25 @@
     <div class="grid2">
       <div>
         <div class="eyebrow pad">Has OpenSpec ({cov.with_openspec.length})</div>
-        {#each cov.with_openspec as r (r.repository_id)}
-          <a class="covrow" href={`/repos/${r.repository_id}`}>
-            <span class="fn">{r.full_name}</span>
-            <span class="mono small">{r.openspec_changes} changes</span>
-          </a>
-        {/each}
+        <div class="scroll-y">
+          {#each cov.with_openspec as r (r.repository_id)}
+            <a class="covrow" href={`/repos/${r.repository_id}`}>
+              <span class="fn">{r.full_name}</span>
+              <span class="mono small">{r.openspec_changes} changes</span>
+            </a>
+          {/each}
+        </div>
       </div>
       <div>
         <div class="eyebrow pad">Missing — adoption targets ({cov.without_openspec.length})</div>
-        {#each cov.without_openspec as r (r.repository_id)}
-          <a class="covrow" href={`/repos/${r.repository_id}`}>
-            <span class="fn">{r.full_name}</span>
-            <span class="mono small">{r.last_synced_at ? '' : 'not synced'}</span>
-          </a>
-        {/each}
+        <div class="scroll-y">
+          {#each cov.without_openspec as r (r.repository_id)}
+            <a class="covrow" href={`/repos/${r.repository_id}`}>
+              <span class="fn">{r.full_name}</span>
+              <span class="mono small">{r.last_synced_at ? '' : 'not synced'}</span>
+            </a>
+          {/each}
+        </div>
         {#if !cov.without_openspec.length}<p class="muted small pad">All covered 🎉</p>{/if}
       </div>
     </div>
