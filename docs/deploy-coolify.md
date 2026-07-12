@@ -31,7 +31,24 @@ Coolify → New Resource → **Docker Compose** → this repository, compose fil
 | `DEFAULT_ORG_SYNC_ENABLED` | `true` (default) — a newly-discovered org syncs unless toggled off | |
 | `SCHEDULED_SYNC_STAGGER_SECONDS` | defer between successive nightly enqueues (default `5.0`) | |
 | `GITHUB_RATE_LIMIT_MAX_WAIT_SECONDS` | cap on in-request rate-limit wait; beyond it, fail fast (default `60`) | |
+| `RATE_LIMIT_TRUSTED_PROXY_HOPS` | reverse proxies in front of the API — Coolify = `1` (default); raise if extra LBs/proxies sit in front; `0` only if directly internet-facing | |
+| `FORWARDED_ALLOW_IPS` | peers uvicorn accepts `X-Forwarded-*` from (default `*` behind the private Coolify network) | |
 | `HISTORY_RETENTION_DAYS` | delete metrics/readiness snapshots older than N days on the daily run (default `365`; `0` = keep all) | |
+
+## Request rate limiting behind the proxy
+
+Per-caller/IP rate limiting (issue #56) is **on by default**. Authenticated calls are keyed by
+the verified token subject; unauthenticated `/webhooks/github` and `/health` traffic is keyed by
+the **real client IP**. Two deployment requirements make this correct behind Coolify's reverse
+proxy — get them wrong and legitimate GitHub webhooks and load-balancer health probes will share
+one bucket and start getting `429`'d:
+
+1. The API starts with **`uvicorn --proxy-headers`** (baked into the image `CMD` and the
+   `compose.coolify.yaml` command) so `request.client` is the forwarded client, not the proxy.
+2. **`RATE_LIMIT_TRUSTED_PROXY_HOPS`** (default `1`) picks the true client IP out of
+   `X-Forwarded-For`; only the right-most entries added by trusted proxies are honoured, so a
+   client-supplied `X-Forwarded-For` (or `Authorization`) header can't be used to mint fresh
+   buckets and escape the limit.
 
 ## Scheduled daily sync
 

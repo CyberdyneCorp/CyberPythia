@@ -30,12 +30,20 @@ x-backend-env: &backend-env
   TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
   OPENAI_API_KEY: ${OPENAI_API_KEY}
   EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+  # Trust the Coolify proxy's X-Forwarded-* (uvicorn --proxy-headers) and derive
+  # the rate-limit client IP from one proxy hop. Raise HOPS if extra proxies/LBs
+  # sit in front; set 0 only when the app is directly internet-facing.
+  FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-*}
+  RATE_LIMIT_TRUSTED_PROXY_HOPS: ${RATE_LIMIT_TRUSTED_PROXY_HOPS:-1}
 
 services:
   mnemosyne-api:
     build:
       context: ./mnemosyne-backend
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    # --proxy-headers so request.client is the real client behind Coolify's
+    # proxy (rate limiting keys per client, not the shared proxy IP). Pair with
+    # RATE_LIMIT_TRUSTED_PROXY_HOPS (default 1) + FORWARDED_ALLOW_IPS.
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"
     environment:
       <<: *backend-env
     depends_on:
