@@ -82,11 +82,15 @@ The system SHALL capture the default-branch file tree for enabled repositories (
 - **THEN** the file SHALL be flagged as an important dependency manifest
 
 ### Requirement: Raw payload snapshots
-The system SHALL store raw GitHub API payloads (repository metadata, issues pages, PR pages, trees) in object storage (MinIO) keyed by repository and sync, for auditability and reprocessing.
+The system SHALL store raw GitHub API payloads (repository metadata, issues pages, PR pages, trees) in object storage (MinIO) keyed by repository and sync, for auditability and reprocessing. Object-storage keys SHALL be constrained to their intended prefix: a key containing a `..` path-traversal segment SHALL be rejected rather than written.
 
 #### Scenario: Sync stores raw payloads
 - **WHEN** any sync step fetches GitHub data
 - **THEN** the raw response payload SHALL be persisted to object storage before normalization
+
+#### Scenario: Traversing object key rejected
+- **WHEN** a raw-snapshot key would contain a `..` traversal segment (e.g. from a malformed repository full name)
+- **THEN** the write SHALL be rejected and no object SHALL be persisted outside the intended prefix
 
 ### Requirement: Ignore rules before indexing
 The system SHALL honor a `.mnemosyneignore` file at the repository root and a global path denylist: matching paths SHALL be excluded from documentation capture, file-tree records, and embeddings. The system SHALL run secret scanning on captured document content before persistence or embedding and SHALL quarantine (persist metadata only, flag, and exclude content) documents containing detected secrets.
