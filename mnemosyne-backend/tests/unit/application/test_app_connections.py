@@ -64,6 +64,42 @@ async def test_webhook_secret_lookup_by_installation(env):
     assert await uc.webhook_secret_for_installation("nope") is None
 
 
+async def test_connect_app_rejects_empty_webhook_secret(env):
+    """#67 (CWE-347): an empty/blank webhook secret is not a usable HMAC key."""
+    uc, connections, _, _ = env
+    for blank in ("", "   "):
+        with pytest.raises(InvalidCredentialError):
+            await uc.connect_app("12345", "99", "PRIVATE", blank)
+    assert not connections.items
+
+
+async def test_empty_stored_webhook_secret_treated_as_no_secret(env):
+    """#67 (CWE-347): a connection whose stored secret is blank must not verify a
+    delivery — the lookup returns None so the webhook receiver 401s."""
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    from app.domain.entities.github_connection import GitHubConnection
+    from app.domain.value_objects.enums import ConnectionKind
+
+    uc, connections, _, _ = env
+    cipher = FakeCipher()
+    now = datetime.now(UTC)
+    # A legacy/tampered connection persisted with an empty webhook secret.
+    connections.items[uuid4()] = GitHubConnection(
+        id=uuid4(),
+        owner="cyberdyne",
+        owner_type="Organization",
+        kind=ConnectionKind.GITHUB_APP,
+        app_id="1",
+        installation_id="88",
+        encrypted_webhook_secret=cipher.encrypt(""),
+        created_at=now,
+        updated_at=now,
+    )
+    assert await uc.webhook_secret_for_installation("88") is None
+
+
 async def test_test_app_connection_health(env):
     uc, _, _, app_auth = env
     view = await uc.connect_app("12345", "99", "PRIVATE", "whsec")

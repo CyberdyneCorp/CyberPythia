@@ -6,6 +6,10 @@ from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class ConfigurationError(Exception):
+    """A required setting is missing or unsafe for the current environment."""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -18,12 +22,15 @@ class Settings(BaseSettings):
         "http://localhost:5173,http://localhost:3000"
     )
 
-    database_url: str = "postgresql+asyncpg://mnemosyne:mnemosyne@localhost:5433/mnemosyne"
+    # Sensitive connection secrets default to empty so no working credential is
+    # committed (#70, CWE-1188). Production must supply them (validated at boot in
+    # `validate_runtime`); dev/test set them via compose env or the local .env.
+    database_url: str = ""
     redis_url: str = "redis://localhost:6379/0"
 
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "mnemosyne"
-    minio_secret_key: str = "mnemosyne-secret"
+    minio_secret_key: str = ""
     minio_bucket: str = "mnemosyne-artifacts"
     minio_secure: bool = False
 
@@ -176,6 +183,46 @@ class Settings(BaseSettings):
     @property
     def mcp_oauth_upstream_token_url(self) -> str:
         return self.mcp_oauth_token_url or self.token_url
+
+    def validate_runtime(self) -> None:
+        """Fail fast at boot on missing/unsafe settings for this environment.
+
+        In production, required secrets must be supplied (#68/#70/#798/#1188) and
+        the GitHub API base must be a public https host (#79, CWE-918). Dev/test
+        tolerate empty/default secrets and internal API overrides so the suites
+        and local runs work without real credentials or a reachable GitHub.
+        """
+        # SSRF: the GitHub API base is followed with the bearer token, so an
+        # internal override in a deployed environment is an SSRF vector. Only
+        # dev/test may point it at fixtures/localhost.
+        if self.app_env not in ("dev", "test"):
+            from app.infrastructure.security.url_guard import (
+                UnsafeUrlError,
+                assert_public_https_url,
+            )
+
+            try:
+                assert_public_https_url(self.github_api_base_url)
+            except UnsafeUrlError as exc:
+                raise ConfigurationError(
+                    f"GITHUB_API_BASE_URL is not a safe public https URL: {exc}"
+                ) from exc
+
+        if self.app_env != "production":
+            return
+        missing = sorted(
+            name
+            for name, value in (
+                ("TOKEN_ENCRYPTION_KEY", self.token_encryption_key),
+                ("DATABASE_URL", self.database_url),
+                ("MINIO_SECRET_KEY", self.minio_secret_key),
+            )
+            if not value.strip()
+        )
+        if missing:
+            raise ConfigurationError(
+                "missing required production secrets: " + ", ".join(missing)
+            )
 
 
 @lru_cache

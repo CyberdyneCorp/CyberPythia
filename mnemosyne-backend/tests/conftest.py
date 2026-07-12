@@ -5,7 +5,18 @@ so pinning the authz config here shields every test from local overrides
 (e.g. a production REQUIRED_ENTITLEMENT in mnemosyne-backend/.env).
 """
 
+import os
+
 import pytest
+
+# The sensitive secrets now default to empty (#70). `app.main` builds the real
+# container (and its DB engine) at import, before any fixture runs, so pin
+# parseable dev values here at conftest load — this executes before test modules
+# import the app. Real env / CI values still win via `setdefault`.
+os.environ.setdefault(
+    "DATABASE_URL", "postgresql+asyncpg://mnemosyne:mnemosyne@localhost:5433/mnemosyne"
+)
+os.environ.setdefault("MINIO_SECRET_KEY", "mnemosyne-secret")
 
 from app.config import get_settings
 from app.domain.services.org_scope import set_allowed_organizations

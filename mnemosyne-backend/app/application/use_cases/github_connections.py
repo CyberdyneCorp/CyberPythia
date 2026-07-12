@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
+from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 from app.application.errors import (
@@ -38,6 +39,17 @@ class ConnectionView:
     status: str
     installation_id: str | None = None
     repository_count: int = 0
+
+
+def _is_under_base(url: str, base: str) -> bool:
+    """Whether `url` is same-origin (scheme + host + port) as the trusted `base`."""
+    u, b = urlsplit(url), urlsplit(base)
+    return (
+        u.scheme == b.scheme
+        and u.hostname is not None
+        and u.hostname.lower() == (b.hostname or "").lower()
+        and u.port == b.port
+    )
 
 
 def _view(connection: GitHubConnection, repository_count: int = 0) -> ConnectionView:
@@ -113,6 +125,11 @@ class GitHubConnectionUseCases:
         """Register a GitHub App installation; validate by minting a token."""
         if self._app_auth is None:
             raise InvalidCredentialError("GitHub App support is not configured")
+        if not webhook_secret.strip():
+            # An empty/blank secret is not a usable HMAC key — persisting it would
+            # let anyone forge a verifiable delivery with a known-empty key (#67,
+            # CWE-347).
+            raise InvalidCredentialError("a non-empty webhook secret is required")
         try:
             token = await self._app_auth.installation_token(
                 app_id, installation_id, private_key_pem
@@ -187,6 +204,11 @@ class GitHubConnectionUseCases:
             creds = await self._app_auth.convert_manifest_code(code)
         except GitHubAppError as exc:
             raise InvalidCredentialError(str(exc)) from exc
+        if not creds.webhook_secret.strip():
+            # GitHub always issues a webhook secret for manifest-created Apps; an
+            # empty one would make deliveries forgeable with a known-empty key
+            # (#67, CWE-347) — refuse to persist it.
+            raise InvalidCredentialError("GitHub returned an empty webhook secret")
         now = datetime.now(UTC)
         existing = await self._connections.get_by_owner(creds.owner_login)
         connection = GitHubConnection(
@@ -202,6 +224,11 @@ class GitHubConnectionUseCases:
             updated_at=now,
         )
         await self._connections.save(connection)
+        # Only redirect to a GitHub-hosted install URL. `creds.html_url` is
+        # attacker-influenceable via a forged manifest-conversion response; an
+        # off-site value would turn this into an open redirect (#80, CWE-601).
+        if not _is_under_base(creds.html_url, self._gh_web):
+            raise InvalidCredentialError("unexpected GitHub App html_url")
         return _view(connection), f"{creds.html_url}/installations/new"
 
     async def complete_setup(self, installation_id: str, state: str) -> ConnectionView:
@@ -253,7 +280,11 @@ class GitHubConnectionUseCases:
                 and c.installation_id == installation_id
                 and c.encrypted_webhook_secret is not None
             ):
-                return self._cipher.decrypt(c.encrypted_webhook_secret)
+                secret = self._cipher.decrypt(c.encrypted_webhook_secret)
+                # An empty/blank stored secret is not a usable HMAC key: treat it
+                # as "no secret" so the delivery is rejected rather than verified
+                # with a known-empty key (#67, CWE-347).
+                return secret if secret.strip() else None
         return None
 
     async def list_connections(self) -> list[ConnectionView]:

@@ -110,3 +110,37 @@ async def test_manifest_conversion_failure_surfaces():
     _m, _p, state = uc.build_app_manifest("cyberdyne", "admin-1")
     with pytest.raises(InvalidCredentialError):
         await uc.complete_manifest("code", state)
+
+
+def _app_auth_returning(*, html_url: str = "https://github.com/apps/x", webhook_secret: str = "whsec"):
+    from app.domain.ports.github_app_port import AppManifestCredentials
+
+    app_auth = FakeGitHubAppAuth()
+
+    async def _convert(_code):
+        return AppManifestCredentials(
+            app_id="424242", private_key_pem="-----BEGIN PRIVATE KEY-----\nk\n-----END",
+            webhook_secret=webhook_secret, owner_login="cyberdyne",
+            html_url=html_url, slug="mnemosyne-cyberdyne",
+        )
+
+    app_auth.convert_manifest_code = _convert  # type: ignore[method-assign]
+    return app_auth
+
+
+async def test_complete_manifest_rejects_offsite_html_url():
+    """#80 (CWE-601): a non-github_web_base_url html_url must not become the
+    redirect target — it surfaces as an error the router turns into the dashboard
+    error redirect."""
+    uc = _uc(app_auth=_app_auth_returning(html_url="https://evil.example/apps/x"))
+    _m, _p, state = uc.build_app_manifest("cyberdyne", "admin-1")
+    with pytest.raises(InvalidCredentialError):
+        await uc.complete_manifest("code123", state)
+
+
+async def test_complete_manifest_rejects_empty_webhook_secret():
+    """#67 (CWE-347): refuse to persist an App connection with a blank secret."""
+    uc = _uc(app_auth=_app_auth_returning(webhook_secret=""))
+    _m, _p, state = uc.build_app_manifest("cyberdyne", "admin-1")
+    with pytest.raises(InvalidCredentialError):
+        await uc.complete_manifest("code123", state)

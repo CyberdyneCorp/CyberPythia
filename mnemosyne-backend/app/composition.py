@@ -65,7 +65,10 @@ from app.infrastructure.persistence.repositories.work_items import (
     PostgresPullRequestRepository,
 )
 from app.infrastructure.queue.redis_queue import ArqQueueAdapter, RedisSyncLock
-from app.infrastructure.security.token_encryption import TokenEncryption
+from app.infrastructure.security.token_encryption import (
+    TokenEncryption,
+    derive_signed_state_secret,
+)
 from app.infrastructure.vector.pgvector_store import PgVectorEmbeddingStore
 
 
@@ -191,7 +194,10 @@ class Container:
 
     @cached_property
     def notifier(self) -> WebhookNotifier:
-        return WebhookNotifier(self.settings.alert_webhook_url or None)
+        return WebhookNotifier(
+            self.settings.alert_webhook_url or None,
+            allow_localhost=self.settings.app_env in ("dev", "test"),
+        )
 
     @cached_property
     def digest(self) -> DigestService:
@@ -254,7 +260,7 @@ class Container:
             repositories=self.repositories, queue=self.queue,
             public_api_base_url=self.settings.public_api_base_url,
             github_web_base_url=self.settings.github_web_base_url,
-            state_secret=self.settings.token_encryption_key,
+            state_secret=derive_signed_state_secret(self.settings.token_encryption_key),
         )
 
     @cached_property
@@ -407,4 +413,8 @@ class Container:
 
 
 def build_container() -> Container:
-    return Container(settings=get_settings())
+    settings = get_settings()
+    # Fail fast at boot on missing/unsafe config rather than lazily on first use
+    # (#68/#70/#79). No-op outside production except the SSRF check on the API base.
+    settings.validate_runtime()
+    return Container(settings=settings)
