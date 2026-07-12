@@ -1,23 +1,6 @@
 import adapter from '@sveltejs/adapter-node';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
-// Origins the app must reach at runtime. Mirrors the defaults in
-// src/lib/config.ts so the Content-Security-Policy allows the API and the
-// CyberdyneAuth issuer (token/JWKS/discovery fetches + the silent-renew iframe).
-function originOf(url, fallback) {
-  try {
-    return new URL(url ?? fallback).origin;
-  } catch {
-    return new URL(fallback).origin;
-  }
-}
-
-const apiOrigin = originOf(process.env.PUBLIC_API_BASE_URL, 'http://localhost:8000');
-const authOrigin = originOf(
-  process.env.PUBLIC_AUTH_ISSUER,
-  'https://auth.backend.coolify.cyberdynecorp.ai'
-);
-
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
   preprocess: vitePreprocess(),
@@ -40,9 +23,14 @@ const config = {
         'style-src-attr': ['unsafe-inline'],
         'font-src': ['self', 'https://fonts.gstatic.com'],
         'img-src': ['self', 'data:', 'https:'],
-        'connect-src': ['self', apiOrigin, authOrigin],
+        // The API and CyberdyneAuth origins are only known at RUNTIME (they come
+        // from $env/dynamic/public, like src/lib/config.ts). src/hooks.server.ts
+        // rewrites these two directives per-request from that same env; the
+        // 'self' placeholders here just keep the directives present in the
+        // SvelteKit-generated header so the runtime rewrite has something to fill.
+        'connect-src': ['self'],
         // oidc-client-ts silent renew loads the authorize endpoint in a hidden iframe.
-        'frame-src': ['self', authOrigin],
+        'frame-src': ['self'],
         'object-src': ['none'],
         'base-uri': ['none'],
         'frame-ancestors': ['self'],
