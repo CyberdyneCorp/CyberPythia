@@ -394,6 +394,22 @@ class TestRepositoryEndpoints:
             response = await c.post(f"/api/v1/repos/{repo.id}/sync", headers=user())
         assert response.status_code == 403
 
+    async def test_sync_all_enqueues_enabled(self, client, container):
+        await seed_repo(container)  # cyberdyne/a, enabled
+        async with client as c:
+            r = await c.post("/api/v1/repos/sync-all", headers=admin())
+            forbidden = await c.post("/api/v1/repos/sync-all", headers=user())
+        assert r.status_code == 202
+        assert r.json()["enqueued"] == 1
+        assert forbidden.status_code == 403  # admin only
+
+    async def test_sync_all_scoped_by_org(self, client, container):
+        await seed_repo(container)  # cyberdyne/a
+        async with client as c:
+            r = await c.post("/api/v1/repos/sync-all?organization=aminitech", headers=admin())
+        assert r.status_code == 202
+        assert r.json()["enqueued"] == 0  # no aminitech repos
+
     async def test_unknown_repo_404(self, client):
         async with client as c:
             response = await c.get(f"/api/v1/repos/{uuid4()}/summary", headers=user())

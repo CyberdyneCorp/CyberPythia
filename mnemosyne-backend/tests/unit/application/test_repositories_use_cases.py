@@ -195,6 +195,30 @@ class TestTriggerSync:
         with pytest.raises(SyncAlreadyRunningError):
             await use_cases.trigger_sync(repo.id, triggered_by="admin-1")
 
+    async def test_sync_all_enqueues_enabled_and_skips_running(self, env):
+        use_cases, _, connection_uc, queue, lock, _ = env
+        connection = await connect(connection_uc)
+        repos = await use_cases.discover(connection.id)
+        # enable two of the discovered repos; leave the rest disabled
+        for r in repos[:2]:
+            await use_cases.update_selection(r.id, enabled=True)
+        await lock.acquire(repos[0].id)  # one is already running -> skipped
+
+        result = await use_cases.sync_all(triggered_by="admin-1")
+        assert result == {"enqueued": 1, "skipped": 1}  # only enabled counted
+        assert len(queue.jobs) == 1
+
+    async def test_sync_all_scoped_to_organization(self, env):
+        use_cases, github, connection_uc, queue, *_ = env
+        github.repos = [repo_data(1, "cyberdyne/a"), repo_data(2, "aminitech/b")]
+        connection = await connect(connection_uc)
+        repos = await use_cases.discover(connection.id)
+        for r in repos:
+            await use_cases.update_selection(r.id, enabled=True)
+        result = await use_cases.sync_all(triggered_by="admin-1", organization="CyberDyne")
+        assert result["enqueued"] == 1  # only cyberdyne/a
+        assert len(queue.jobs) == 1
+
     async def test_sync_status_returns_latest(self, env):
         use_cases, *_ = env
         repo = await self.make_enabled_repo(env)

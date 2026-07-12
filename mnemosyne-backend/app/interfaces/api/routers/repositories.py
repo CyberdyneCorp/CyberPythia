@@ -170,6 +170,22 @@ async def trigger_sync(
     return sync_job_response(job)
 
 
+@router.post("/sync-all", status_code=202)
+async def trigger_sync_all(
+    caller: AdminCaller, use_cases: RepoUseCases, audit: Audit,
+    organization: str | None = None,
+) -> Any:
+    """Enqueue a sync for every enabled repository (optionally one org). Admin only."""
+    from app.config import get_settings
+
+    result = await use_cases.sync_all(
+        triggered_by=caller.subject, organization=organization,
+        stagger_seconds=get_settings().scheduled_sync_stagger_seconds,
+    )
+    await audit.record(caller, "repos.sync_all", target=organization or "*")
+    return result
+
+
 @router.get("/{repo_id}/sync-status", response_model=SyncJobResponse | None)
 async def sync_status(repo_id: UUID, caller: EntitledCaller, use_cases: RepoUseCases) -> Any:
     try:
