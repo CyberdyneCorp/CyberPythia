@@ -13,6 +13,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.application.audit import AuditService
 from app.config import get_settings
 from app.domain.ports.auth_port import AuthPort, AuthUnavailableError, TokenInvalidError
+from app.domain.services.org_scope import set_allowed_organizations
 from app.domain.value_objects.identity import CallerIdentity
 from app.interfaces.api.errors import (
     ForbiddenError,
@@ -63,6 +64,9 @@ async def get_entitled_caller(
             f"missing required entitlement '{settings.required_entitlement}'",
             code="missing_entitlement",
         )
+    # Scope all repository reads for this request to the caller's accessible orgs
+    # (None = unrestricted). Task-local, so it never leaks across requests.
+    set_allowed_organizations(caller.allowed_organizations(settings.required_entitlement))
     return caller
 
 

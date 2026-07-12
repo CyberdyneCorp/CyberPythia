@@ -39,3 +39,22 @@ class CallerIdentity:
 
     def can_administer(self, admin_scope: str) -> bool:
         return self.is_admin or admin_scope in self.scopes
+
+    def allowed_organizations(self, product_key: str) -> frozenset[str] | None:
+        """Organizations this caller may access, lower-cased. ``None`` = unrestricted.
+
+        Scoping is expressed via plan-qualified entitlements ``product_key:<org>``.
+        A caller is unrestricted (``None``) when they are admin, hold the bare
+        ``product_key`` entitlement, or were admitted by scope/audience without a
+        plan-qualified entitlement (service tokens). A caller whose only grant is
+        one or more ``product_key:<org>`` plans is restricted to those orgs.
+        """
+        if self.is_admin:
+            return None
+        plans: set[str] = set()
+        for e in self.entitlements:
+            if e == product_key:
+                return None  # bare entitlement -> full access
+            if e.startswith(f"{product_key}:"):
+                plans.add(e.split(":", 1)[1].lower())
+        return frozenset(plans) if plans else None

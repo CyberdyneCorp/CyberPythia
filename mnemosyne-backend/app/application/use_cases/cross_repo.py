@@ -12,6 +12,7 @@ from typing import Any
 from app.domain.entities.repository import Repository
 from app.domain.ports.infra_ports import EmbeddingPort
 from app.domain.ports.persistence_ports import IssuePort, PullRequestPort, RepositoryPort
+from app.domain.services.org_scope import allowed_organizations
 
 
 @dataclass(slots=True)
@@ -41,7 +42,13 @@ class CrossRepoService:
         """
         repos = await self._scoped_repos(organization)
         names = {r.id: str(r.full_name) for r in repos}
-        repo_ids = list(names) if organization else None  # None = every indexed repo
+        # Semantic search hits pgvector directly, bypassing the repository-store
+        # org filter. Pass explicit repo_ids whenever the result set is bounded —
+        # by an org filter OR by the caller's org scope — so a scoped caller can't
+        # get chunks from repos it can't see. None only for a truly unrestricted,
+        # unscoped search.
+        restricted = organization is not None or allowed_organizations() is not None
+        repo_ids = list(names) if restricted else None
 
         if kind == "docs":
             matches = await self.embeddings.search_global(

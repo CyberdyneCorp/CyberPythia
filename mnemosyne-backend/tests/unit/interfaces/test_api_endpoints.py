@@ -280,6 +280,11 @@ def user():
     return {"Authorization": "Bearer user-token"}
 
 
+def scoped():
+    """Caller restricted to the `cyberdyne` org (entitlement mnemosyne:cyberdyne)."""
+    return {"Authorization": "Bearer scoped-token"}
+
+
 async def seed_repo(container, *, synced=True, mode=IndexingMode.PROJECT_INTELLIGENCE):
     repo = Repository(
         id=uuid4(), connection_id=uuid4(), github_id=1,
@@ -414,6 +419,41 @@ class TestRepositoryEndpoints:
         async with client as c:
             response = await c.get(f"/api/v1/repos/{uuid4()}/summary", headers=user())
         assert response.status_code == 404
+
+
+class TestPerOrgScoping:
+    async def _seed_two_orgs(self, container):
+        cyber = await seed_repo(container)  # cyberdyne/a
+        amini = Repository(
+            id=uuid4(), connection_id=uuid4(), github_id=99,
+            full_name=RepositoryFullName("aminitech/x"), description="d",
+            visibility=RepositoryVisibility.PRIVATE, default_branch="main",
+            primary_language="Python", archived=False, github_updated_at=NOW,
+            enabled=True, indexing_mode=IndexingMode.PROJECT_INTELLIGENCE, last_synced_at=NOW,
+        )
+        await container.repositories.save(amini)
+        return cyber, amini
+
+    async def test_scoped_caller_lists_only_its_org(self, client, container):
+        await self._seed_two_orgs(container)
+        async with client as c:
+            r = await c.get("/api/v1/repos", headers=scoped())
+        names = [i["full_name"] for i in r.json()["items"]]
+        assert names == ["cyberdyne/a"]  # aminitech excluded from the list
+
+    async def test_scoped_caller_404_on_other_org_repo(self, client, container):
+        cyber, amini = await self._seed_two_orgs(container)
+        async with client as c:
+            own = await c.get(f"/api/v1/repos/{cyber.id}/summary", headers=scoped())
+            other = await c.get(f"/api/v1/repos/{amini.id}/summary", headers=scoped())
+        assert own.status_code == 200  # in-scope repo is visible
+        assert other.status_code == 404  # out-of-scope repo reads as not found
+
+    async def test_unscoped_user_sees_both_orgs(self, client, container):
+        await self._seed_two_orgs(container)
+        async with client as c:
+            r = await c.get("/api/v1/repos", headers=user())
+        assert len(r.json()["items"]) == 2  # bare entitlement -> unrestricted
 
 
 class TestContentEndpoints:

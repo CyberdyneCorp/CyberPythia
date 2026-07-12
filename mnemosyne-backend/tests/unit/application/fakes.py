@@ -12,6 +12,7 @@ from app.domain.ports.github_port import (
     GitHubRepoData,
     GitHubTokenInfo,
 )
+from app.domain.services.org_scope import is_organization_allowed
 
 NOW = datetime(2026, 7, 7, 12, 0, tzinfo=UTC)
 
@@ -89,13 +90,16 @@ class FakeRepositoryPort:
             self.items[r.id] = r
 
     async def get(self, repository_id):
-        return self.items.get(repository_id)
+        r = self.items.get(repository_id)
+        return r if r and is_organization_allowed(r.full_name.owner) else None
 
     async def get_by_full_name(self, full_name):
-        return next((r for r in self.items.values() if str(r.full_name) == full_name), None)
+        r = next((r for r in self.items.values() if str(r.full_name) == full_name), None)
+        return r if r and is_organization_allowed(r.full_name.owner) else None
 
     async def list_all(self, *, enabled_only=False):
         repos = sorted(self.items.values(), key=lambda r: str(r.full_name))
+        repos = [r for r in repos if is_organization_allowed(r.full_name.owner)]
         return [r for r in repos if r.enabled] if enabled_only else repos
 
 

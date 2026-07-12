@@ -19,6 +19,10 @@ TOKENS = {
         entitlements=frozenset({"mnemosyne"}),
     ),
     "user-token": CallerIdentity(subject="user-1", entitlements=frozenset({"mnemosyne"})),
+    # restricted to the `cyberdyne` org via a plan-qualified entitlement
+    "scoped-token": CallerIdentity(
+        subject="scoped-1", entitlements=frozenset({"mnemosyne:cyberdyne"})
+    ),
     "unentitled-token": CallerIdentity(subject="other-1", entitlements=frozenset({"otherapp"})),
     "agent-token": CallerIdentity(
         subject="agent-1", client_id="agent-client", entitlements=frozenset({"mnemosyne"})
