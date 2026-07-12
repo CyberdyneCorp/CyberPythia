@@ -13,10 +13,14 @@ from app.application.use_cases.intelligence import IntelligenceService
 from app.application.use_cases.org_intelligence import build_org_intelligence
 from app.domain.value_objects.health import RepositoryHealth
 from app.interfaces.api.mapping import translate_error
-from app.interfaces.api.schemas.schemas import CompareRequest, MemoryCreateRequest
+from app.interfaces.api.rate_limit import limiter, llm_limit
+from app.interfaces.api.schemas.schemas import MAX_PAGE_SIZE, CompareRequest, MemoryCreateRequest
 from app.interfaces.api.security import EntitledCaller
 
 router = APIRouter(prefix="/api/v1/intelligence", tags=["intelligence"])
+
+# Bound user-supplied result counts so they can't inflate SQL LIMIT (CWE-770).
+LimitParam = Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)]
 
 
 def get_intelligence(request: Request) -> IntelligenceService:
@@ -195,13 +199,15 @@ async def organization_intelligence(
 
 
 @router.get("/search")
+@limiter.limit(llm_limit)
 async def search(
+    request: Request,
     caller: EntitledCaller,
     cross_repo: CrossRepo,
     query: str,
     kind: Annotated[str, Query(pattern="^(docs|code|issues)$")] = "docs",
     organization: str | None = None,
-    limit: int = 8,
+    limit: LimitParam = 8,
 ) -> Any:
     results = await cross_repo.search(
         query, kind=kind, organization=organization, limit=limit
@@ -212,7 +218,7 @@ async def search(
 @router.get("/stale-issues")
 async def stale_issues(
     caller: EntitledCaller, cross_repo: CrossRepo,
-    organization: str | None = None, threshold_days: int = 30, limit: int = 50,
+    organization: str | None = None, threshold_days: int = 30, limit: LimitParam = 50,
 ) -> Any:
     return {"stale": await cross_repo.find_stale_issues(
         organization=organization, threshold_days=threshold_days, limit=limit
@@ -222,7 +228,7 @@ async def stale_issues(
 @router.get("/stale-prs")
 async def stale_prs(
     caller: EntitledCaller, cross_repo: CrossRepo,
-    organization: str | None = None, threshold_days: int = 30, limit: int = 50,
+    organization: str | None = None, threshold_days: int = 30, limit: LimitParam = 50,
 ) -> Any:
     return {"stale": await cross_repo.find_stale_prs(
         organization=organization, threshold_days=threshold_days, limit=limit
@@ -232,7 +238,7 @@ async def stale_prs(
 @router.get("/recent-activity")
 async def recent_activity(
     caller: EntitledCaller, cross_repo: CrossRepo,
-    organization: str | None = None, limit: int = 15,
+    organization: str | None = None, limit: LimitParam = 15,
 ) -> Any:
     return await cross_repo.recent_activity(organization=organization, limit=limit)
 
@@ -299,7 +305,7 @@ async def create_organization_memory(
 @router.get("/organizations/{organization}/memories")
 async def list_organization_memories(
     organization: str, caller: EntitledCaller, request: Request,
-    query: str | None = None, kind: str | None = None, limit: int = 50,
+    query: str | None = None, kind: str | None = None, limit: LimitParam = 50,
 ) -> Any:
     """List the organization's memories, newest first."""
     return await request.app.state.container.memory.recall_organization(

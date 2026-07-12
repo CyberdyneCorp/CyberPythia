@@ -25,6 +25,9 @@ def hermetic_settings(monkeypatch):
     monkeypatch.setenv("SERVICE_AUDIENCE", "mnemosyne")
     monkeypatch.setenv("ADMIN_SCOPE", "mnemosyne:admin")
     monkeypatch.setenv("AUTH_VALIDATION_MODE", "jwks")
+    # Rate limiting off by default so the suite isn't throttled; the DoS
+    # resilience tests opt back in with tight limits.
+    monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")
     monkeypatch.setenv(
         "CORS_ALLOWED_ORIGINS",
         "https://mnemosyne.coolify.cyberdynecorp.ai,http://localhost:5173,http://localhost:3000",

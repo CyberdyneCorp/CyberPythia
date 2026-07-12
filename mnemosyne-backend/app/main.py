@@ -7,10 +7,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.composition import Container, build_container
 from app.config import get_settings
 from app.interfaces.api.errors import register_error_handlers
+from app.interfaces.api.rate_limit import limiter, rate_limit_exceeded_handler
 from app.interfaces.api.routers import (
     api_keys,
     github,
@@ -59,6 +62,14 @@ def create_app(container: Container | None = None) -> FastAPI:
     app.state.container = container
     app.state.auth_port = container.auth_port
     app.state.audit_service = container.audit_service
+
+    # Rate limiting (spec: rest-api; CWE-770). The limiter is a module-level
+    # singleton so route decorators bind at import; its enabled flag mirrors the
+    # current settings, letting tests disable it or tighten limits per case.
+    limiter.enabled = get_settings().rate_limit_enabled
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)  # type: ignore[arg-type]
+    app.add_middleware(SlowAPIMiddleware)
 
     origins = [o.strip() for o in get_settings().cors_allowed_origins.split(",") if o.strip()]
     app.add_middleware(

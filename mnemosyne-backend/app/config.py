@@ -42,6 +42,17 @@ class Settings(BaseSettings):
     service_audience: str = "mnemosyne"
     admin_scope: str = "mnemosyne:admin"
 
+    # DoS resilience: request rate limiting (spec: rest-api; CWE-770).
+    # Limits are slowapi rate strings ("<count>/<period>"). Disable in tests.
+    rate_limit_enabled: bool = True
+    rate_limit_default: str = "120/minute"  # global per-caller default (all routes)
+    rate_limit_llm: str = "20/minute"  # stricter bucket for cost-bearing LLM/embedding routes
+    rate_limit_webhook: str = "60/minute"  # unauthenticated GitHub webhook receiver
+    rate_limit_health: str = "120/minute"  # unauthenticated health check
+    # Reject GitHub webhook payloads larger than this many bytes with 413 before
+    # reading/parsing the body or verifying its signature (CWE-770).
+    webhook_max_body_bytes: int = 1_048_576  # 1 MiB
+
     # GitHub credential encryption (design D6, spec github-connection)
     token_encryption_key: str = ""
 

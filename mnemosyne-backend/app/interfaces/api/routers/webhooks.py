@@ -11,8 +11,10 @@ from typing import Any
 
 from fastapi import APIRouter, Request, Response
 
+from app.config import get_settings
 from app.domain.entities.webhook_event import WebhookEvent
 from app.domain.services.webhook_signature import verify_signature
+from app.interfaces.api.rate_limit import limiter, webhook_limit
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +22,23 @@ router = APIRouter(prefix="/api/v1/webhooks", tags=["webhooks"])
 
 
 @router.post("/github", include_in_schema=True)
+@limiter.limit(webhook_limit)
 async def github_webhook(request: Request) -> Response:
     container = request.app.state.container
+
+    # Cap the payload BEFORE reading/parsing it or verifying its signature, so an
+    # oversized (or lying Content-Length) body can't exhaust memory (CWE-770).
+    max_bytes = get_settings().webhook_max_body_bytes
+    declared = request.headers.get("Content-Length")
+    if declared is not None:
+        try:
+            if int(declared) > max_bytes:
+                return Response(status_code=413, content="payload too large")
+        except ValueError:
+            return Response(status_code=400, content="invalid Content-Length")
     body = await request.body()
+    if len(body) > max_bytes:
+        return Response(status_code=413, content="payload too large")
 
     try:
         payload = json.loads(body) if body else {}
