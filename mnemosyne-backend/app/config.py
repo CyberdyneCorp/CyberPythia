@@ -42,6 +42,24 @@ class Settings(BaseSettings):
     service_audience: str = "mnemosyne"
     admin_scope: str = "mnemosyne:admin"
 
+    # DoS resilience: request rate limiting (spec: rest-api; CWE-770).
+    # Limits are slowapi rate strings ("<count>/<period>"). Disable in tests.
+    rate_limit_enabled: bool = True
+    rate_limit_default: str = "120/minute"  # global per-caller default (all routes)
+    rate_limit_llm: str = "20/minute"  # stricter bucket for cost-bearing LLM/embedding routes
+    rate_limit_webhook: str = "60/minute"  # unauthenticated GitHub webhook receiver
+    rate_limit_health: str = "120/minute"  # unauthenticated health check
+    # Reverse proxies in front of the app (Coolify = 1). Unauthenticated traffic
+    # is keyed on the client IP taken from the Nth-from-right X-Forwarded-For
+    # entry; earlier entries are client-supplied and untrusted. 0 = ignore XFF
+    # and key on the peer address (safe for a directly internet-facing deploy).
+    # Requires uvicorn --proxy-headers (see docs/deploy-coolify.md); without a
+    # correct value all forwarded traffic collapses onto the single proxy IP.
+    rate_limit_trusted_proxy_hops: int = 1
+    # Reject GitHub webhook payloads larger than this many bytes with 413 before
+    # reading/parsing the body or verifying its signature (CWE-770).
+    webhook_max_body_bytes: int = 1_048_576  # 1 MiB
+
     # GitHub credential encryption (design D6, spec github-connection)
     token_encryption_key: str = ""
 

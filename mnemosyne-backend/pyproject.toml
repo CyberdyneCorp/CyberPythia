@@ -20,6 +20,7 @@ dependencies = [
     "PyJWT[crypto]>=2.10",
     "cryptography>=44",
     "openai>=1.75",
+    "slowapi>=0.1.10",
 ]
 
 [dependency-groups]

@@ -20,6 +20,7 @@ from app.interfaces.api.errors import (
     UnauthenticatedError,
     UpstreamUnavailableError,
 )
+from app.interfaces.api.rate_limit import RL_SUBJECT_ATTR
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -41,12 +42,15 @@ async def get_current_caller(
     if credentials is None or not credentials.credentials:
         raise UnauthenticatedError("missing bearer token")
     try:
-        return await auth_port.verify(credentials.credentials)
+        caller = await auth_port.verify(credentials.credentials)
     except TokenInvalidError as exc:
         await audit.record_denied(None, f"auth.{request.method} {request.url.path}")
         raise UnauthenticatedError("invalid token") from exc
     except AuthUnavailableError as exc:
         raise UpstreamUnavailableError("authentication service unavailable") from exc
+    # Key rate limiting on the proven identity, not the client-supplied header.
+    setattr(request.state, RL_SUBJECT_ATTR, caller.subject)
+    return caller
 
 
 CurrentCaller = Annotated[CallerIdentity, Depends(get_current_caller)]

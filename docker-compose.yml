@@ -9,6 +9,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://mnemosyne:mnemosyne@postgres:5432/mnemosyne
       REDIS_URL: redis://redis:6379/0
       MINIO_ENDPOINT: minio:9000
+      # No reverse proxy in local dev: don't trust X-Forwarded-For, key on peer.
+      RATE_LIMIT_TRUSTED_PROXY_HOPS: "0"
     depends_on:
       postgres:
         condition: service_healthy

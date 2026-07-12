@@ -3,10 +3,13 @@
 from fastapi import APIRouter, Request
 from sqlalchemy import text
 
+from app.interfaces.api.rate_limit import health_limit, limiter
+
 router = APIRouter(prefix="/api/v1", tags=["health"])
 
 
 @router.get("/health")
+@limiter.limit(health_limit)
 async def health(request: Request) -> dict[str, object]:
     container = request.app.state.container
     checks: dict[str, str] = {}

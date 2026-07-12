@@ -24,4 +24,8 @@ ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1
 
 USER mnemosyne
 EXPOSE 8000 8100
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --proxy-headers: trust the reverse proxy's X-Forwarded-* so request.client is
+# the real client, not the proxy IP (keeps rate limiting keyed per client and
+# stops legit webhook/health traffic sharing one bucket). Pair with
+# RATE_LIMIT_TRUSTED_PROXY_HOPS + FORWARDED_ALLOW_IPS (see docs/deploy-coolify.md).
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

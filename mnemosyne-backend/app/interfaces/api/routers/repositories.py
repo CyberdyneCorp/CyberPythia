@@ -24,6 +24,7 @@ from app.interfaces.api.mapping import (
     sync_job_response,
     translate_error,
 )
+from app.interfaces.api.rate_limit import limiter, llm_limit
 from app.interfaces.api.schemas.schemas import (
     MAX_PAGE_SIZE,
     AskRequest,
@@ -49,6 +50,9 @@ router = APIRouter(prefix="/api/v1/repos", tags=["repositories"])
 
 PageParam = Annotated[int, Query(ge=1)]
 PageSizeParam = Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)]
+# Bound user-supplied result counts (limit params) the same way pagination is
+# bounded, so they can't be inflated into unbounded SQL LIMITs (CWE-770).
+LimitParam = Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)]
 
 
 def get_repository_use_cases(request: Request) -> RepositoryUseCases:
@@ -91,7 +95,7 @@ async def list_repositories(
 
 @router.get("/find")
 async def find_repositories(
-    caller: EntitledCaller, container: Container, query: str, limit: int = 10
+    caller: EntitledCaller, container: Container, query: str, limit: LimitParam = 10
 ) -> Any:
     """Fuzzy-resolve a vague name into matching indexed repositories."""
     cross_repo = cast(Any, container).cross_repo
@@ -322,7 +326,9 @@ async def get_metrics(
 
 
 @router.post("/{repo_id}/search", response_model=list[SearchMatchResponse])
+@limiter.limit(llm_limit)
 async def search_docs(
+    request: Request,
     repo_id: UUID, body: SearchRequest, caller: EntitledCaller, use_cases: CtxUseCases
 ) -> Any:
     try:
@@ -338,7 +344,9 @@ async def search_docs(
 
 
 @router.post("/{repo_id}/ask", response_model=AskResponse)
+@limiter.limit(llm_limit)
 async def ask(
+    request: Request,
     repo_id: UUID, body: AskRequest, caller: EntitledCaller, use_cases: CtxUseCases, audit: Audit
 ) -> Any:
     try:
@@ -399,7 +407,7 @@ async def create_memory(
 @router.get("/{repo_id}/memories")
 async def list_memories(
     repo_id: UUID, caller: EntitledCaller, use_cases: RepoUseCases, container: Container,
-    query: str | None = None, kind: str | None = None, limit: int = 50,
+    query: str | None = None, kind: str | None = None, limit: LimitParam = 50,
 ) -> Any:
     """List the repository's memories, newest first, with optional query/kind filters."""
     try:
@@ -421,7 +429,9 @@ async def delete_memory(
 
 
 @router.post("/{repo_id}/feature-document")
+@limiter.limit(llm_limit)
 async def feature_document(
+    request: Request,
     repo_id: UUID, caller: EntitledCaller, use_cases: CtxUseCases, audit: Audit
 ) -> Any:
     """Generate a grounded Markdown features document for the repository."""
@@ -435,7 +445,9 @@ async def feature_document(
 
 
 @router.post("/{repo_id}/context-pack", response_model=ContextPackResponse)
+@limiter.limit(llm_limit)
 async def build_context_pack(
+    request: Request,
     repo_id: UUID,
     body: ContextPackRequest,
     caller: EntitledCaller,
@@ -451,7 +463,9 @@ async def build_context_pack(
 
 
 @router.post("/{repo_id}/code-search", response_model=list[CodeChunkMatchResponse])
+@limiter.limit(llm_limit)
 async def code_search(
+    request: Request,
     repo_id: UUID, body: CodeSearchRequest, caller: EntitledCaller, use_cases: CodeUC
 ) -> Any:
     try:
