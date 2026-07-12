@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { appContext } from '$lib/appContext';
+  import { safeReturnToPath } from '$lib/auth/safeRedirect';
 
   let error = $state<string | null>(null);
 
@@ -8,7 +9,7 @@
     appContext()
       .auth.completeSignIn()
       .then((returnTo) => {
-        window.location.assign(returnTo || '/');
+        window.location.assign(safeReturnToPath(returnTo));
       })
       .catch((e) => {
         error = String(e);

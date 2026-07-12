@@ -8,6 +8,7 @@
  */
 import { UserManager, WebStorageStateStore, type User } from 'oidc-client-ts';
 import { config } from '$lib/config';
+import { safeReturnToPath } from '$lib/auth/safeRedirect';
 
 function buildManager(origin: string): UserManager {
   return new UserManager({
@@ -30,13 +31,14 @@ export class CyberdyneAuthService {
   }
 
   signIn(returnTo?: string): Promise<void> {
-    return this.manager.signinRedirect({ state: returnTo ?? window.location.pathname });
+    const state = safeReturnToPath(returnTo ?? window.location.pathname);
+    return this.manager.signinRedirect({ state });
   }
 
-  /** Handle /auth/callback; returns the path to navigate back to. */
+  /** Handle /auth/callback; returns the same-origin path to navigate back to. */
   async completeSignIn(): Promise<string> {
     const user = await this.manager.signinRedirectCallback();
-    return typeof user.state === 'string' ? user.state : '/';
+    return safeReturnToPath(typeof user.state === 'string' ? user.state : '/');
   }
 
   async signOut(): Promise<void> {
