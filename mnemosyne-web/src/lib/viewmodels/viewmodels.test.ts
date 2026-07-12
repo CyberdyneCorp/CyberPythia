@@ -787,9 +787,20 @@ describe('IntelligenceViewModel org detail', () => {
         organization: org, total: 2,
         distribution: { MVP: 1, READY: 0, DONE: 1 },
         repositories: [
-          { repository_id: 'r1', full_name: 'org/a', gate: 'DONE', missing_for_ready: [] },
-          { repository_id: 'r2', full_name: 'org/b', gate: 'MVP', missing_for_ready: ['ci', 'tests'] }
+          { repository_id: 'r1', full_name: 'org/a', gate: 'DONE', missing_for_ready: [], missing_for_done: [] },
+          { repository_id: 'r2', full_name: 'org/b', gate: 'MVP', missing_for_ready: ['ci', 'tests'], missing_for_done: [] }
         ]
+      }),
+      organizationRegressions: async (org: string) => ({
+        organization: org,
+        regressions: [{ repository_id: 'r1', full_name: 'org/a', from_gate: 'READY', to_gate: 'MVP', date: '2026-07-11' }]
+      }),
+      organizationVulnerabilities: async (org: string) => ({
+        organization: org, total_critical: 3, total_high: 1,
+        repositories: [{ repository_id: 'r2', full_name: 'org/b', critical: 3, high: 1 }]
+      }),
+      organizationCapabilities: async (org: string) => ({
+        organization: org, repositories: 2, capabilities: ['auth', 'billing'], total_open_bugs: 5, projects: []
       }),
       openspecCoverage: async (org: string) => ({
         organization: org, total: 3, coverage: 0.67,
@@ -803,6 +814,9 @@ describe('IntelligenceViewModel org detail', () => {
     expect(vm.staleIssues.length).toBe(1);
     expect(vm.readiness?.distribution.DONE).toBe(1);
     expect(vm.readiness?.repositories[1].missing_for_ready).toEqual(['ci', 'tests']);
+    expect(vm.regressions?.regressions[0].to_gate).toBe('MVP');
+    expect(vm.vulnerabilities?.total_critical).toBe(3);
+    expect(vm.capabilities?.capabilities).toEqual(['auth', 'billing']);
     expect(vm.openspec?.coverage).toBe(0.67);
     expect(vm.openspec?.without_openspec[0].full_name).toBe('org/b');
   });

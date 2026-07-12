@@ -26,8 +26,11 @@ import type {
   OpenSpecChange,
   OpenSpecCoverage,
   Organization,
+  OrganizationCapabilities,
   OrganizationIntelligence,
   OrganizationReadiness,
+  OrganizationRegressions,
+  OrganizationVulnerabilities,
   Page,
   PortfolioOverview,
   RecentActivity,
@@ -315,6 +318,21 @@ export class IntelligenceApi {
   organizationReadiness(org: string): Promise<OrganizationReadiness> {
     return this.http.get(
       `/api/v1/intelligence/organizations/${encodeURIComponent(org)}/readiness`
+    );
+  }
+  organizationRegressions(org: string): Promise<OrganizationRegressions> {
+    return this.http.get(
+      `/api/v1/intelligence/organizations/${encodeURIComponent(org)}/readiness-regressions`
+    );
+  }
+  organizationVulnerabilities(org: string): Promise<OrganizationVulnerabilities> {
+    return this.http.get(
+      `/api/v1/intelligence/organizations/${encodeURIComponent(org)}/vulnerabilities`
+    );
+  }
+  organizationCapabilities(org: string): Promise<OrganizationCapabilities> {
+    return this.http.get(
+      `/api/v1/intelligence/organizations/${encodeURIComponent(org)}/capabilities`
     );
   }
   openspecCoverage(org: string): Promise<OpenSpecCoverage> {

@@ -3,8 +3,11 @@ import { ApiError } from '$lib/api/http';
 import type { IntelligenceApi } from '$lib/api/mnemosyneApi';
 import type {
   OpenSpecCoverage,
+  OrganizationCapabilities,
   OrganizationIntelligence,
   OrganizationReadiness,
+  OrganizationRegressions,
+  OrganizationVulnerabilities,
   PortfolioOverview,
   RecentActivity,
   RepositoryHealth,
@@ -16,6 +19,9 @@ export class IntelligenceViewModel {
   organizations = $state<string[]>([]); // stable full list (from the unscoped load)
   orgIntel = $state<OrganizationIntelligence | null>(null);
   readiness = $state<OrganizationReadiness | null>(null);
+  regressions = $state<OrganizationRegressions | null>(null);
+  vulnerabilities = $state<OrganizationVulnerabilities | null>(null);
+  capabilities = $state<OrganizationCapabilities | null>(null);
   openspec = $state<OpenSpecCoverage | null>(null);
   activity = $state<RecentActivity | null>(null);
   staleIssues = $state<StaleItem[]>([]);
@@ -58,6 +64,9 @@ export class IntelligenceViewModel {
       this.stalePrs = prs.stale;
       this.orgIntel = org ? await this.api.organizationIntelligence(org) : null;
       this.readiness = org ? await this.api.organizationReadiness(org) : null;
+      this.regressions = org ? await this.api.organizationRegressions(org) : null;
+      this.vulnerabilities = org ? await this.api.organizationVulnerabilities(org) : null;
+      this.capabilities = org ? await this.api.organizationCapabilities(org) : null;
       this.openspec = org ? await this.api.openspecCoverage(org) : null;
     } catch {
       // supplementary panels are best-effort; ignore load failures

@@ -382,6 +382,7 @@ export interface ReadinessRepo {
   full_name: string;
   gate: ReadinessGate;
   missing_for_ready: string[];
+  missing_for_done: string[];
 }
 
 export interface OrganizationReadiness {
@@ -389,6 +390,41 @@ export interface OrganizationReadiness {
   total: number;
   distribution: Record<ReadinessGate, number>;
   repositories: ReadinessRepo[];
+}
+
+export interface ReadinessRegression {
+  repository_id: string;
+  full_name: string;
+  from_gate: ReadinessGate;
+  to_gate: ReadinessGate;
+  date: string;
+}
+
+export interface OrganizationRegressions {
+  organization: string;
+  regressions: ReadinessRegression[];
+}
+
+export interface VulnerabilityRepo {
+  repository_id: string;
+  full_name: string;
+  critical: number;
+  high: number;
+}
+
+export interface OrganizationVulnerabilities {
+  organization: string;
+  total_critical: number;
+  total_high: number;
+  repositories: VulnerabilityRepo[];
+}
+
+export interface OrganizationCapabilities {
+  organization: string;
+  repositories: number;
+  capabilities: string[];
+  total_open_bugs: number;
+  projects: { full_name: string }[];
 }
 
 export interface OpenSpecCoverageRepo {
