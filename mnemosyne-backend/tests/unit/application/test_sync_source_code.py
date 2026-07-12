@@ -125,6 +125,20 @@ class TestSourceCodeStep:
         assert "dispatch" in symbols and "Backend" in symbols
         assert env["embeddings"].code_embedded  # source chunks embedded
 
+    async def test_binary_content_with_null_bytes_is_skipped(self, env):
+        # A file the extension check treats as text but whose content is binary
+        # (glTF/CAD blob with a NUL byte) must be skipped — a NUL can't be stored
+        # in a Postgres text column and would fail the source_code step.
+        env["github"].tree.append(
+            GitHubFileData(path="assets/scene.model", sha="m", size=50, is_binary=False))
+        env["github"].files["assets/scene.model"] = "glTF\x00\x00\x00binary junk"
+        repo, job = await seed(env)
+        result = await env["use_case"].run(repo.id, job.id)
+        assert result.status is SyncStatus.SUCCEEDED  # not failed/degraded
+        by_path = await files_by_path(env, repo.id)
+        model = by_path["assets/scene.model"]
+        assert not model.content_captured and model.content is None
+
     async def test_skipped_below_code_context(self, env):
         repo, job = await seed(env, mode=IndexingMode.CODE_METADATA)
         result = await env["use_case"].run(repo.id, job.id)

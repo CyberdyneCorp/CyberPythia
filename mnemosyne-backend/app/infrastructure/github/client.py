@@ -31,6 +31,10 @@ _BINARY_EXTENSIONS = {
     "png", "jpg", "jpeg", "gif", "ico", "pdf", "zip", "tar", "gz", "whl",
     "so", "dylib", "dll", "exe", "bin", "woff", "woff2", "ttf", "eot",
     "mp3", "mp4", "webm", "sqlite", "db", "pyc", "jar", "class",
+    # 3D / CAD / model assets (a content-level NUL-byte guard is the backstop)
+    "glb", "gltf", "wasm", "obj", "stl", "fbx", "blend", "3ds", "dae",
+    "bmp", "tiff", "tif", "webp", "svgz", "wav", "ogg", "avi", "mov",
+    "7z", "rar", "bz2", "xz", "zst", "onnx", "pt", "pth", "npy", "npz",
 }  # fmt: skip
 
 
