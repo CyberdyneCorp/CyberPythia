@@ -777,6 +777,7 @@ def _api_key_to_entity(row: ApiKeyRow) -> ApiKey:
         created_at=row.created_at,
         expires_at=row.expires_at,
         revoked=row.revoked,
+        allowed_organizations=row.allowed_organizations,
     )
 
 
@@ -793,6 +794,7 @@ class PostgresApiKeyRepository(PostgresRepositoryBase):
                     created_at=key.created_at,
                     expires_at=key.expires_at,
                     revoked=key.revoked,
+                    allowed_organizations=key.allowed_organizations,
                 )
             )
 

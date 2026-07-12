@@ -14,10 +14,14 @@ NOW = datetime(2026, 7, 8, 12, 0, tzinfo=UTC)
 pytestmark = pytest.mark.integration
 
 
-def _key(plaintext, *, label="agent", expires_at=None, revoked=False, created_at=NOW) -> ApiKey:
+def _key(
+    plaintext, *, label="agent", expires_at=None, revoked=False, created_at=NOW,
+    allowed_organizations=None,
+) -> ApiKey:
     return ApiKey(
         id=uuid4(), label=label, prefix=plaintext[:13], key_hash=hash_api_key(plaintext),
         created_by="admin-1", created_at=created_at, expires_at=expires_at, revoked=revoked,
+        allowed_organizations=allowed_organizations,
     )
 
 
@@ -35,6 +39,18 @@ class TestApiKeyRoundTrip:
     async def test_lookup_miss_returns_none(self, session_factory):
         adapter = PostgresApiKeyRepository(session_factory)
         assert await adapter.get_by_hash(hash_api_key("mnem_nope")) is None
+
+    async def test_org_scope_column_round_trips(self, session_factory):
+        # #64: the nullable allowed_organizations column persists a list; a key
+        # stored without it reads back as None (unrestricted).
+        adapter = PostgresApiKeyRepository(session_factory)
+        scoped_pt, open_pt = generate_api_key(), generate_api_key()
+        await adapter.save(_key(scoped_pt, allowed_organizations=["cyberdyne", "aminitech"]))
+        await adapter.save(_key(open_pt, allowed_organizations=None))
+        scoped = await adapter.get_by_hash(hash_api_key(scoped_pt))
+        unscoped = await adapter.get_by_hash(hash_api_key(open_pt))
+        assert scoped is not None and scoped.allowed_organizations == ["cyberdyne", "aminitech"]
+        assert unscoped is not None and unscoped.allowed_organizations is None
 
     async def test_list_newest_first(self, session_factory):
         adapter = PostgresApiKeyRepository(session_factory)

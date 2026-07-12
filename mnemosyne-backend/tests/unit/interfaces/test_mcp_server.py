@@ -110,6 +110,46 @@ class TestAuth:
                 await client.call_tool("mnemosyne_list_repositories", {})
 
 
+class TestCentralAuthMiddleware:
+    """#75 (CWE-1188): auth + org scope are enforced centrally, so even a tool
+    that never calls auth() itself cannot execute unauthenticated or unscoped."""
+
+    async def _naked_tool_mcp(self, container, authenticate):
+        # A tool registered WITHOUT any in-body auth() call — its only protection
+        # is the central middleware.
+        from app.domain.services.org_scope import is_organization_allowed
+
+        mcp = build_mcp(container, authenticate=authenticate)
+
+        @mcp.tool
+        async def naked_probe() -> dict[str, bool]:
+            return {
+                "cyberdyne": is_organization_allowed("cyberdyne"),
+                "other": is_organization_allowed("other"),
+            }
+
+        return mcp
+
+    async def test_unauthenticated_naked_tool_rejected(self, container):
+        mcp = await self._naked_tool_mcp(container, rejecting_caller)
+        async with Client(mcp) as client:
+            with pytest.raises(ToolError, match="unauthenticated"):
+                await client.call_tool("naked_probe", {})
+
+    async def test_naked_tool_is_org_scoped_by_middleware(self, container):
+        async def scoped_caller() -> CallerIdentity:
+            # restricted to `cyberdyne` via a plan-qualified entitlement
+            return CallerIdentity(
+                subject="scoped-1", entitlements=frozenset({"mnemosyne:cyberdyne"})
+            )
+
+        mcp = await self._naked_tool_mcp(container, scoped_caller)
+        async with Client(mcp) as client:
+            result = await client.call_tool("naked_probe", {})
+        # The middleware set the caller's org boundary before the tool ran.
+        assert payload(result) == {"cyberdyne": True, "other": False}
+
+
 class TestReadOnlyCredentials:
     # CWE-269: a read-only credential must be denied on mutating tools.
     async def test_read_only_denied_remember(self, container):

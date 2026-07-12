@@ -11,6 +11,7 @@ from app.domain.entities.webhook_delivery import WebhookDelivery
 from app.domain.entities.webhook_event import WebhookEvent
 from app.domain.ports.persistence_ports import ConnectionPort, WebhookDeliveryPort
 from app.domain.services import webhook_router
+from app.domain.services.org_scope import set_unrestricted
 from app.domain.value_objects.enums import ConnectionKind, WebhookIntent
 
 
@@ -29,6 +30,10 @@ class ProcessWebhookDelivery:
 
     async def process(self, event: WebhookEvent) -> str:
         """Return the outcome ("processed" | "ignored" | "duplicate")."""
+        # Signature-authenticated but caller-less: grant all-org access so the
+        # fail-closed UNSET default (CWE-284) does not hide the target repository
+        # from incremental sync (spec: auth, webhooks).
+        set_unrestricted()
         if event.delivery_id and await self._deliveries.exists(event.delivery_id):
             return "duplicate"
 

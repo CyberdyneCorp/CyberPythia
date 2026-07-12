@@ -14,6 +14,7 @@ from arq.cron import cron
 from app.composition import build_container
 from app.config import get_settings
 from app.domain.entities.sync_run import SyncRun
+from app.domain.services.org_scope import set_unrestricted
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,9 @@ async def shutdown(ctx: dict[str, Any]) -> None:
 
 
 async def sync_repository(ctx: dict[str, Any], repository_id: str, job_id: str) -> str:
+    # Runs without a request: grant access to all orgs so the fail-closed UNSET
+    # default (CWE-284) does not hide repositories from the sync (spec: auth).
+    set_unrestricted()
     container = ctx["container"]
     job = await container.sync_use_case.run(UUID(repository_id), UUID(job_id))
     logger.info("sync %s finished: %s", repository_id, job.status.value)
@@ -43,6 +47,7 @@ async def sync_repository(ctx: dict[str, Any], repository_id: str, job_id: str) 
 
 async def delete_connection(ctx: dict[str, Any], connection_id: str) -> str:
     """Cascade-delete a connection and its indexed data off the request path."""
+    set_unrestricted()  # off-request job: see all orgs (fail-closed default, CWE-284)
     container = ctx["container"]
     await container.connection_use_cases.perform_delete(UUID(connection_id))
     logger.info("connection %s deleted", connection_id)
@@ -54,6 +59,10 @@ async def scheduled_full_sync(ctx: dict[str, Any]) -> str:
 
     Records a SyncRun history row so admins can watch runs via /api/v1/admin/sync-runs.
     """
+    # Cron job with no request/caller: cover every org so discovery + sync are not
+    # starved by the fail-closed UNSET default (CWE-284, spec: auth). Covers the
+    # nested scheduled_discovery + digest delivery within this task.
+    set_unrestricted()
     container = ctx["container"]
     started = datetime.now(UTC)
     discovered = newly_enabled = skipped_archived = 0

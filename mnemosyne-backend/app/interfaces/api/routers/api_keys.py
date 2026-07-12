@@ -36,6 +36,7 @@ def _metadata(key: ApiKey) -> dict[str, Any]:
         "created_at": key.created_at,
         "expires_at": key.expires_at,
         "revoked": key.revoked,
+        "allowed_organizations": key.allowed_organizations,
     }
 
 
@@ -47,6 +48,7 @@ async def create_api_key(
         label=body.label,
         created_by=caller.subject,
         expires_in_days=body.expires_in_days,
+        allowed_organizations=body.allowed_organizations,
     )
     await audit.record(caller, "apikey.create", target=str(created.key.id))
     return ApiKeyCreatedResponse(key=created.plaintext, **_metadata(created.key))

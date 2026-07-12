@@ -16,6 +16,7 @@ from typing import Any
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.dependencies import get_access_token, get_http_headers
+from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 from app.application.errors import ApplicationError, RepositoryNotSyncedError
 from app.application.use_cases.context import FEATURE_DOCUMENT_PROMPT
@@ -33,6 +34,11 @@ from app.interfaces.mcp.oauth import build_mcp_auth, caller_from_access_token
 logger = logging.getLogger(__name__)
 
 Authenticator = Callable[[], Awaitable[CallerIdentity]]
+
+# Mutating tools: the central auth path must reject read-only credentials for
+# these (CWE-269, #63). Every other tool is read/query only. Keeping this list
+# next to the tools it guards makes the read/write split auditable in one place.
+WRITE_TOOLS: frozenset[str] = frozenset({"mnemosyne_remember", "mnemosyne_forget"})
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
@@ -116,6 +122,27 @@ def build_mcp(
             "bearer token with the 'mnemosyne' entitlement, or a Mnemosyne API key."
         ),
     )
+
+    class _AuthMiddleware(Middleware):
+        """Authenticate + org-scope EVERY tool call before it runs (CWE-1188, #75).
+
+        Central choke point so a newly added tool cannot ship unauthenticated: the
+        middleware runs before the tool body, authenticates, sets the org boundary,
+        and rejects read-only credentials on mutating tools. The per-tool ``auth()``
+        calls remain (they return the caller object some tools need) but are no
+        longer the sole line of defence.
+        """
+
+        async def on_call_tool(
+            self, context: MiddlewareContext[Any], call_next: Any
+        ) -> Any:
+            if context.message.name in WRITE_TOOLS:
+                await auth_write()
+            else:
+                await auth()
+            return await call_next(context)
+
+    mcp.add_middleware(_AuthMiddleware())
 
     async def _resolve_repo(full_name: str) -> Repository | dict[str, Any]:
         repository = await container.repositories.get_by_full_name(full_name)

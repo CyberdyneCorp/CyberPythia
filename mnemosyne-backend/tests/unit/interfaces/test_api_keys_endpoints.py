@@ -46,6 +46,22 @@ class TestManagement:
             )
         assert r.status_code == 201 and r.json()["expires_at"] is None
 
+    async def test_create_unscoped_key_reports_null_org_scope(self, client):
+        async with client:
+            r = await client.post("/api/v1/api-keys", json={"label": "a"}, headers=admin())
+        assert r.status_code == 201
+        assert r.json()["allowed_organizations"] is None  # unrestricted (default)
+
+    async def test_create_org_scoped_key_echoes_normalised_orgs(self, client):
+        async with client:
+            r = await client.post(
+                "/api/v1/api-keys",
+                json={"label": "scoped", "allowed_organizations": ["CyberDyne"]},
+                headers=admin(),
+            )
+        assert r.status_code == 201
+        assert r.json()["allowed_organizations"] == ["cyberdyne"]  # lower-cased
+
     async def test_list_omits_plaintext_and_hash(self, client):
         async with client:
             await client.post("/api/v1/api-keys", json={"label": "a"}, headers=admin())
@@ -150,3 +166,58 @@ class TestKeyAuthenticates:
                 headers={"Authorization": f"Bearer {created.plaintext}"},
             )
         assert r.status_code == 403  # entitled but not admin
+
+    async def test_org_scoped_key_denied_cross_org_repos(self, client, container):
+        """#64 (CWE-284): a key scoped to `cyberdyne` reads its own org's repos but
+        not another org's — enforced through the shared org-scope choke point."""
+        from tests.unit.interfaces.test_api_endpoints import seed_repo
+
+        await seed_repo(container)  # cyberdyne/a
+        await _seed_repo_in_org(container, "victim/b")
+        created = await container.api_key_use_cases.create(
+            label="scoped", created_by="admin-1", allowed_organizations=["cyberdyne"]
+        )
+        async with client:
+            r = await client.get(
+                "/api/v1/repos",
+                headers={"Authorization": f"Bearer {created.plaintext}"},
+            )
+        assert r.status_code == 200
+        owners = {row["full_name"].split("/")[0] for row in r.json()["items"]}
+        assert owners == {"cyberdyne"}  # victim/b is invisible to the scoped key
+
+    async def test_unscoped_key_sees_all_orgs(self, client, container):
+        from tests.unit.interfaces.test_api_endpoints import seed_repo
+
+        await seed_repo(container)  # cyberdyne/a
+        await _seed_repo_in_org(container, "victim/b")
+        created = await container.api_key_use_cases.create(
+            label="unscoped", created_by="admin-1"
+        )
+        async with client:
+            r = await client.get(
+                "/api/v1/repos",
+                headers={"Authorization": f"Bearer {created.plaintext}"},
+            )
+        assert r.status_code == 200
+        owners = {row["full_name"].split("/")[0] for row in r.json()["items"]}
+        assert owners == {"cyberdyne", "victim"}  # unrestricted key sees both
+
+
+async def _seed_repo_in_org(container, full_name):
+    from datetime import UTC, datetime
+
+    from app.domain.entities.repository import Repository
+    from app.domain.value_objects.enums import IndexingMode, RepositoryVisibility
+    from app.domain.value_objects.full_name import RepositoryFullName
+
+    now = datetime(2026, 7, 12, tzinfo=UTC)
+    repo = Repository(
+        id=uuid4(), connection_id=uuid4(), github_id=abs(hash(full_name)) % 99999,
+        full_name=RepositoryFullName(full_name), description="d",
+        visibility=RepositoryVisibility.PRIVATE, default_branch="main",
+        primary_language="Python", archived=False, github_updated_at=now,
+        enabled=True, indexing_mode=IndexingMode.PROJECT_INTELLIGENCE, last_synced_at=now,
+    )
+    await container.repositories.save(repo)
+    return repo

@@ -41,8 +41,23 @@ class ApiKeyAuthAdapter:
                 subject=f"apikey:{key.id}",
                 username=key.label,
                 client_id=f"apikey:{key.id}",
-                entitlements=frozenset({self._entitlement}),
+                entitlements=self._entitlements_for(key.allowed_organizations),
                 is_admin=False,
                 is_read_only=True,
             )
         return await self._fallback.verify(token, force_introspection=force_introspection)
+
+    def _entitlements_for(self, allowed_organizations: list[str] | None) -> frozenset[str]:
+        """Encode the key's org boundary through the SAME entitlement mechanism as
+        user tokens, so the downstream org-scope contextvar is populated identically
+        and there is no parallel authz path (#64, spec: auth).
+
+        - ``None`` / empty  -> the bare entitlement: unrestricted (all orgs).
+        - ``[org, ...]``     -> plan-qualified entitlements ``entitlement:<org>`` that
+          ``CallerIdentity.allowed_organizations`` resolves to exactly those orgs.
+        """
+        if not allowed_organizations:
+            return frozenset({self._entitlement})
+        return frozenset(
+            f"{self._entitlement}:{org.lower()}" for org in allowed_organizations
+        )

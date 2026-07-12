@@ -20,6 +20,10 @@ class ApiKey:
     created_at: datetime
     expires_at: datetime | None = None  # None = non-expiring
     revoked: bool = False
+    # Organizations this key may access, lower-cased. ``None`` = unrestricted
+    # (all orgs), preserving backward compatibility for keys issued before org
+    # scoping existed. A non-empty list restricts the key to those orgs (#64).
+    allowed_organizations: list[str] | None = None
 
     def is_valid(self, now: datetime) -> bool:
         """A key authenticates only while not revoked and not past expiry."""

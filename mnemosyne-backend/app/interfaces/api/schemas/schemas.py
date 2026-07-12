@@ -119,6 +119,9 @@ class RepositorySelectionBulkRequest(BaseModel):
 class ApiKeyCreateRequest(BaseModel):
     label: str = Field(min_length=1, max_length=200)
     expires_in_days: int | None = Field(default=None, ge=1, le=3650)
+    # Optional org boundary: omit / null for an unrestricted key (default,
+    # backward compatible); a non-empty list restricts the key to those orgs (#64).
+    allowed_organizations: list[str] | None = Field(default=None, min_length=1)
 
 
 class ApiKeyResponse(BaseModel):
@@ -131,6 +134,7 @@ class ApiKeyResponse(BaseModel):
     created_at: datetime
     expires_at: datetime | None
     revoked: bool
+    allowed_organizations: list[str] | None = None
 
 
 class ApiKeyCreatedResponse(ApiKeyResponse):

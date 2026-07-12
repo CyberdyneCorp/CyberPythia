@@ -30,7 +30,12 @@ class ApiKeyUseCases:
         self._api_keys = api_keys
 
     async def create(
-        self, *, label: str, created_by: str, expires_in_days: int | None = None
+        self,
+        *,
+        label: str,
+        created_by: str,
+        expires_in_days: int | None = None,
+        allowed_organizations: list[str] | None = None,
     ) -> CreatedApiKey:
         now = datetime.now(UTC)
         expires_at = (
@@ -46,6 +51,13 @@ class ApiKeyUseCases:
             created_at=now,
             expires_at=expires_at,
             revoked=False,
+            # Normalise to lower-case; an empty selection is stored as NULL
+            # (unrestricted) so a scoped key is always a non-empty list (#64).
+            allowed_organizations=(
+                sorted({org.lower() for org in allowed_organizations})
+                if allowed_organizations
+                else None
+            ),
         )
         await self._api_keys.save(key)
         return CreatedApiKey(key=key, plaintext=plaintext)
