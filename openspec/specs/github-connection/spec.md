@@ -98,13 +98,16 @@ organization. An admin SHALL be able to enable or disable sync for an organizati
 The system SHALL support creating and connecting a GitHub App via GitHub's App
 Manifest flow, initiated by an admin from the dashboard. The system SHALL generate a
 manifest pre-configured with read-only Contents/Issues/Pull-requests/Metadata
-permissions, the webhook event set, and the Mnemosyne webhook, redirect, and setup
-URLs. After GitHub creates the App, the system SHALL convert the returned one-time
-code into the App's credentials (App ID, private key, webhook secret) server-side and
-persist them as a `github_app` connection, encrypted at rest and never returned by any
-API. The connection SHALL be `pending_installation` until an installation ID is
-captured, at which point the system SHALL validate it by minting an installation token
-and mark it active. Discovery and sync SHALL ignore `pending_installation` connections.
+permissions plus read-only security-alert permissions (Dependabot
+`vulnerability_alerts` and code-scanning `security_events`, used for vulnerability
+and readiness intelligence), the webhook event set, and the Mnemosyne webhook,
+redirect, and setup URLs. After GitHub creates the App, the system SHALL convert the
+returned one-time code into the App's credentials (App ID, private key, webhook secret)
+server-side and persist them as a `github_app` connection, encrypted at rest and never
+returned by any API. The connection SHALL be `pending_installation` until an
+installation ID is captured, at which point the system SHALL validate it by minting an
+installation token and mark it active. Discovery and sync SHALL ignore
+`pending_installation` connections.
 
 #### Scenario: Manifest conversion yields credentials
 - **WHEN** GitHub redirects back after App creation with a one-time code
