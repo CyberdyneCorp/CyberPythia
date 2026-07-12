@@ -227,6 +227,7 @@
 {#if vm.deliveries.length}
   <h2>Webhook activity</h2>
   <div class="card">
+    <div class="scroll-y">
     <table>
       <thead><tr><th>Event</th><th>Repository</th><th>Outcome</th><th>When</th></tr></thead>
       <tbody>
@@ -240,6 +241,7 @@
         {/each}
       </tbody>
     </table>
+    </div>
   </div>
 {/if}
 
@@ -324,6 +326,7 @@
 {#if vm.syncRuns.length}
   <div class="card">
     <div class="eyebrow pad">Scheduled runs</div>
+    <div class="scroll-y">
     <table>
       <thead>
         <tr><th>When</th><th>Discovered</th><th>Enabled</th><th>Enqueued</th><th>Skipped</th><th>Failed</th></tr>
@@ -341,6 +344,7 @@
         {/each}
       </tbody>
     </table>
+    </div>
   </div>
 {:else}
   <p class="muted small">No scheduled runs recorded yet — the first fires at 03:00 UTC.</p>
