@@ -52,10 +52,14 @@ class JwksVerifier:
         self._client = client
         self._keys: dict[str, PyJWK] = {}
         self._fetched_at: float = 0.0
-        # Last time a fetch was *attempted* (success or failure). The unknown-kid
-        # cooldown keys off this so a JWKS outage can't be amplified into one
-        # outbound GET per unknown-kid request while the endpoint is failing.
-        self._attempted_at: float = 0.0
+        # Monotonic time of the last fetch *attempt* (success or failure). The
+        # refetch throttle keys off this so a JWKS outage can't be amplified into
+        # one outbound GET per request. Starts at -inf ("never attempted") so the
+        # very first fetch is never throttled — otherwise, on a freshly-booted
+        # host where time.monotonic() < cooldown, the cold-start fetch would be
+        # wrongly suppressed and every token would fail to validate until the
+        # window elapsed.
+        self._attempted_at: float = float("-inf")
 
     async def _fetch_jwks(self) -> None:
         self._attempted_at = time.monotonic()
