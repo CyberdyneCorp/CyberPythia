@@ -24,6 +24,11 @@ TOKENS = {
         subject="scoped-1", entitlements=frozenset({"mnemosyne:cyberdyne"})
     ),
     "unentitled-token": CallerIdentity(subject="other-1", entitlements=frozenset({"otherapp"})),
+    # A read/query-only credential (e.g. a Mnemosyne API key): entitled but may
+    # not mutate state.
+    "readonly-token": CallerIdentity(
+        subject="apikey:1", entitlements=frozenset({"mnemosyne"}), is_read_only=True
+    ),
     "agent-token": CallerIdentity(
         subject="agent-1", client_id="agent-client", entitlements=frozenset({"mnemosyne"})
     ),
@@ -31,7 +36,9 @@ TOKENS = {
 
 
 class FakeAuthPort:
-    async def verify(self, token: str) -> CallerIdentity:
+    async def verify(
+        self, token: str, *, force_introspection: bool = False
+    ) -> CallerIdentity:
         if token == "auth-down":
             raise AuthUnavailableError("down")
         identity = TOKENS.get(token)

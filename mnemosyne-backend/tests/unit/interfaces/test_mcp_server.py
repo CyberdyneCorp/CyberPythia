@@ -61,6 +61,13 @@ async def rejecting_caller() -> CallerIdentity:
     raise ToolError("unauthenticated: missing bearer token")
 
 
+async def readonly_caller() -> CallerIdentity:
+    # A Mnemosyne API key: entitled but read/query only.
+    return CallerIdentity(
+        subject="apikey:1", entitlements=frozenset({"mnemosyne"}), is_read_only=True
+    )
+
+
 @pytest.fixture
 def container():
     return build_fake_container()
@@ -101,6 +108,38 @@ class TestAuth:
         async with Client(mcp) as client:
             with pytest.raises(ToolError, match="unauthenticated"):
                 await client.call_tool("mnemosyne_list_repositories", {})
+
+
+class TestReadOnlyCredentials:
+    # CWE-269: a read-only credential must be denied on mutating tools.
+    async def test_read_only_denied_remember(self, container):
+        mcp = build_mcp(container, authenticate=readonly_caller)
+        async with Client(mcp) as client:
+            with pytest.raises(ToolError, match="read-only"):
+                await client.call_tool(
+                    "mnemosyne_remember", {"content": "x", "full_name": "cyberdyne/a"}
+                )
+
+    async def test_read_only_denied_forget(self, container):
+        mcp = build_mcp(container, authenticate=readonly_caller)
+        async with Client(mcp) as client:
+            with pytest.raises(ToolError, match="read-only"):
+                await client.call_tool("mnemosyne_forget", {"memory_id": str(uuid4())})
+
+    async def test_read_only_can_recall(self, container):
+        await seed_repo(container)
+        mcp = build_mcp(container, authenticate=readonly_caller)
+        async with Client(mcp) as client:
+            result = await client.call_tool("mnemosyne_recall", {"full_name": "cyberdyne/a"})
+        assert "memories" in payload(result)
+
+    async def test_normal_caller_can_remember(self, mcp, container):
+        await seed_repo(container)
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "mnemosyne_remember", {"content": "learned x", "full_name": "cyberdyne/a"}
+            )
+        assert "error" not in payload(result)
 
 
 class TestStructuredErrors:

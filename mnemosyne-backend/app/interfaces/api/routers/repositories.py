@@ -44,7 +44,12 @@ from app.interfaces.api.schemas.schemas import (
     SyncJobResponse,
     paginate,
 )
-from app.interfaces.api.security import AdminCaller, EntitledCaller, get_audit_service
+from app.interfaces.api.security import (
+    AdminCaller,
+    EntitledCaller,
+    WriterCaller,
+    get_audit_service,
+)
 
 router = APIRouter(prefix="/api/v1/repos", tags=["repositories"])
 
@@ -233,7 +238,17 @@ async def list_docs(
 
 
 @router.get("/{repo_id}/docs/{doc_id}")
-async def get_doc(repo_id: UUID, doc_id: UUID, caller: EntitledCaller, container: Container) -> Any:
+async def get_doc(
+    repo_id: UUID, doc_id: UUID, caller: EntitledCaller,
+    use_cases: RepoUseCases, container: Container,
+) -> Any:
+    # Resolve the repo through the org-scoped use case FIRST: it 404s for repos
+    # outside the caller's accessible organizations, closing a BOLA gap where a
+    # scoped caller could read a document of an out-of-scope repo (CWE-639).
+    try:
+        await use_cases.get(repo_id)
+    except ApplicationError as exc:
+        raise translate_error(exc) from exc
     doc = await container.documents.get(doc_id)  # type: ignore[attr-defined]
     if doc is None or doc.repository_id != repo_id:
         raise NotFoundError(f"document {doc_id} not found")
@@ -392,7 +407,7 @@ async def readiness_history(
 
 @router.post("/{repo_id}/memories", status_code=201)
 async def create_memory(
-    repo_id: UUID, body: MemoryCreateRequest, caller: EntitledCaller,
+    repo_id: UUID, body: MemoryCreateRequest, caller: WriterCaller,
     use_cases: RepoUseCases, container: Container,
 ) -> Any:
     """Record a durable memory for the repository (agent-writable, Mnemosyne-only)."""
@@ -420,7 +435,7 @@ async def list_memories(
 
 @router.delete("/{repo_id}/memories/{memory_id}", status_code=204)
 async def delete_memory(
-    repo_id: UUID, memory_id: UUID, caller: EntitledCaller, container: Container,
+    repo_id: UUID, memory_id: UUID, caller: WriterCaller, container: Container,
 ) -> None:
     """Delete a memory by id."""
     deleted = await cast(Any, container).memory.forget(memory_id)

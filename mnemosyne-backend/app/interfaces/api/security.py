@@ -2,6 +2,7 @@
 
 - ``CurrentCaller``  — any valid token
 - ``EntitledCaller`` — valid + `mnemosyne` entitlement (or admin)
+- ``WriterCaller``   — entitled + not a read-only credential (API keys)
 - ``AdminCaller``    — valid + `is_admin` or `mnemosyne:admin` scope
 """
 
@@ -77,12 +78,43 @@ async def get_entitled_caller(
 EntitledCaller = Annotated[CallerIdentity, Depends(get_entitled_caller)]
 
 
-async def get_admin_caller(
+async def get_writer_caller(
     request: Request,
     caller: EntitledCaller,
     audit: Annotated[AuditService, Depends(get_audit_service)],
 ) -> CallerIdentity:
+    """Entitled caller allowed to mutate state — read-only credentials are denied."""
+    if caller.is_read_only:
+        await audit.record_denied(caller, f"write.{request.method} {request.url.path}")
+        raise ForbiddenError(
+            "read-only credentials cannot modify data", code="read_only"
+        )
+    return caller
+
+
+WriterCaller = Annotated[CallerIdentity, Depends(get_writer_caller)]
+
+
+async def get_admin_caller(
+    request: Request,
+    caller: EntitledCaller,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    auth_port: Annotated[AuthPort, Depends(get_auth_port)],
+    audit: Annotated[AuditService, Depends(get_audit_service)],
+) -> CallerIdentity:
     settings = get_settings()
+    if settings.auth_force_introspect_admin and credentials and credentials.credentials:
+        # Sensitive path: re-verify authoritatively so a revoked-but-unexpired
+        # token cannot administer via its embedded entitlements (CWE-613).
+        try:
+            caller = await auth_port.verify(
+                credentials.credentials, force_introspection=True
+            )
+        except TokenInvalidError as exc:
+            await audit.record_denied(caller, f"admin.{request.method} {request.url.path}")
+            raise UnauthenticatedError("invalid token") from exc
+        except AuthUnavailableError as exc:
+            raise UpstreamUnavailableError("authentication service unavailable") from exc
     if not caller.can_administer(settings.admin_scope):
         await audit.record_denied(caller, f"admin.{request.method} {request.url.path}")
         raise ForbiddenError("administrator privileges required", code="admin_required")

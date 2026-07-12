@@ -14,6 +14,11 @@ class AuthUnavailableError(Exception):
 
 
 class AuthPort(Protocol):
-    async def verify(self, token: str) -> CallerIdentity:
-        """Return the caller identity or raise TokenInvalidError/AuthUnavailableError."""
+    async def verify(self, token: str, *, force_introspection: bool = False) -> CallerIdentity:
+        """Return the caller identity or raise TokenInvalidError/AuthUnavailableError.
+
+        ``force_introspection`` forces the authoritative, revocation-aware path for
+        sensitive (admin) operations, regardless of any entitlements the token
+        embeds locally (spec: auth, CWE-613).
+        """
         ...

@@ -86,6 +86,18 @@ def build_mcp(
         )
         return caller
 
+    async def auth_write() -> CallerIdentity:
+        """Resolve the caller for a mutating tool, rejecting read-only credentials.
+
+        Read/query-only credentials (e.g. Mnemosyne API keys) may read but must
+        not create or delete memories (CWE-269, spec: auth).
+        """
+        caller = await auth()
+        if caller.is_read_only:
+            await container.audit_service.record_denied(caller, "mcp.write")
+            raise ToolError("forbidden: read-only credentials cannot modify data")
+        return caller
+
     # Attach the OAuthProxy so DCR-only clients (claude.ai) can obtain a token.
     # Additive: its verifier delegates to auth_port, so API keys + bearers still
     # authenticate. Disabled by default → today's behavior is unchanged.
@@ -937,7 +949,7 @@ def build_mcp(
         """Persist a durable memory (learning/decision/gotcha/convention/todo) scoped to a
         repository (full_name) or an organization, recalled later by any agent. Writes only
         to Mnemosyne, never to GitHub. Provide exactly one of full_name or organization."""
-        caller = await auth()
+        caller = await auth_write()
         try:
             if full_name:
                 return await container.memory.remember_repository(
@@ -974,7 +986,7 @@ def build_mcp(
     @mcp.tool
     async def mnemosyne_forget(memory_id: str) -> dict[str, Any]:
         """Delete a memory by id. Returns {deleted: bool}."""
-        await auth()
+        await auth_write()
         from uuid import UUID
         try:
             deleted = await container.memory.forget(UUID(memory_id))

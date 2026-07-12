@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     cyberdyneauth_client_secret: str = ""
     auth_validation_mode: Literal["jwks", "introspect"] = "jwks"
     auth_jwks_cache_ttl_seconds: int = 3600
+    # Minimum interval between JWKS refetches triggered by an *unknown* kid, so a
+    # pre-auth caller streaming random kids can force at most one outbound JWKS
+    # GET per window instead of one per request (CWE-770). TTL-based refresh is
+    # unaffected. Within the cooldown an unknown kid is treated as unknown.
+    auth_jwks_min_refresh_seconds: int = 30
+    # Force revocation-aware introspection on sensitive (admin) operations even
+    # when the JWT embeds an entitlements claim, so a revoked-but-unexpired token
+    # can no longer administer (CWE-613).
+    auth_force_introspect_admin: bool = True
     # Users: entitlement product key (= the mnemosyne OAuth client's client_id).
     # Agents/services: token audience (CyberdyneAuth entitlements are user-only).
     required_entitlement: str = "mnemosyne"

@@ -52,8 +52,13 @@ class JwksVerifier:
         self._client = client
         self._keys: dict[str, PyJWK] = {}
         self._fetched_at: float = 0.0
+        # Last time a fetch was *attempted* (success or failure). The unknown-kid
+        # cooldown keys off this so a JWKS outage can't be amplified into one
+        # outbound GET per unknown-kid request while the endpoint is failing.
+        self._attempted_at: float = 0.0
 
     async def _fetch_jwks(self) -> None:
+        self._attempted_at = time.monotonic()
         client = self._client or httpx.AsyncClient()
         try:
             response = await client.get(self._settings.jwks_url, timeout=10)
@@ -71,9 +76,16 @@ class JwksVerifier:
         self._fetched_at = time.monotonic()
 
     async def _get_key(self, kid: str) -> PyJWK:
-        expired = time.monotonic() - self._fetched_at > self._settings.auth_jwks_cache_ttl_seconds
-        if kid not in self._keys or expired:
-            await self._fetch_jwks()  # refresh on unknown kid or TTL expiry (spec: auth)
+        now = time.monotonic()
+        ttl_expired = now - self._fetched_at > self._settings.auth_jwks_cache_ttl_seconds
+        stale = kid not in self._keys or ttl_expired
+        # Refetch at most once per min-refresh window, measured from the last
+        # attempt (success OR failure), so neither a caller streaming random kids
+        # nor a JWKS outage (where the last success never advances) can amplify
+        # into one outbound GET per request (CWE-770, spec: auth).
+        throttle_open = now - self._attempted_at >= self._settings.auth_jwks_min_refresh_seconds
+        if stale and throttle_open:
+            await self._fetch_jwks()
         key = self._keys.get(kid)
         if key is None:
             raise TokenInvalidError("unknown signing key")
@@ -94,12 +106,35 @@ class JwksVerifier:
                 key,
                 algorithms=["RS256"],
                 issuer=self._settings.cyberdyneauth_token_issuer,
+                # `aud` is validated manually below: user tokens may legitimately
+                # carry no audience, but a present `aud` MUST match (CWE-287).
                 options={"require": ["exp", "sub"], "verify_aud": False},
             )
         except jwt.InvalidTokenError as exc:
             # Single opaque error: never reveal which check failed (spec: auth)
             raise TokenInvalidError("token validation failed") from exc
+        self._check_audience(claims)
         return _identity_from_claims(claims)
+
+    def _check_audience(self, claims: dict[str, Any]) -> None:
+        """Reject a token that carries an `aud` claim not matching our audience.
+
+        A missing/empty `aud` is allowed (user tokens); a present one must include
+        the configured service audience (spec: auth, CWE-287).
+        """
+        aud = claims.get("aud")
+        if not aud:
+            return
+        if isinstance(aud, str):
+            audiences = [aud]
+        elif isinstance(aud, (list, tuple)):
+            audiences = [a for a in aud if isinstance(a, str)]
+        else:
+            # A malformed non-string/non-list `aud` fails closed (CWE-287) rather
+            # than raising a TypeError that would surface as a 500.
+            raise TokenInvalidError("token validation failed")
+        if self._settings.service_audience not in audiences:
+            raise TokenInvalidError("token validation failed")
 
     def claims_have_entitlements(self, token: str) -> bool:
         """Whether the (already verified) token embeds an entitlements claim."""
@@ -187,8 +222,10 @@ class CyberdyneAuthAdapter:
         self._jwks = jwks or JwksVerifier(self._settings)
         self._introspection = introspection or IntrospectionVerifier(self._settings)
 
-    async def verify(self, token: str) -> CallerIdentity:
-        if self._settings.auth_validation_mode == "introspect":
+    async def verify(self, token: str, *, force_introspection: bool = False) -> CallerIdentity:
+        if force_introspection or self._settings.auth_validation_mode == "introspect":
+            # Sensitive (admin) paths force the revocation-aware path regardless of
+            # any entitlements embedded in the JWT (CWE-613, spec: auth).
             return await self._introspection.verify(token)
         identity = await self._jwks.verify(token)
         if not identity.entitlements and not self._jwks.claims_have_entitlements(token):

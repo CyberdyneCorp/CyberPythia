@@ -23,7 +23,9 @@ from tests.unit.interfaces.test_api_endpoints import build_fake_container
 class FakeAuthPort:
     """Resolves `mnem_ok`/`good` to an entitled user, `agent` to a service token."""
 
-    async def verify(self, token: str) -> CallerIdentity:
+    async def verify(
+        self, token: str, *, force_introspection: bool = False
+    ) -> CallerIdentity:
         if token == "down":
             raise AuthUnavailableError("auth plane down")
         if token in ("mnem_ok", "good"):
