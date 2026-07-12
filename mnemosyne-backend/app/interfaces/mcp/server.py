@@ -25,6 +25,7 @@ from app.config import get_settings
 from app.domain.entities.repository import Repository
 from app.domain.ports.auth_port import AuthUnavailableError, TokenInvalidError
 from app.domain.services.issue_metrics import IssueMetricsService
+from app.domain.services.org_scope import set_allowed_organizations
 from app.domain.services.pr_metrics import PullRequestMetricsService
 from app.domain.value_objects.identity import CallerIdentity
 from app.interfaces.mcp.oauth import build_mcp_auth, caller_from_access_token
@@ -71,7 +72,19 @@ def build_mcp(
             )
         return caller
 
-    auth = authenticate or default_authenticate
+    _resolve_caller = authenticate or default_authenticate
+
+    async def auth() -> CallerIdentity:
+        """Resolve the caller and scope this tool call to its accessible orgs.
+
+        Wrapping here (not inside default_authenticate) ensures the org boundary
+        is applied for every auth path, including a custom `authenticate`.
+        """
+        caller = await _resolve_caller()
+        set_allowed_organizations(
+            caller.allowed_organizations(settings.required_entitlement)
+        )
+        return caller
 
     # Attach the OAuthProxy so DCR-only clients (claude.ai) can obtain a token.
     # Additive: its verifier delegates to auth_port, so API keys + bearers still

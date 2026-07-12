@@ -60,6 +60,30 @@ class TestCallerIdentity:
         caller = CallerIdentity(subject="u1", entitlements=frozenset({"mnemosyne"}))
         assert not caller.can_administer("mnemosyne:admin")
 
+    def test_bare_entitlement_is_unrestricted(self):
+        caller = CallerIdentity(subject="u1", entitlements=frozenset({"mnemosyne"}))
+        assert caller.allowed_organizations("mnemosyne") is None
+
+    def test_admin_is_unrestricted(self):
+        caller = CallerIdentity(subject="u1", is_admin=True)
+        assert caller.allowed_organizations("mnemosyne") is None
+
+    def test_plan_qualified_entitlement_restricts_to_orgs(self):
+        caller = CallerIdentity(
+            subject="u1", entitlements=frozenset({"mnemosyne:CyberdyneCorp", "mnemosyne:aminitech"})
+        )
+        assert caller.allowed_organizations("mnemosyne") == frozenset({"cyberdynecorp", "aminitech"})
+
+    def test_bare_plus_plan_is_unrestricted(self):
+        caller = CallerIdentity(
+            subject="u1", entitlements=frozenset({"mnemosyne", "mnemosyne:CyberdyneCorp"})
+        )
+        assert caller.allowed_organizations("mnemosyne") is None
+
+    def test_service_audience_only_is_unrestricted(self):
+        caller = CallerIdentity(subject="svc", audiences=frozenset({"mnemosyne"}))
+        assert caller.allowed_organizations("mnemosyne") is None
+
 
 class TestCallerIdentityCyberdyneAuthModel:
     """Access rules matching CyberdyneAuth's real token shapes (design D2)."""

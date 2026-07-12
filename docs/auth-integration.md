@@ -31,6 +31,12 @@ CyberdyneAuth treats **the OAuth client registry as the product registry**:
   minting: `-d audience=mnemosyne`. Mnemosyne accepts service tokens whose
   `aud` contains `SERVICE_AUDIENCE` (default `mnemosyne`).
 - **Admins**: CyberdyneAuth `is_admin` or the `mnemosyne:admin` scope.
+- **Per-organization scope**: a plan-qualified entitlement `<product_key>:<org>`
+  restricts the caller to that GitHub organization (multiple plans → the union,
+  case-insensitive). The bare entitlement, `is_admin`, or a service audience
+  grants access to all indexed orgs. Every repository/organization read is
+  filtered to the caller's accessible orgs — an out-of-scope repo reads as not
+  found. Background sync (no caller) is unrestricted.
 - Access/service JWTs carry `iss: "cyberdyne-auth"` (a logical name, unlike
   OIDC ID tokens) — configured via `CYBERDYNEAUTH_TOKEN_ISSUER`.
 

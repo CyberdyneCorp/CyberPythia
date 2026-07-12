@@ -333,6 +333,23 @@ class TestReadiness:
         assert res["distribution"]["READY"] == 1
         assert res["total"] == 1
 
+    async def test_scoped_caller_cannot_reach_other_org(self, container):
+        from app.domain.value_objects.identity import CallerIdentity
+
+        await self._seed_ready(container)  # CyberdyneCorp/ready
+
+        async def other_org_caller() -> CallerIdentity:
+            return CallerIdentity(subject="x", entitlements=frozenset({"mnemosyne:aminitech"}))
+
+        scoped_mcp = build_mcp(container, authenticate=other_org_caller)
+        async with Client(scoped_mcp) as c:
+            repo = payload(await c.call_tool(
+                "mnemosyne_get_repository_readiness", {"full_name": "CyberdyneCorp/ready"}))
+            org = payload(await c.call_tool(
+                "mnemosyne_get_organization_readiness", {"organization": "CyberdyneCorp"}))
+        assert "error" in repo  # out-of-scope repo reads as not found
+        assert org["total"] == 0  # out-of-scope org rollup is empty
+
     async def test_organization_vulnerabilities_tool(self, mcp, container):
         repo = await self._seed_ready(container)
         await container.metrics_store.save(

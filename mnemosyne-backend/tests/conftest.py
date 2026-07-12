@@ -8,6 +8,15 @@ so pinning the authz config here shields every test from local overrides
 import pytest
 
 from app.config import get_settings
+from app.domain.services.org_scope import set_allowed_organizations
+
+
+@pytest.fixture(autouse=True)
+def _reset_org_scope():
+    """Clear the request-scoped org boundary around every test (isolation)."""
+    set_allowed_organizations(None)
+    yield
+    set_allowed_organizations(None)
 
 
 @pytest.fixture(autouse=True)
