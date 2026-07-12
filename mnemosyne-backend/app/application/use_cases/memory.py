@@ -14,7 +14,7 @@ from uuid import UUID, uuid4
 from app.application.errors import UnknownResourceError
 from app.domain.entities.agent_memory import AgentMemory
 from app.domain.ports.persistence_ports import MemoryPort, RepositoryPort
-from app.domain.services.org_scope import allowed_organizations, is_organization_allowed
+from app.domain.services.org_scope import is_organization_allowed, is_unrestricted
 
 
 def _view(m: AgentMemory) -> dict[str, Any]:
@@ -105,4 +105,4 @@ class MemoryService:
         if memory.organization is not None:
             return is_organization_allowed(memory.organization)
         # Unowned memory: only an unrestricted (admin/worker) caller may touch it.
-        return allowed_organizations() is None
+        return is_unrestricted()

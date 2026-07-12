@@ -333,6 +333,9 @@ class ApiKeyRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Org boundary for the key: JSON list of lower-cased org logins, or NULL =
+    # unrestricted (backward compatible with keys issued before #64).
+    allowed_organizations: Mapped[list[str] | None] = mapped_column(JsonType, nullable=True)
 
 
 class SyncRunHistoryRow(Base):

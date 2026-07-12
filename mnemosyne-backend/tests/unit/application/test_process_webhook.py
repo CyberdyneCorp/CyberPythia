@@ -176,6 +176,19 @@ class TestIdempotency:
         assert env["deliveries"].seen["d-rec"] == "processed"
 
 
+class TestFailClosedOrgScope:
+    async def test_processing_reaches_repo_from_deny_all_default(self, env):
+        """#76: webhook processing is caller-less; it must lift the fail-closed
+        UNSET org scope so the target repo is not hidden from incremental sync."""
+        from app.domain.services.org_scope import reset_org_scope
+
+        await seed_repo(env)
+        reset_org_scope()  # production default: deny every org until set_unrestricted
+        outcome = await env["processor"].process(event("push", delivery_id="fc"))
+        assert outcome == "processed"
+        assert env["queue"].jobs  # the repo was visible and a sync was enqueued
+
+
 class TestReconcile:
     async def test_installation_event_rediscovers(self, env):
         from app.domain.ports.github_port import GitHubRepoData

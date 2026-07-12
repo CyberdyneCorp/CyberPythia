@@ -29,6 +29,31 @@ async def test_create_without_expiry_is_non_expiring():
     assert created.key.expires_at is None
 
 
+async def test_create_defaults_to_unrestricted_org_scope():
+    port = FakeApiKeyPort()
+    created = await ApiKeyUseCases(port).create(label="a", created_by="admin-1")
+    # None = unrestricted, preserving pre-#64 behavior for keys created without a list.
+    assert created.key.allowed_organizations is None
+
+
+async def test_create_normalises_org_scope_lowercased_and_deduped():
+    port = FakeApiKeyPort()
+    created = await ApiKeyUseCases(port).create(
+        label="a", created_by="admin-1", allowed_organizations=["CyberDyne", "cyberdyne", "Amini"]
+    )
+    assert created.key.allowed_organizations == ["amini", "cyberdyne"]
+
+
+async def test_create_empty_org_list_is_stored_as_unrestricted():
+    # An empty selection is normalised to NULL (unrestricted) rather than a
+    # deny-all key that could never authenticate.
+    port = FakeApiKeyPort()
+    created = await ApiKeyUseCases(port).create(
+        label="a", created_by="admin-1", allowed_organizations=[]
+    )
+    assert created.key.allowed_organizations is None
+
+
 async def test_list_returns_all_keys():
     port = FakeApiKeyPort()
     uc = ApiKeyUseCases(port)

@@ -51,6 +51,14 @@ async def get_current_caller(
         raise UpstreamUnavailableError("authentication service unavailable") from exc
     # Key rate limiting on the proven identity, not the client-supplied header.
     setattr(request.state, RL_SUBJECT_ATTR, caller.subject)
+    # Scope every repository read for this request to the caller's accessible orgs
+    # as soon as the identity is proven — not only on the entitled path — so a
+    # route depending on CurrentCaller (not EntitledCaller) is never left with the
+    # fail-closed UNSET default nor an unrestricted view (FINDING-025, CWE-284).
+    # Task-local, so it never leaks across requests.
+    set_allowed_organizations(
+        caller.allowed_organizations(get_settings().required_entitlement)
+    )
     return caller
 
 

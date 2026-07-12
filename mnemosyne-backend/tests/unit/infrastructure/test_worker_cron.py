@@ -1,9 +1,11 @@
 """Worker cron wiring for the scheduled daily sync."""
 
 from types import SimpleNamespace
+from uuid import uuid4
 
 import app.infrastructure.queue.worker as worker
 from app.application.use_cases.scheduled_sync import ScheduledSyncSummary
+from app.domain.services.org_scope import is_organization_allowed, reset_org_scope
 
 
 def test_cron_registered_when_enabled(monkeypatch) -> None:
@@ -145,6 +147,69 @@ async def test_prune_history_noop_when_disabled(monkeypatch) -> None:
     await worker._prune_history(container)
     assert metrics.called_with is None
     assert readiness.called_with is None
+
+
+class _ScopeProbe:
+    """Records whether all-org access was granted when the job body ran."""
+
+    def __init__(self) -> None:
+        self.saw_all_orgs: bool | None = None
+
+    def _capture(self) -> None:
+        # Two unrelated owners: only an unrestricted (all-org) scope allows both.
+        self.saw_all_orgs = is_organization_allowed("cyberdyne") and is_organization_allowed(
+            "aminitech"
+        )
+
+
+async def test_sync_repository_job_sees_all_orgs_from_fail_closed_default() -> None:
+    """#76: a worker sync job must reach every enabled repo even though it runs
+    with no request — i.e. it starts from the deny-all UNSET default."""
+    probe = _ScopeProbe()
+
+    class _SyncUC:
+        async def run(self, repository_id, job_id):
+            probe._capture()
+            return SimpleNamespace(status=SimpleNamespace(value="succeeded"))
+
+    reset_org_scope()  # production default is deny-all; the job must lift it
+    ctx = {"container": SimpleNamespace(sync_use_case=_SyncUC())}
+    await worker.sync_repository(ctx, str(uuid4()), str(uuid4()))
+    assert probe.saw_all_orgs is True
+
+
+async def test_delete_connection_job_sees_all_orgs_from_fail_closed_default() -> None:
+    probe = _ScopeProbe()
+
+    class _ConnUC:
+        async def perform_delete(self, connection_id):
+            probe._capture()
+
+    reset_org_scope()
+    ctx = {"container": SimpleNamespace(connection_use_cases=_ConnUC())}
+    await worker.delete_connection(ctx, str(uuid4()))
+    assert probe.saw_all_orgs is True
+
+
+async def test_scheduled_full_sync_sees_all_orgs_from_fail_closed_default(monkeypatch) -> None:
+    monkeypatch.setattr(worker._settings, "scheduled_discovery_enabled", False)
+    probe = _ScopeProbe()
+
+    class _ProbingSync:
+        async def run(self):
+            probe._capture()
+            return ScheduledSyncSummary(enqueued=1, skipped=0, failed=0)
+
+    reset_org_scope()
+    ctx = {
+        "container": SimpleNamespace(
+            scheduled_sync=_ProbingSync(),
+            scheduled_discovery=FakeDiscovery(),
+            sync_runs=FakeRuns(),
+        )
+    }
+    await worker.scheduled_full_sync(ctx)
+    assert probe.saw_all_orgs is True
 
 
 async def test_scheduled_full_sync_skips_discovery_when_disabled(monkeypatch) -> None:
