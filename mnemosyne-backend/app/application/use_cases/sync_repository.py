@@ -421,6 +421,11 @@ class SyncRepositoryUseCase:
                 )
             except GitHubNotFoundError:
                 continue
+            if "\x00" in content:
+                # Binary content the extension check missed (e.g. glTF/CAD blobs):
+                # a NUL byte can't be stored in a Postgres text column, and it
+                # isn't meaningful source to chunk/embed. Skip it.
+                continue
             content_hash = hashlib.sha256(content.encode()).hexdigest()
             if file.content_captured and file.content_hash == content_hash:
                 continue  # unchanged: no re-chunk / re-embed (spec)
