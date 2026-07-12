@@ -473,6 +473,35 @@ class TestContentEndpoints:
             missing = await c.get(f"/api/v1/repos/{repo.id}/docs/{uuid4()}", headers=user())
             assert missing.status_code == 404
 
+    async def test_get_doc_out_of_scope_repo_404(self, client, container):
+        # BOLA (CWE-639): a caller scoped to `cyberdyne` must not read a document
+        # of a repo owned by another org just by knowing the ids. The out-of-scope
+        # repo resolves through the org-scoped use case, which 404s.
+        other = Repository(
+            id=uuid4(), connection_id=uuid4(), github_id=2,
+            full_name=RepositoryFullName("other/b"), description="d",
+            visibility=RepositoryVisibility.PRIVATE, default_branch="main",
+            primary_language="Python", archived=False, github_updated_at=NOW,
+            enabled=True, indexing_mode=IndexingMode.PROJECT_INTELLIGENCE,
+            last_synced_at=NOW,
+        )
+        await container.repositories.save(other)
+        doc = Document(
+            id=uuid4(), repository_id=other.id, path="SECRET.md", type=DocumentType.README,
+            title="secret", content="# secret", content_hash="h", last_commit_sha=None,
+            captured_at=NOW,
+        )
+        await container.documents.save(doc)
+        async with client as c:
+            scoped_resp = await c.get(
+                f"/api/v1/repos/{other.id}/docs/{doc.id}", headers=scoped()
+            )
+            unrestricted = await c.get(
+                f"/api/v1/repos/{other.id}/docs/{doc.id}", headers=user()
+            )
+        assert scoped_resp.status_code == 404  # out-of-scope caller denied
+        assert unrestricted.status_code == 200  # unrestricted caller succeeds
+
     async def test_issue_filters(self, client, container):
         repo = await seed_repo(container)
         await container.issues.save_many(
@@ -500,6 +529,53 @@ class TestContentEndpoints:
         async with client as c:
             response = await c.get(f"/api/v1/repos/{repo.id}/metrics", headers=user())
         assert response.status_code == 404
+
+
+def readonly():
+    """A read/query-only credential (e.g. a Mnemosyne API key)."""
+    return {"Authorization": "Bearer readonly-token"}
+
+
+class TestReadOnlyCredentials:
+    # CWE-269: a read/query-only credential must never mutate/delete memories.
+    async def test_read_only_denied_repo_memory_create(self, client, container):
+        repo = await seed_repo(container)
+        async with client as c:
+            denied = await c.post(
+                f"/api/v1/repos/{repo.id}/memories",
+                json={"content": "x", "kind": "note"}, headers=readonly(),
+            )
+            allowed = await c.post(
+                f"/api/v1/repos/{repo.id}/memories",
+                json={"content": "x", "kind": "note"}, headers=user(),
+            )
+        assert denied.status_code == 403
+        assert denied.json()["error"]["code"] == "read_only"
+        assert allowed.status_code == 201
+
+    async def test_read_only_denied_repo_memory_delete(self, client, container):
+        repo = await seed_repo(container)
+        async with client as c:
+            denied = await c.delete(
+                f"/api/v1/repos/{repo.id}/memories/{uuid4()}", headers=readonly()
+            )
+        assert denied.status_code == 403
+        assert denied.json()["error"]["code"] == "read_only"
+
+    async def test_read_only_denied_org_memory_create(self, client):
+        async with client as c:
+            denied = await c.post(
+                "/api/v1/intelligence/organizations/cyberdyne/memories",
+                json={"content": "x", "kind": "note"}, headers=readonly(),
+            )
+        assert denied.status_code == 403
+        assert denied.json()["error"]["code"] == "read_only"
+
+    async def test_read_only_can_still_read_memories(self, client, container):
+        repo = await seed_repo(container)
+        async with client as c:
+            listing = await c.get(f"/api/v1/repos/{repo.id}/memories", headers=readonly())
+        assert listing.status_code == 200
 
 
 class TestContextEndpoints:

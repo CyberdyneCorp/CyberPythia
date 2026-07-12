@@ -123,6 +123,77 @@ async def test_jwks_unknown_kid_refetches_then_rejects(settings, rsa_key, jwks):
 
 
 @respx.mock
+async def test_jwks_unknown_kid_refetch_throttled_by_cooldown(settings, rsa_key, jwks):
+    # CWE-770: a caller streaming random unknown kids must not amplify one JWKS
+    # GET per request. Within the min-refresh window at most ONE refetch happens.
+    settings = settings.model_copy(update={"auth_jwks_min_refresh_seconds": 3600})
+    route = respx.get(f"{ISSUER}/.well-known/jwks.json").respond(json=jwks)
+    verifier = JwksVerifier(settings)
+    for _ in range(25):
+        token = make_token(rsa_key, kid=f"attacker-{time.monotonic_ns()}")
+        with pytest.raises(TokenInvalidError, match="unknown signing key"):
+            await verifier.verify(token)
+    assert route.call_count == 1  # only the first unknown kid triggered a fetch
+
+
+@respx.mock
+async def test_jwks_ttl_expiry_still_refreshes(settings, rsa_key, jwks):
+    # The cooldown must not defeat the normal TTL-based refresh.
+    settings = settings.model_copy(
+        update={"auth_jwks_cache_ttl_seconds": 0, "auth_jwks_min_refresh_seconds": 3600}
+    )
+    route = respx.get(f"{ISSUER}/.well-known/jwks.json").respond(json=jwks)
+    verifier = JwksVerifier(settings)
+    await verifier.verify(make_token(rsa_key, entitlements=["mnemosyne"]))
+    await verifier.verify(make_token(rsa_key, entitlements=["mnemosyne"]))
+    assert route.call_count == 2  # TTL=0 -> refetch every call despite cooldown
+
+
+@respx.mock
+async def test_jwks_wrong_audience_rejected(settings, rsa_key, jwks):
+    # CWE-287: a token carrying an `aud` that isn't ours must be rejected.
+    respx.get(f"{ISSUER}/.well-known/jwks.json").respond(json=jwks)
+    token = make_token(rsa_key, entitlements=["mnemosyne"], aud="some-other-service")
+    with pytest.raises(TokenInvalidError):
+        await JwksVerifier(settings).verify(token)
+
+
+@respx.mock
+async def test_jwks_correct_audience_accepted(settings, rsa_key, jwks):
+    respx.get(f"{ISSUER}/.well-known/jwks.json").respond(json=jwks)
+    token = make_token(rsa_key, entitlements=["mnemosyne"], aud="mnemosyne")
+    identity = await JwksVerifier(settings).verify(token)
+    assert identity.subject == "user-1"
+
+
+@respx.mock
+async def test_jwks_no_audience_still_accepted(settings, rsa_key, jwks):
+    # User tokens legitimately carry no `aud` — they must keep working.
+    respx.get(f"{ISSUER}/.well-known/jwks.json").respond(json=jwks)
+    token = make_token(rsa_key, entitlements=["mnemosyne"])
+    identity = await JwksVerifier(settings).verify(token)
+    assert identity.subject == "user-1"
+
+
+@respx.mock
+async def test_force_introspection_rejects_revoked_admin_token(settings, rsa_key, jwks):
+    # CWE-613: a locally-valid JWT that embeds entitlements must still be rejected
+    # on a sensitive path when introspection reports it revoked (active: false).
+    respx.get(f"{ISSUER}/.well-known/jwks.json").respond(json=jwks)
+    respx.post(f"{ISSUER}/api/v1/auth/oauth2/token").respond(
+        json={"access_token": "svc-token", "expires_in": 900}
+    )
+    respx.post(f"{ISSUER}/api/v1/auth/introspect").respond(json={"active": False})
+    token = make_token(rsa_key, entitlements=["mnemosyne"], is_admin=True)
+    adapter = CyberdyneAuthAdapter(settings=settings)
+    # Normal path trusts the embedded entitlements and succeeds...
+    assert (await adapter.verify(token)).is_admin
+    # ...but forcing introspection catches the revocation.
+    with pytest.raises(TokenInvalidError):
+        await adapter.verify(token, force_introspection=True)
+
+
+@respx.mock
 async def test_jwks_unreachable_raises_unavailable(settings, rsa_key):
     respx.get(f"{ISSUER}/.well-known/jwks.json").mock(side_effect=httpx.ConnectError("down"))
     with pytest.raises(AuthUnavailableError):

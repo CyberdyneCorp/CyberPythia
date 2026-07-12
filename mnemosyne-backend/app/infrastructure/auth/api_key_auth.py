@@ -31,16 +31,18 @@ class ApiKeyAuthAdapter:
         self._entitlement = entitlement
         self._now = now or (lambda: datetime.now(UTC))
 
-    async def verify(self, token: str) -> CallerIdentity:
+    async def verify(self, token: str, *, force_introspection: bool = False) -> CallerIdentity:
         if token.startswith(API_KEY_PREFIX):
             key = await self._api_keys.get_by_hash(hash_api_key(token))
             if key is None or not key.is_valid(self._now()):
                 raise TokenInvalidError("invalid or expired API key")
+            # API keys are read/query only: never admin, never mutating (CWE-269).
             return CallerIdentity(
                 subject=f"apikey:{key.id}",
                 username=key.label,
                 client_id=f"apikey:{key.id}",
                 entitlements=frozenset({self._entitlement}),
                 is_admin=False,
+                is_read_only=True,
             )
-        return await self._fallback.verify(token)
+        return await self._fallback.verify(token, force_introspection=force_introspection)

@@ -15,7 +15,7 @@ from app.domain.value_objects.health import RepositoryHealth
 from app.interfaces.api.mapping import translate_error
 from app.interfaces.api.rate_limit import limiter, llm_limit
 from app.interfaces.api.schemas.schemas import MAX_PAGE_SIZE, CompareRequest, MemoryCreateRequest
-from app.interfaces.api.security import EntitledCaller
+from app.interfaces.api.security import EntitledCaller, WriterCaller
 
 router = APIRouter(prefix="/api/v1/intelligence", tags=["intelligence"])
 
@@ -295,7 +295,7 @@ async def organization_vulnerabilities(
 
 @router.post("/organizations/{organization}/memories", status_code=201)
 async def create_organization_memory(
-    organization: str, body: MemoryCreateRequest, caller: EntitledCaller, request: Request
+    organization: str, body: MemoryCreateRequest, caller: WriterCaller, request: Request
 ) -> Any:
     """Record a durable memory scoped to the organization."""
     try:

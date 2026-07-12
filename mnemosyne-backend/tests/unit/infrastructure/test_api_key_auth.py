@@ -22,7 +22,7 @@ class FakeFallback:
     def __init__(self):
         self.calls = []
 
-    async def verify(self, token):
+    async def verify(self, token, *, force_introspection=False):
         self.calls.append(token)
         return CallerIdentity(subject="cyberdyne-user", entitlements=frozenset({"mnemosyne"}))
 
@@ -50,8 +50,16 @@ async def test_valid_key_grants_entitled_non_admin_caller():
     caller = await _adapter(port, fallback).verify(plaintext)
     assert caller.can_access("mnemosyne")
     assert caller.is_admin is False
+    # CWE-269: API keys are read/query only — never allowed to mutate.
+    assert caller.is_read_only is True
     assert caller.subject == f"apikey:{key.id}"
     assert not fallback.calls  # never delegated
+
+
+async def test_bearer_fallback_caller_is_not_read_only():
+    port, fallback = FakeApiKeyPort(), FakeFallback()
+    caller = await _adapter(port, fallback).verify("eyJ.a.cyberdyne.jwt")
+    assert caller.is_read_only is False
 
 
 async def test_non_expiring_key_valid():

@@ -71,9 +71,15 @@ class JwksVerifier:
         self._fetched_at = time.monotonic()
 
     async def _get_key(self, kid: str) -> PyJWK:
-        expired = time.monotonic() - self._fetched_at > self._settings.auth_jwks_cache_ttl_seconds
-        if kid not in self._keys or expired:
-            await self._fetch_jwks()  # refresh on unknown kid or TTL expiry (spec: auth)
+        now = time.monotonic()
+        ttl_expired = now - self._fetched_at > self._settings.auth_jwks_cache_ttl_seconds
+        if kid not in self._keys or ttl_expired:
+            # TTL expiry always refreshes; an unknown kid only refreshes once the
+            # min-refresh cooldown has elapsed, so a caller streaming random kids
+            # cannot amplify one outbound JWKS GET per request (CWE-770, spec: auth).
+            cooldown = self._settings.auth_jwks_min_refresh_seconds
+            if ttl_expired or now - self._fetched_at >= cooldown:
+                await self._fetch_jwks()
         key = self._keys.get(kid)
         if key is None:
             raise TokenInvalidError("unknown signing key")
@@ -94,12 +100,28 @@ class JwksVerifier:
                 key,
                 algorithms=["RS256"],
                 issuer=self._settings.cyberdyneauth_token_issuer,
+                # `aud` is validated manually below: user tokens may legitimately
+                # carry no audience, but a present `aud` MUST match (CWE-287).
                 options={"require": ["exp", "sub"], "verify_aud": False},
             )
         except jwt.InvalidTokenError as exc:
             # Single opaque error: never reveal which check failed (spec: auth)
             raise TokenInvalidError("token validation failed") from exc
+        self._check_audience(claims)
         return _identity_from_claims(claims)
+
+    def _check_audience(self, claims: dict[str, Any]) -> None:
+        """Reject a token that carries an `aud` claim not matching our audience.
+
+        A missing/empty `aud` is allowed (user tokens); a present one must include
+        the configured service audience (spec: auth, CWE-287).
+        """
+        aud = claims.get("aud")
+        if not aud:
+            return
+        audiences = [aud] if isinstance(aud, str) else list(aud)
+        if self._settings.service_audience not in audiences:
+            raise TokenInvalidError("token validation failed")
 
     def claims_have_entitlements(self, token: str) -> bool:
         """Whether the (already verified) token embeds an entitlements claim."""
@@ -187,8 +209,10 @@ class CyberdyneAuthAdapter:
         self._jwks = jwks or JwksVerifier(self._settings)
         self._introspection = introspection or IntrospectionVerifier(self._settings)
 
-    async def verify(self, token: str) -> CallerIdentity:
-        if self._settings.auth_validation_mode == "introspect":
+    async def verify(self, token: str, *, force_introspection: bool = False) -> CallerIdentity:
+        if force_introspection or self._settings.auth_validation_mode == "introspect":
+            # Sensitive (admin) paths force the revocation-aware path regardless of
+            # any entitlements embedded in the JWT (CWE-613, spec: auth).
             return await self._introspection.verify(token)
         identity = await self._jwks.verify(token)
         if not identity.entitlements and not self._jwks.claims_have_entitlements(token):

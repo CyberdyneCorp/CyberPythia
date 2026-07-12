@@ -23,6 +23,10 @@ class CallerIdentity:
     entitlements: frozenset[str] = field(default_factory=frozenset)
     audiences: frozenset[str] = field(default_factory=frozenset)
     is_admin: bool = False
+    # Read/query-only credential (e.g. a Mnemosyne API key). Such callers may read
+    # but SHALL NOT invoke mutating operations, even with the required entitlement
+    # (CWE-269).
+    is_read_only: bool = False
 
     def has_entitlement(self, product_key: str) -> bool:
         """Exact product key, tolerating plan-qualified tokens (`key:plan`)."""

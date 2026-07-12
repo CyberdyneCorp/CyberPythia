@@ -2,8 +2,13 @@
 
 import pytest
 from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 
-from app.interfaces.api.security import AdminCaller, EntitledCaller
+from app.application.audit import AuditService
+from app.domain.ports.auth_port import TokenInvalidError
+from app.domain.value_objects.identity import CallerIdentity
+from app.interfaces.api.errors import register_error_handlers
+from app.interfaces.api.security import AdminCaller, EntitledCaller, WriterCaller
 
 
 @pytest.fixture
@@ -14,11 +19,64 @@ def app() -> FastAPI:
     async def data(caller: EntitledCaller):
         return {"subject": caller.subject}
 
+    @app.post("/write-op")
+    async def write_op(caller: WriterCaller):
+        return {"subject": caller.subject}
+
     @app.post("/admin-op")
     async def admin_op(caller: AdminCaller):
         return {"subject": caller.subject}
 
     return app
+
+
+async def test_writer_endpoint_rejects_read_only_caller(app, make_client, audit_port):
+    async with make_client(app) as client:
+        response = await client.post(
+            "/write-op", headers={"Authorization": "Bearer readonly-token"}
+        )
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "read_only"
+    assert audit_port.records[-1].outcome == "denied"
+
+
+async def test_writer_endpoint_allows_normal_caller(app, make_client):
+    async with make_client(app) as client:
+        response = await client.post(
+            "/write-op", headers={"Authorization": "Bearer user-token"}
+        )
+    assert response.status_code == 200
+
+
+class _RevocationAuthPort:
+    """JWKS path trusts embedded claims; forced introspection reports revocation."""
+
+    async def verify(self, token: str, *, force_introspection: bool = False):
+        if force_introspection:
+            raise TokenInvalidError("revoked")
+        return CallerIdentity(
+            subject="admin-1", is_admin=True, entitlements=frozenset({"mnemosyne"})
+        )
+
+
+async def test_admin_forces_introspection_and_rejects_revoked_token(audit_port):
+    # CWE-613: an admin request with a structurally-valid, entitlement-bearing JWT
+    # that introspection reports revoked must be rejected on the admin path.
+    app = FastAPI()
+
+    @app.post("/admin-op")
+    async def admin_op(caller: AdminCaller):
+        return {"subject": caller.subject}
+
+    app.state.auth_port = _RevocationAuthPort()
+    app.state.audit_service = AuditService(audit_port)
+    register_error_handlers(app)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/admin-op", headers={"Authorization": "Bearer revoked-admin"}
+        )
+    assert response.status_code == 401
 
 
 async def test_missing_token_401(app, make_client):
