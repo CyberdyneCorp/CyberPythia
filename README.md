@@ -126,6 +126,7 @@ organization do right now?" resolve in a single call.
 - [docs/github-app.md](docs/github-app.md) — GitHub App + webhooks (near-real-time sync)
 - [docs/engineering-intelligence.md](docs/engineering-intelligence.md) — health scores + portfolio analytics
 - [docs/deploy-coolify.md](docs/deploy-coolify.md) — production deployment
+- [docs/backup-dr.md](docs/backup-dr.md) — backup & disaster recovery (what's critical, restore runbook)
 
 ## Security model
 

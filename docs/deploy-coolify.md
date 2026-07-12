@@ -118,3 +118,12 @@ working unchanged. The logged-in user must hold the `mnemosyne` entitlement.
 
 Rollback: services are stateless — redeploy the previous image. Database
 rollback via `alembic downgrade` (pre-GA only).
+
+## Backup & DR
+
+Postgres holds all irreplaceable state (encrypted GitHub credentials, agent
+memories, metrics/readiness time-series). Enable a Coolify scheduled backup of
+`mnemosyne-postgres` to S3 (daily, retention ≥ 14d), store `TOKEN_ENCRYPTION_KEY`
+in a secrets manager separate from the backups, and know the restore procedure —
+all in [backup-dr.md](backup-dr.md). Manual backup/restore: `just backup` /
+`just restore <dump>`.
