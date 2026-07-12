@@ -6,6 +6,7 @@ capture to object storage. No third-party GitHub SDK.
 
 import asyncio
 import base64
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -23,6 +24,9 @@ from app.domain.ports.github_port import (
     GitHubTokenInfo,
 )
 from app.domain.ports.infra_ports import ObjectStoragePort
+from app.infrastructure.security.url_guard import is_allowed_follow_url
+
+logger = logging.getLogger(__name__)
 
 API_BASE = "https://api.github.com"
 MAX_PAGES = 100  # hard bound: 100 pages x 100 items
@@ -124,7 +128,14 @@ class GitHubClient:
             params = None  # subsequent pages carry params in the Link URL
             page = response.json()
             items.extend(page if isinstance(page, list) else [page])
-            next_url = response.links.get("next", {}).get("url")
+            candidate = response.links.get("next", {}).get("url")
+            # Only follow a same-origin https `next` link. An upstream-controlled
+            # `Link: rel=next` pointing at another or internal host would otherwise
+            # leak the bearer token off the API allowlist (#71, CWE-918).
+            if candidate is not None and not is_allowed_follow_url(candidate, self._base_url):
+                logger.warning("refusing to follow off-allowlist pagination link")
+                break
+            next_url = candidate
         return items
 
     async def _snapshot(self, key: str, payload: Any) -> None:

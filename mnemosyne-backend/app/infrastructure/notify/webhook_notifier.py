@@ -5,6 +5,8 @@ from typing import Any
 
 import httpx
 
+from app.infrastructure.security.url_guard import assert_public_https_url
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,7 +17,18 @@ class WebhookNotifier:
     returns False so callers (the daily run) are never failed by delivery.
     """
 
-    def __init__(self, url: str | None, *, timeout_seconds: float = 10.0) -> None:
+    def __init__(
+        self,
+        url: str | None,
+        *,
+        timeout_seconds: float = 10.0,
+        allow_localhost: bool = False,
+    ) -> None:
+        # Validate the sink at construction so an SSRF target (e.g. the cloud
+        # metadata endpoint or an internal service) is rejected before any
+        # delivery is attempted (#78, CWE-918). Localhost is opt-in for dev.
+        if url is not None:
+            assert_public_https_url(url, allow_localhost=allow_localhost)
         self._url = url
         self._timeout = timeout_seconds
 
