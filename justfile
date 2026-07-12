@@ -65,3 +65,11 @@ revision name:
 
 openspec-validate:
     openspec validate --all --strict
+
+# Back up the Postgres database (pg_dump -Fc + retention). See docs/backup-dr.md
+backup dir="./backups":
+    ./scripts/backup.sh {{dir}}
+
+# Restore a pg_dump archive (DESTRUCTIVE). See docs/backup-dr.md
+restore dump:
+    ./scripts/restore.sh {{dump}}
