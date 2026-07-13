@@ -198,14 +198,28 @@ restricted set of organizations. The boundary SHALL default to **unset**: with n
 boundary established, every organization SHALL be treated as inaccessible
 (fail-closed, CWE-284).
 
-A caller's accessible organizations SHALL be derived from CyberdyneAuth
-entitlements: a caller who is `is_admin`, holds the bare product entitlement, or
-is admitted by service audience SHALL be unrestricted; a caller whose only grant
-is one or more plan-qualified entitlements (`product_key:<org>`) SHALL be
-restricted to exactly those organizations (case-insensitive). The system SHALL
-set this boundary as soon as a caller's identity is proven — on the base
-authenticated dependency, not only the entitled dependency — so no authenticated
-request path is left at the unset default or an unrestricted view (FINDING-025).
+A caller's accessible organizations SHALL be derived from CyberdyneAuth's
+dedicated `orgs` authorization claim when present. The claim lists the caller's
+active organization memberships as `{id, short_name, github_login}`; the system
+SHALL restrict the caller to the set of non-null `github_login` values (the key a
+repository owner is matched against), case-insensitive. A **present** `orgs` claim
+is authoritative: an empty set (or a set whose organizations have no
+`github_login`) SHALL grant **no** organizations. A caller who is `is_admin` SHALL
+be unrestricted regardless of the claim (policy).
+
+When the `orgs` claim is **absent** — a legacy pre-`orgs` token, a service token,
+or a Mnemosyne API key whose organization scope is encoded via plan-qualified
+entitlements — the system SHALL fall back to the entitlement derivation: a caller
+who holds the bare product entitlement or is admitted by service audience SHALL be
+unrestricted; a caller whose only grant is one or more plan-qualified entitlements
+(`product_key:<org>`) SHALL be restricted to exactly those organizations
+(case-insensitive). The system SHALL NOT treat an absent claim as an empty
+(deny-all) set.
+
+The system SHALL set this boundary as soon as a caller's identity is proven — on
+the base authenticated dependency, not only the entitled dependency — so no
+authenticated request path is left at the unset default or an unrestricted view
+(FINDING-025).
 
 Every read of repository or organization data SHALL be limited to the boundary: a
 repository outside scope SHALL be treated as not found, and organization-scoped,
@@ -218,29 +232,29 @@ scheduled discovery/sync) and signature-authenticated webhook processing — SHA
 explicitly grant the unrestricted state at entry. They SHALL NOT rely on the
 default being unrestricted.
 
+#### Scenario: Orgs claim scopes to its GitHub logins
+- **WHEN** a caller whose `orgs` claim contains `{github_login: "CyberdyneCorp"}` lists repositories
+- **THEN** only `cyberdynecorp` repositories SHALL be returned (case-insensitive match)
+
+#### Scenario: Empty orgs claim denies every organization
+- **WHEN** a non-admin caller presents an `orgs` claim that is empty (or whose orgs have no `github_login`)
+- **THEN** every organization SHALL be treated as inaccessible
+
+#### Scenario: Orgs claim overrides a billing-plan qualifier
+- **WHEN** a caller holds entitlement `mnemosyne:premium` (a billing plan) and an `orgs` claim authorizing `acme`
+- **THEN** the caller SHALL be scoped to `acme` and `premium` SHALL NOT be treated as an organization
+
+#### Scenario: Absent orgs claim falls back to entitlements
+- **WHEN** a caller presents a token with no `orgs` claim and entitlement `mnemosyne:CyberdyneCorp`
+- **THEN** the caller SHALL be restricted to `cyberdynecorp` (legacy derivation)
+
 #### Scenario: Unset boundary denies every organization
 - **WHEN** repository or organization data is read with no organization boundary established
 - **THEN** every organization SHALL be treated as inaccessible (out-of-scope repositories not found; rollups empty)
 
-#### Scenario: Org-scoped caller sees only its organization
-- **WHEN** a caller whose entitlement is `mnemosyne:CyberdyneCorp` lists repositories
-- **THEN** only `CyberdyneCorp` repositories SHALL be returned
-
 #### Scenario: Out-of-scope repository is not found
 - **WHEN** an org-scoped caller requests a repository in a different organization by id
 - **THEN** the response SHALL be 404 (REST) or a not-found error (MCP)
-
-#### Scenario: Unscoped caller sees everything
-- **WHEN** a caller holds the bare `mnemosyne` entitlement or is `is_admin`
-- **THEN** repositories across all indexed organizations SHALL be accessible
-
-#### Scenario: Background worker job reaches every organization
-- **WHEN** a worker job (e.g. the scheduled full sync) runs with no request or caller
-- **THEN** it SHALL explicitly grant the unrestricted state and access all enabled repositories across every organization, despite the fail-closed default
-
-#### Scenario: Webhook processing reaches the target repository
-- **WHEN** a signature-authenticated webhook is processed with no bearer caller
-- **THEN** processing SHALL explicitly grant the unrestricted state so the target repository is visible to incremental sync
 
 ### Requirement: Read-only credential write protection
 Mnemosyne API keys SHALL be read/query-only credentials: the resolved caller identity SHALL carry a read-only marker, and such callers SHALL be denied every mutating operation even when they hold the required entitlement (CWE-269). This applies to the mutating MCP tools (`mnemosyne_remember`, `mnemosyne_forget`) and the REST memory write/delete endpoints (repository memory create/delete and organization memory create). Read and query operations SHALL continue to succeed for read-only credentials.
