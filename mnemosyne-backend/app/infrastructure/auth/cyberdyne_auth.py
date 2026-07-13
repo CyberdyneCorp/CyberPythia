@@ -41,7 +41,29 @@ def _identity_from_claims(claims: dict[str, Any]) -> CallerIdentity:
         entitlements=frozenset(str(e) for e in entitlements),
         audiences=frozenset(str(a) for a in audience),
         is_admin=bool(claims.get("is_admin", False)),
+        authorized_org_logins=_org_logins_from_claims(claims),
     )
+
+
+def _org_logins_from_claims(claims: dict[str, Any]) -> frozenset[str] | None:
+    """Parse the CyberdyneAuth ``orgs`` claim into GitHub org logins (lower-cased).
+
+    Returns ``None`` when the claim is absent (legacy token) so the caller falls
+    back to the legacy entitlement derivation; a present claim yields the set of
+    non-null ``github_login`` values (possibly empty). Orgs not yet mapped to a
+    GitHub login (``github_login`` null) are omitted — they simply won't match,
+    which is correct (CyberdyneAuth#104 / CyberPythia#77).
+    """
+    orgs = claims.get("orgs")
+    if orgs is None:
+        return None
+    logins: set[str] = set()
+    if isinstance(orgs, list):
+        for entry in orgs:
+            login = entry.get("github_login") if isinstance(entry, dict) else None
+            if login:
+                logins.add(str(login).lower())
+    return frozenset(logins)
 
 
 class JwksVerifier:
