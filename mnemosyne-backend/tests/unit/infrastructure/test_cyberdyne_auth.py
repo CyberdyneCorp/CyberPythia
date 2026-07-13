@@ -15,6 +15,7 @@ from app.infrastructure.auth.cyberdyne_auth import (
     CyberdyneAuthAdapter,
     IntrospectionVerifier,
     JwksVerifier,
+    _org_logins_from_claims,
 )
 
 ISSUER = "https://auth.test"
@@ -335,3 +336,39 @@ async def test_adapter_introspect_mode_always_introspects(settings, rsa_key):
     token = make_token(rsa_key, entitlements=["mnemosyne"])  # locally valid
     with pytest.raises(TokenInvalidError):
         await CyberdyneAuthAdapter(settings=settings_introspect).verify(token)
+
+
+class TestOrgLoginsFromClaims:
+    """Parsing the CyberdyneAuth `orgs` claim into GitHub org logins (#77)."""
+
+    def test_absent_claim_returns_none(self):
+        # None -> caller falls back to the legacy entitlement derivation.
+        assert _org_logins_from_claims({"sub": "u1"}) is None
+
+    def test_present_claim_lowercases_github_logins(self):
+        claims = {
+            "orgs": [
+                {"id": "1", "short_name": "Acme", "github_login": "AcmeCorp"},
+                {"id": "2", "short_name": "globex", "github_login": "globex"},
+            ]
+        }
+        assert _org_logins_from_claims(claims) == frozenset({"acmecorp", "globex"})
+
+    def test_null_github_login_is_skipped(self):
+        claims = {
+            "orgs": [
+                {"id": "1", "short_name": "acme", "github_login": None},
+                {"id": "2", "short_name": "globex", "github_login": "globex"},
+            ]
+        }
+        assert _org_logins_from_claims(claims) == frozenset({"globex"})
+
+    def test_empty_claim_is_empty_set_not_none(self):
+        # Present-but-empty must be distinguishable from absent.
+        result = _org_logins_from_claims({"orgs": []})
+        assert result == frozenset()
+        assert result is not None
+
+    def test_all_null_logins_yield_empty_set(self):
+        claims = {"orgs": [{"id": "1", "short_name": "acme", "github_login": None}]}
+        assert _org_logins_from_claims(claims) == frozenset()

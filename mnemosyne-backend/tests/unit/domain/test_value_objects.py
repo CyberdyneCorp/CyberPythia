@@ -84,6 +84,52 @@ class TestCallerIdentity:
         caller = CallerIdentity(subject="svc", audiences=frozenset({"mnemosyne"}))
         assert caller.allowed_organizations("mnemosyne") is None
 
+    def test_orgs_claim_restricts_to_github_logins(self):
+        # The `orgs` claim (CyberdyneAuth#104) is authoritative when present.
+        caller = CallerIdentity(
+            subject="u1",
+            entitlements=frozenset({"mnemosyne"}),
+            authorized_org_logins=frozenset({"cyberdynecorp", "aminitech"}),
+        )
+        assert caller.allowed_organizations("mnemosyne") == frozenset(
+            {"cyberdynecorp", "aminitech"}
+        )
+
+    def test_orgs_claim_empty_denies_all(self):
+        # Present-but-empty claim = "no organizations" (fail-closed), NOT unrestricted.
+        caller = CallerIdentity(
+            subject="u1",
+            entitlements=frozenset({"mnemosyne"}),
+            authorized_org_logins=frozenset(),
+        )
+        assert caller.allowed_organizations("mnemosyne") == frozenset()
+
+    def test_orgs_claim_overrides_plan_qualifier(self):
+        # #77 fix: a real billing plan qualifier must NOT be read as an org when the
+        # authoritative `orgs` claim is present.
+        caller = CallerIdentity(
+            subject="u1",
+            entitlements=frozenset({"mnemosyne:premium"}),
+            authorized_org_logins=frozenset({"acme"}),
+        )
+        assert caller.allowed_organizations("mnemosyne") == frozenset({"acme"})
+
+    def test_orgs_claim_admin_still_unrestricted(self):
+        # Admin policy wins over a (possibly empty) membership claim.
+        caller = CallerIdentity(
+            subject="u1", is_admin=True, authorized_org_logins=frozenset()
+        )
+        assert caller.allowed_organizations("mnemosyne") is None
+
+    def test_absent_orgs_claim_falls_back_to_entitlements(self):
+        # None = claim absent (legacy/service/API-key) -> legacy plan derivation.
+        caller = CallerIdentity(
+            subject="u1",
+            entitlements=frozenset({"mnemosyne:cyberdynecorp"}),
+            authorized_org_logins=None,
+        )
+        assert caller.allowed_organizations("mnemosyne") == frozenset({"cyberdynecorp"})
+
 
 class TestCallerIdentityCyberdyneAuthModel:
     """Access rules matching CyberdyneAuth's real token shapes (design D2)."""
