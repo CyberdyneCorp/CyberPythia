@@ -114,6 +114,41 @@ async def test_jwks_wrong_issuer_rejected(settings, rsa_key, jwks):
         await JwksVerifier(settings).verify(token)
 
 
+def test_token_issuer_derives_from_discovery_issuer_when_override_empty():
+    # Regression for #98: the expected token `iss` must track the OIDC discovery
+    # issuer by default (no hard-coded logical name that drifts).
+    s = Settings(
+        cyberdyneauth_issuer="https://auth.example",
+        cyberdyneauth_token_issuer="",
+        _env_file=None,
+    )
+    assert s.token_issuer == "https://auth.example"
+    pinned = s.model_copy(update={"cyberdyneauth_token_issuer": "custom-iss"})
+    assert pinned.token_issuer == "custom-iss"  # explicit override still honored
+
+
+@respx.mock
+async def test_token_with_discovery_issuer_validates(settings, rsa_key, jwks):
+    # #98: with no explicit override, a token whose `iss` is the discovery issuer
+    # URL (what CyberdyneAuth now signs) must validate.
+    settings = settings.model_copy(update={"cyberdyneauth_token_issuer": ""})
+    respx.get(f"{ISSUER}/.well-known/jwks.json").respond(json=jwks)
+    token = make_token(rsa_key, entitlements=["mnemosyne"])  # make_token signs iss=ISSUER
+    identity = await JwksVerifier(settings).verify(token)
+    assert identity.subject == "user-1"
+
+
+@respx.mock
+async def test_stale_logical_name_issuer_rejected(settings, rsa_key, jwks):
+    # A token still carrying the old logical-name `iss` ("cyberdyne-auth") must be
+    # rejected once the expected issuer is the discovery URL.
+    settings = settings.model_copy(update={"cyberdyneauth_token_issuer": ""})
+    respx.get(f"{ISSUER}/.well-known/jwks.json").respond(json=jwks)
+    token = make_token(rsa_key, iss="cyberdyne-auth", entitlements=["mnemosyne"])
+    with pytest.raises(TokenInvalidError):
+        await JwksVerifier(settings).verify(token)
+
+
 @respx.mock
 async def test_jwks_unknown_kid_refetches_then_rejects(settings, rsa_key, jwks):
     route = respx.get(f"{ISSUER}/.well-known/jwks.json").respond(json=jwks)

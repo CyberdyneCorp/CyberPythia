@@ -36,8 +36,12 @@ class Settings(BaseSettings):
 
     # CyberdyneAuth (design D1-D3)
     cyberdyneauth_issuer: str = "https://auth.backend.coolify.cyberdynecorp.ai"
-    # `iss` claim of access/service JWTs (a logical name, unlike OIDC ID tokens)
-    cyberdyneauth_token_issuer: str = "cyberdyne-auth"
+    # Expected `iss` on access/service JWTs. CyberdyneAuth aligned the token `iss`
+    # with the OIDC discovery issuer (its base URL), so this tracks
+    # `cyberdyneauth_issuer` by default. Leave empty to derive; set only to pin a
+    # non-standard issuer for an atypical deployment (see the `token_issuer`
+    # property).
+    cyberdyneauth_token_issuer: str = ""
     cyberdyneauth_jwks_url: str = ""  # derived from issuer when empty
     cyberdyneauth_client_id: str = ""  # mnemosyne-backend service client
     cyberdyneauth_client_secret: str = ""
@@ -160,6 +164,16 @@ class Settings(BaseSettings):
     # run, so the per-repo daily time-series don't grow unbounded (0 = keep all).
     history_retention_days: int = 365
     github_rate_limit_max_wait_seconds: int = 60  # cap; beyond this, fail fast + retry next run
+
+    @property
+    def token_issuer(self) -> str:
+        """Expected `iss` for access/service JWT validation.
+
+        Defaults to the OIDC discovery issuer (``cyberdyneauth_issuer``) so it
+        can't drift from what the auth plane actually signs; an explicit
+        ``cyberdyneauth_token_issuer`` overrides it for non-standard deployments.
+        """
+        return self.cyberdyneauth_token_issuer or self.cyberdyneauth_issuer
 
     @property
     def jwks_url(self) -> str:
