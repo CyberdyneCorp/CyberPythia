@@ -131,7 +131,7 @@ class JwksVerifier:
                 token,
                 key,
                 algorithms=["RS256"],
-                issuer=self._settings.cyberdyneauth_token_issuer,
+                issuer=self._settings.token_issuer,
                 # `aud` is validated manually below: user tokens may legitimately
                 # carry no audience, but a present `aud` MUST match (CWE-287).
                 options={"require": ["exp", "sub"], "verify_aud": False},
